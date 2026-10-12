@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Validation.AccountRequired" xml:space="preserve"><value>账号不能为空。</value></data>
+  <data name="Validation.AccountMaxLength" xml:space="preserve"><value>账号长度不能超过 {1} 个字符。</value></data>
+  <data name="Validation.DisplayNameRequired" xml:space="preserve"><value>显示名称不能为空。</value></data>
+  <data name="Validation.DisplayNameMaxLength" xml:space="preserve"><value>显示名称不能超过 {1} 个字符。</value></data>
+  <data name="Validation.PasswordRequired" xml:space="preserve"><value>密码不能为空。</value></data>
+  <data name="Validation.PasswordMinLength" xml:space="preserve"><value>密码长度不能少于 {1} 个字符。</value></data>
+  <data name="Validation.NewPasswordRequired" xml:space="preserve"><value>新密码不能为空。</value></data>
+  <data name="Validation.NewPasswordMinLength" xml:space="preserve"><value>新密码长度不能少于 {1} 个字符。</value></data>
+  <data name="Validation.NewPasswordMaxLength" xml:space="preserve"><value>新密码不能超过 {1} 个字符。</value></data>
+  <data name="Validation.FactoriesRequired" xml:space="preserve"><value>请选择厂区。</value></data>
+  <data name="Validation.FactoriesMinLength" xml:space="preserve"><value>至少选择 {1} 个厂区。</value></data>
+  <data name="Validation.UserIdRequired" xml:space="preserve"><value>用户标识不能为空。</value></data>
+  <data name="Validation.FactoryCodeRequired" xml:space="preserve"><value>厂区编码不能为空。</value></data>
+  <data name="Validation.FactoryCodeMaxLength" xml:space="preserve"><value>厂区编码长度不能超过 {1} 个字符。</value></data>
+  <data name="Validation.FactoryNameRequired" xml:space="preserve"><value>厂区名称不能为空。</value></data>
+  <data name="Validation.FactoryNameMaxLength" xml:space="preserve"><value>厂区名称不能超过 {1} 个字符。</value></data>
+  <data name="Validation.PageRange" xml:space="preserve"><value>页码必须大于 0。</value></data>
+  <data name="Validation.PageSizeRange" xml:space="preserve"><value>每页数量必须介于 {1} 到 {2} 之间。</value></data>
+  <data name="Validation.PaginationOverflow" xml:space="preserve"><value>分页参数超出允许范围。</value></data>
+  <data name="Validation.ParameterInvalid" xml:space="preserve"><value>参数“{0}”格式不正确。</value></data>
+  <data name="Validation.InvalidValue" xml:space="preserve"><value>请求参数格式不正确。</value></data>
+  <data name="Validation.BodyRequired" xml:space="preserve"><value>请求体不能为空。</value></data>
+  <data name="Validation.Failed" xml:space="preserve"><value>请求参数验证失败。</value></data>
+  <data name="Validation.Separator" xml:space="preserve"><value>；</value></data>
+</root>

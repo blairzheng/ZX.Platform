@@ -1,0 +1,69 @@
+@ZX.Platform.Identity.Api_HostAddress = http://localhost:5210
+
+GET {{ZX.Platform.Identity.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+### 修改用户密码（ChangePasswordHash 链路）
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Users/updatePassword
+Content-Type: application/json
+
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "newPassword": "NewPass123"
+}
+
+###
+
+### 创建厂区
+POST {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/add
+Content-Type: application/json
+
+{
+  "code": "VNK",
+  "name": "越南工厂"
+}
+
+###
+
+### 厂区详情
+GET {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/getFactory?id=00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+###
+
+### 厂区分页列表
+GET {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/getFactoryList?Page=1&PageSize=20&keyword=VN
+Accept: application/json
+
+###
+
+### 修改厂区名称
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/updateName
+Content-Type: application/json
+
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "name": "越南工厂（北区）"
+}
+
+###
+
+### 启用 / 禁用厂区
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/setFactoryEnable?id=00000000-0000-0000-0000-000000000000
+
+###
+
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/setFactoryDisenable?id=00000000-0000-0000-0000-000000000000
+
+###
+
+### 逻辑删除 / 恢复厂区
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/logicDelete?id=00000000-0000-0000-0000-000000000000
+
+###
+
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/restore?id=00000000-0000-0000-0000-000000000000
+
+###

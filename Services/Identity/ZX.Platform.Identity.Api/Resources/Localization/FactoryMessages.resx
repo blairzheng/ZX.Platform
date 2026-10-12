@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Factory.Created" xml:space="preserve"><value>厂区创建成功。</value></data>
+  <data name="Factory.DetailsLoaded" xml:space="preserve"><value>厂区详情获取成功。</value></data>
+  <data name="Factory.ListLoaded" xml:space="preserve"><value>厂区分页列表获取成功。</value></data>
+  <data name="Factory.NameUpdated" xml:space="preserve"><value>厂区名称更新成功。</value></data>
+  <data name="Factory.StatusUpdated" xml:space="preserve"><value>厂区状态更新成功。</value></data>
+  <data name="Factory.Deleted" xml:space="preserve"><value>厂区删除成功。</value></data>
+  <data name="Factory.Restored" xml:space="preserve"><value>厂区恢复成功。</value></data>
+  <data name="Factory.EnabledListLoaded" xml:space="preserve"><value>启用的厂区列表获取成功。</value></data>
+  <data name="Factory.CodeDeleted" xml:space="preserve"><value>该厂区编码曾被删除，不能重复创建，请联系管理员恢复原厂区或使用其他编码。</value></data>
+  <data name="Factory.Disabled" xml:space="preserve"><value>该厂区已被禁用，不能重复创建，请联系管理员。</value></data>
+  <data name="Factory.CodeExists" xml:space="preserve"><value>该厂区编码已存在。</value></data>
+  <data name="Factory.NotFound" xml:space="preserve"><value>厂区不存在。</value></data>
+  <data name="Factory.NotDeleted" xml:space="preserve"><value>厂区未被删除，无需恢复。</value></data>
+  <data name="Factory.RestoreBeforeEnable" xml:space="preserve"><value>已删除的厂区必须先恢复，不能直接启用。</value></data>
+</root>

@@ -1,0 +1,39 @@
+# .NET build and package output
+[Bb]in/
+[Oo]bj/
+[Aa]rtifacts/
+*.nupkg
+*.snupkg
+
+# IDE caches and personal settings
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# Test and coverage output
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Logs and temporary files
+[Ll]ogs/
+*.log
+.tmp/
+*.tmp
+*.bak
+
+# Local configuration and private certificates
+appsettings.[Ll]ocal.json
+appsettings.*.[Ll]ocal.json
+secrets.json
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.key

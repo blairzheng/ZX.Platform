@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Error.System" xml:space="preserve"><value>系统发生异常，请稍后重试。</value></data>
+  <data name="Error.Duplicate" xml:space="preserve"><value>数据已存在，请检查后重试。</value></data>
+  <data name="Error.OperationFailed" xml:space="preserve"><value>操作失败，请检查后重试。</value></data>
+  <data name="Error.InvalidState" xml:space="preserve"><value>当前数据状态不允许执行此操作。</value></data>
+  <data name="Error.TooManyRequests" xml:space="preserve"><value>请求过于频繁，请稍后再试。</value></data>
+</root>

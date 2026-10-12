@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Factory.Created" xml:space="preserve"><value>Factory created successfully.</value></data>
+  <data name="Factory.DetailsLoaded" xml:space="preserve"><value>Factory details retrieved successfully.</value></data>
+  <data name="Factory.ListLoaded" xml:space="preserve"><value>Factory list retrieved successfully.</value></data>
+  <data name="Factory.NameUpdated" xml:space="preserve"><value>Factory name updated successfully.</value></data>
+  <data name="Factory.StatusUpdated" xml:space="preserve"><value>Factory status updated successfully.</value></data>
+  <data name="Factory.Deleted" xml:space="preserve"><value>Factory deleted successfully.</value></data>
+  <data name="Factory.Restored" xml:space="preserve"><value>Factory restored successfully.</value></data>
+  <data name="Factory.EnabledListLoaded" xml:space="preserve"><value>Enabled factories retrieved successfully.</value></data>
+  <data name="Factory.CodeDeleted" xml:space="preserve"><value>This factory code was deleted and cannot be reused. Contact an administrator to restore the factory or use another code.</value></data>
+  <data name="Factory.Disabled" xml:space="preserve"><value>This factory is disabled and cannot be recreated. Contact an administrator.</value></data>
+  <data name="Factory.CodeExists" xml:space="preserve"><value>This factory code already exists.</value></data>
+  <data name="Factory.NotFound" xml:space="preserve"><value>Factory not found.</value></data>
+  <data name="Factory.NotDeleted" xml:space="preserve"><value>This factory has not been deleted and does not need to be restored.</value></data>
+  <data name="Factory.RestoreBeforeEnable" xml:space="preserve"><value>Restore the deleted factory before enabling it.</value></data>
+</root>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="User.Created" xml:space="preserve"><value>User created successfully.</value></data>
+  <data name="User.DetailsLoaded" xml:space="preserve"><value>User details retrieved successfully.</value></data>
+  <data name="User.ListLoaded" xml:space="preserve"><value>User list retrieved successfully.</value></data>
+  <data name="User.DisplayNameUpdated" xml:space="preserve"><value>User display name updated successfully.</value></data>
+  <data name="User.StatusUpdated" xml:space="preserve"><value>User status updated successfully.</value></data>
+  <data name="User.PasswordUpdated" xml:space="preserve"><value>User password updated successfully.</value></data>
+  <data name="User.Deleted" xml:space="preserve"><value>User deleted successfully.</value></data>
+  <data name="User.Restored" xml:space="preserve"><value>User restored successfully.</value></data>
+  <data name="User.FactoriesUpdated" xml:space="preserve"><value>User factories updated successfully.</value></data>
+  <data name="User.AccountDeleted" xml:space="preserve"><value>This account was deleted and cannot be recreated. Contact an administrator to restore it or use another account.</value></data>
+  <data name="User.AccountDisabled" xml:space="preserve"><value>This account is disabled and cannot be recreated. Contact an administrator.</value></data>
+  <data name="User.AccountExists" xml:space="preserve"><value>This account already exists.</value></data>
+  <data name="User.NotFound" xml:space="preserve"><value>User not found.</value></data>
+  <data name="User.NotDeleted" xml:space="preserve"><value>This user has not been deleted and does not need to be restored.</value></data>
+  <data name="User.FactoriesUnavailable" xml:space="preserve"><value>Some factories do not exist or are disabled.</value></data>
+  <data name="User.RestoreBeforeEnable" xml:space="preserve"><value>Restore the deleted user before enabling it.</value></data>
+</root>

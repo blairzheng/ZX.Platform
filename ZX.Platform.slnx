@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Services/Identity/ZX.Platform.Identity.Api/ZX.Platform.Identity.Api.csproj" />
+  <Project Path="Services/Identity/ZX.Platform.Identity.Application/ZX.Platform.Identity.Application.csproj" />
+  <Project Path="Services/Identity/ZX.Platform.Identity.Domain/ZX.Platform.Identity.Domain.csproj" />
+  <Project Path="Services/Identity/ZX.Platform.Identity.Infrastructure/ZX.Platform.Identity.Infrastructure.csproj" />
+  <Project Path="ZX.Platform.Gateway/ZX.Platform.Gateway.csproj" />
+</Solution>
