@@ -1,6 +1,6 @@
 # Identity 接口限流
 
-[开发交接文档](README.DEVELOPMENT.md)
+[文档导航](README.md) · [API 响应与错误](http.md)
 
 Identity 使用 ASP.NET Core 自带 RateLimiter，限制客户端访问频率。此功能已接入代码，后端编译和临时进程 HTTP 验证已通过；尚未进行真实业务负载的压力验收，默认额度需要按实际负载调整。
 
@@ -15,11 +15,13 @@ Identity 使用 ASP.NET Core 自带 RateLimiter，限制客户端访问频率。
 
 滑动窗口按段释放额度，默认每段 1 秒，属于分段近似窗口，不保证任意精确的连续 3 秒都最多 5 次。拒绝的请求不进入 Controller；通过限流后即使参数校验或业务处理失败，也占用一次频率额度。
 
-限流覆盖 Controller 接口，包括当前用户、厂区接口和模板示例接口；Swagger UI、Swagger 文档和未匹配接口的 404 不占用这些额度。未知路由的防刷由部署入口按需要处理。
+额度耗尽后无需手动重置，旧分段随时间移出窗口，对应次数就恢复可用。瞬间用完 5 次时，大约 3 秒后可再次请求；按段回收可能提前到分段边界，不等于任意精确连续 3 秒的严格统计。恢复只取决于时间，与之前请求是否处理完无关。
+
+限流覆盖 Controller 接口，包括用户、厂区接口和模板示例接口；Swagger UI、Swagger 文档和未匹配接口的 404 不占用这些额度。未知路由的防刷由部署入口按需要处理。
 
 ## 配置
 
-修改 Identity.Api/appsettings.json：
+修改 [Identity.Api/appsettings.json](../Services/Identity/ZX.Platform.Identity.Api/appsettings.json)：
 
 ```json
 "RateLimiting": {
@@ -70,9 +72,9 @@ message 按 Accept-Language 使用中文或英文。当前滑动窗口不提供�
 
 限流不保证业务幂等。创建用户仍由账号唯一索引兜底；未来 MES 累加型写操作需要 RequestId 和数据库约束。前端默认 15 秒超时，长报表和下载接入时应单独调整。
 
-## 本轮验证
+## 已记录的验证
 
-Identity 与 Gateway 使用独立输出配置编译，均为 0 警告、0 错误。临时进程使用独立端口和无效参数，在访问数据库前返回验证错误；已确认 5 次放行、第 6 次 429、窗口恢复、IP 和接口分组、查询参数共用额度、IPv4 映射归一、可信代理链、中英文提示与 traceId。来自非可信地址的伪造转发头无法切换额度。
+2026-10-12 限流接入时，Identity 与 Gateway 使用独立输出配置编译，均为 0 警告、0 错误。临时进程使用独立端口和无效参数，在访问数据库前返回验证错误；已确认 5 次放行、第 6 次 429、窗口恢复、IP 和接口分组、查询参数共用额度、IPv4 映射归一、可信代理链、中英文提示与 traceId。来自非可信地址的伪造转发头无法切换额度。
 
 所有临时进程均已停止；未访问数据库或修改当前运行的服务。此验证覆盖中间件行为，不代替实际数据库请求、部署代理及服务器容量验收；前端仅格式化和静态核对。
 
@@ -86,3 +88,9 @@ Identity 与 Gateway 使用独立输出配置编译，均为 0 警告、0 错误
 6. 检查 Swagger 和未知接口仍保持原有行为。
 
 联调完成后记录实际结果和选定额度。
+
+## 实现入口
+
+- [RateLimitingExtensions.cs](../Services/Identity/ZX.Platform.Identity.Api/Extensions/RateLimitingExtensions.cs)：滑动窗口分组、拒绝响应。
+- [ApiRateLimitingOptions.cs](../Services/Identity/ZX.Platform.Identity.Api/Options/ApiRateLimitingOptions.cs)：默认值和正整数校验。
+- [Identity 代理配置](../Services/Identity/ZX.Platform.Identity.Api/Extensions/ForwardedHeadersExtensions.cs)与 [Gateway 代理配置](../ZX.Platform.Gateway/Extensions/ForwardedHeadersExtensions.cs)：可信直接上游和一跳转发。

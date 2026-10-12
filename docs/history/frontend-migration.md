@@ -1,5 +1,7 @@
 # ZX.Platform 管理端前端开发说明
 
+> 历史方案：保留原前端迁移讨论，不能作为当前实施要求。现在的前端能力与约定由 [ZX.front.vue 文档](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/README.md)维护；后端现状见[文档导航](../README.md)。
+
 > 本文是前端清理与后续开发的执行依据。
 >
 > 当前方案不再从空项目重新设计管理端外壳，而是以旧前端为基础，删除旧业务和旧后端耦合，整理成一套可复用的通用后台管理模板。
