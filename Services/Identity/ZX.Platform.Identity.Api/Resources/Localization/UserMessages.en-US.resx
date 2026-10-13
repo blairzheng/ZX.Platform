@@ -11,6 +11,8 @@
   <data name="User.StatusUpdated" xml:space="preserve"><value>User status updated successfully.</value></data>
   <data name="User.PasswordUpdated" xml:space="preserve"><value>User password updated successfully.</value></data>
   <data name="User.Deleted" xml:space="preserve"><value>User deleted successfully.</value></data>
+  <data name="User.BatchDeleted" xml:space="preserve"><value>Users deleted successfully.</value></data>
+  <data name="User.BatchDeleteNoIds" xml:space="preserve"><value>Select at least one user to delete.</value></data>
   <data name="User.Restored" xml:space="preserve"><value>User restored successfully.</value></data>
   <data name="User.FactoriesUpdated" xml:space="preserve"><value>User factories updated successfully.</value></data>
   <data name="User.AccountDeleted" xml:space="preserve"><value>This account was deleted and cannot be recreated. Contact an administrator to restore it or use another account.</value></data>

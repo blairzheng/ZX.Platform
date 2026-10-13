@@ -70,5 +70,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Repositories
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
         }
+
+        public Task<List<User>> GetUsersAsync(List<Guid> userIds, CancellationToken cancellationToken)
+        {
+            return _dbContext.Users
+                .Where(u => userIds.Contains(u.Id))
+                .ToListAsync(cancellationToken);
+        }
     }
 }

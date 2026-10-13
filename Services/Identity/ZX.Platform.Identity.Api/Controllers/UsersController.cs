@@ -145,5 +145,17 @@ namespace ZX.Platform.Identity.Api.Controllers
             };
             return StatusCode(StatusCodes.Status200OK, response);
         }
+
+        [HttpPut("batchDelete")]
+        public async Task<IActionResult> BatchDeleteAsync([FromBody] List<Guid> guids, CancellationToken cancellationToken)
+        {
+            await _userService.BatchDeleteAsync(guids, cancellationToken);
+            var response = new ApiResponse
+            {
+                Code = 0,
+                Message = _messages["User.BatchDeleted"].Value
+            };
+            return StatusCode(StatusCodes.Status200OK, response);
+        }
     }
 }

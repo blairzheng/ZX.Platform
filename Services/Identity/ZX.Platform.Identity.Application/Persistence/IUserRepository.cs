@@ -41,5 +41,7 @@ namespace ZX.Platform.Identity.Application.Persistence
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         Task<(List<User>, int count)> GetPageListAsync(UserQueryDto userQuery, CancellationToken cancellationToken);
+
+        Task<List<User>> GetUsersAsync(List<Guid> userIds, CancellationToken cancellationToken);
     }
 }

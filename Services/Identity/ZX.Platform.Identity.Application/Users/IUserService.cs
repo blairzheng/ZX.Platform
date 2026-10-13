@@ -23,5 +23,7 @@ namespace ZX.Platform.Identity.Application.Users
         Task RestoreAsync(Guid id, CancellationToken cancellationToken);
 
         Task UpdateUserFactoriesAsync(UpdateUserFactoryDto updateUserFactory, CancellationToken cancellationToken);
+
+        Task BatchDeleteAsync(List<Guid> guids, CancellationToken cancellationToken);
     }
 }

@@ -194,6 +194,20 @@ namespace ZX.Platform.Identity.Application.Users
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
+        public async Task BatchDeleteAsync(List<Guid> guids, CancellationToken cancellationToken)
+        {
+            if(guids == null || guids.Count == 0)
+            {
+                throw new BusinessException(ErrorCodes.ValidationFailed, "User.BatchDeleteNoIds");
+            }
+            var users = await _userRepository.GetUsersAsync(guids, cancellationToken);
+            foreach (var user in users)
+            {
+                user.MarkDeleted();
+            }
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
         #region 校验并获取传入的厂区数据
         private async Task<List<Factory>> GetValidatedFactoriesAsync(List<Guid> factoryIds, CancellationToken cancellationToken)
         {
@@ -204,6 +218,7 @@ namespace ZX.Platform.Identity.Application.Users
             }
             return factories;
         }
+
         #endregion
     }
 }

@@ -7,15 +7,15 @@
 ## 当前能力
 
 - Gateway：按 `/api/identity` 前缀转发到 Identity，处理可信代理提供的客户端 IP。
-- 用户：新增、详情、分页筛选、修改显示名称和密码、启停用、软删除、恢复、调整厂区关系。
+- 用户：新增、详情、分页筛选、修改显示名称和密码、启停用、单条与批量软删除、恢复、调整厂区关系。
 - 厂区：新增、详情、分页查询、修改名称、启停用、软删除、恢复、查询全部启用厂区。
 - 数据访问：EF Core Migration、数据库唯一约束、审计时间、软删除过滤、一次保存提交业务变更。
 - API：统一 JSON 响应、参数校验、异常映射、中文 / English 提示和 `traceId`。
 - 接口限频：同一 IP + HTTP 方法 + 路由模板，默认 3 秒分段滑动窗口最多 5 次，超限立即返回 `429 / 600429`。
 
-**登录、JWT、角色权限、动态菜单、当前用户审计和批量 `ids` 接口尚未实现。** 现有 `UseAuthorization()` 不代表已经完成权限控制。MES、SPC 和文件服务属于后续规划。当前限流只控制请求频率，未设置固定总并发门槛或统一后端执行超时。
+**登录、JWT、角色权限、动态菜单、当前用户审计和批量启停用接口尚未实现。** 现有 `UseAuthorization()` 不代表已经完成权限控制。MES、SPC 和文件服务属于后续规划。当前限流只控制请求频率，未设置固定总并发门槛或统一后端执行超时。
 
-前端用户管理已接入 Identity 的查询和写入接口，批量操作暂时禁用；前端接入方式见[统一请求层](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/http.md)，页面规范从[前端文档导航](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/README.md)查阅。
+前端用户管理已接入 Identity 的查询和写入接口，批量删除接口已在后端实现、前端仍待接入，批量操作入口暂时禁用；前端接入方式见[统一请求层](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/http.md)，页面规范从[前端文档导航](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/README.md)查阅。
 
 ## 快速开始
 
