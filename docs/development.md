@@ -32,6 +32,8 @@ User Secrets 只用于本地开发，保存在项目之外，不是生产密钥�
 
 `appsettings.json` / `appsettings.Development.json` 维护可共享设置；`appsettings.Local.json` 虽被 Git 忽略，但当前程序没有自动加载这种文件，不能只创建它就期待生效。初始化和更新数据库见[迁移命令](database.md#迁移命令)。
 
+接口时间字段统一以 UTC 的 ISO 8601（带 `Z` / `+00:00`）传输，数据库也按 UTC 存储；前端或其他调用方在显示时再按业务时区格式化。后续定时任务应保存本地时间和明确的业务时区。约定见[时间字段格式](http.md#时间字段格式)。
+
 ## 本地启动
 
 ```powershell

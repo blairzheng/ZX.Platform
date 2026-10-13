@@ -70,10 +70,10 @@ namespace ZX.Platform.Identity.Application.Factories
             };
         }
 
-        public async Task<(List<FactoryDetailDto>, int count)> GetPageListAsync(FactoryQueryDto factoryQuery, CancellationToken cancellationToken)
+        public async Task<List<FactoryDetailDto>> GetAllAsync(CancellationToken cancellationToken)
         {
-            var (list, count) = await _factoryRepository.GetPageListAsync(factoryQuery, cancellationToken);
-            var factories = list.Select(f => new FactoryDetailDto
+            var factories = await _factoryRepository.GetAllAsync(cancellationToken);
+            return factories.Select(f => new FactoryDetailDto
             {
                 Id = f.Id,
                 Code = f.Code,
@@ -82,7 +82,6 @@ namespace ZX.Platform.Identity.Application.Factories
                 CreatedAtUtc = f.CreatedAtUtc,
                 UpdatedAtUtc = f.UpdatedAtUtc
             }).ToList();
-            return (factories, count);
         }
 
         public async Task SetFactoryDisableAsync(Guid id, CancellationToken cancellationToken)

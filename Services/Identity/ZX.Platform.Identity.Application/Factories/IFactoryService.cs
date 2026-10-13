@@ -8,7 +8,7 @@ namespace ZX.Platform.Identity.Application.Factories
 
         Task<FactoryDetailDto> GetByIdAsync(Guid guid, CancellationToken cancellationToken);
 
-        Task<(List<FactoryDetailDto>, int count)> GetPageListAsync(FactoryQueryDto factoryQuery, CancellationToken cancellationToken);
+        Task<List<FactoryDetailDto>> GetAllAsync(CancellationToken cancellationToken);
 
         Task UpdateNameAsync(UpdateFactoryNameDto updateFactoryName, CancellationToken cancellationToken);
 

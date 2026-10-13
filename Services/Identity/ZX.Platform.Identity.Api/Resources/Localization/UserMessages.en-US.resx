@@ -7,6 +7,7 @@
   <data name="User.Created" xml:space="preserve"><value>User created successfully.</value></data>
   <data name="User.DetailsLoaded" xml:space="preserve"><value>User details retrieved successfully.</value></data>
   <data name="User.ListLoaded" xml:space="preserve"><value>User list retrieved successfully.</value></data>
+  <data name="User.CreatedAtRangeInvalid" xml:space="preserve"><value>The creation time range must start before it ends.</value></data>
   <data name="User.DisplayNameUpdated" xml:space="preserve"><value>User display name updated successfully.</value></data>
   <data name="User.StatusUpdated" xml:space="preserve"><value>User status updated successfully.</value></data>
   <data name="User.PasswordUpdated" xml:space="preserve"><value>User password updated successfully.</value></data>

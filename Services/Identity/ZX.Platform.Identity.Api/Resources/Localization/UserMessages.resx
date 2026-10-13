@@ -7,6 +7,7 @@
   <data name="User.Created" xml:space="preserve"><value>用户创建成功。</value></data>
   <data name="User.DetailsLoaded" xml:space="preserve"><value>用户详情获取成功。</value></data>
   <data name="User.ListLoaded" xml:space="preserve"><value>用户分页列表获取成功。</value></data>
+  <data name="User.CreatedAtRangeInvalid" xml:space="preserve"><value>创建时间范围的开始时间必须早于结束时间。</value></data>
   <data name="User.DisplayNameUpdated" xml:space="preserve"><value>用户显示名称更新成功。</value></data>
   <data name="User.StatusUpdated" xml:space="preserve"><value>用户状态更新成功。</value></data>
   <data name="User.PasswordUpdated" xml:space="preserve"><value>用户密码修改成功。</value></data>

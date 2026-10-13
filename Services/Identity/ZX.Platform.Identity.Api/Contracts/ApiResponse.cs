@@ -35,7 +35,6 @@ namespace ZX.Platform.Identity.Api.Contracts
         /// <summary>
         /// 接口返回的数据。
         /// </summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public T? Data { get; set; }
     }
 }

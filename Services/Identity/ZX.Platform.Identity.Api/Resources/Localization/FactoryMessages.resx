@@ -6,7 +6,7 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="Factory.Created" xml:space="preserve"><value>厂区创建成功。</value></data>
   <data name="Factory.DetailsLoaded" xml:space="preserve"><value>厂区详情获取成功。</value></data>
-  <data name="Factory.ListLoaded" xml:space="preserve"><value>厂区分页列表获取成功。</value></data>
+  <data name="Factory.ListLoaded" xml:space="preserve"><value>厂区列表获取成功。</value></data>
   <data name="Factory.NameUpdated" xml:space="preserve"><value>厂区名称更新成功。</value></data>
   <data name="Factory.StatusUpdated" xml:space="preserve"><value>厂区状态更新成功。</value></data>
   <data name="Factory.Deleted" xml:space="preserve"><value>厂区删除成功。</value></data>

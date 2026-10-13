@@ -19,6 +19,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddTrustedForwardedHeaders(builder.Configuration);
 builder.Services.AddApiLocalization();
 builder.Services.AddApiRateLimiting(builder.Configuration);
+// WriteAsJsonAsync 使用 HTTP JSON 配置，与 MVC 分别设置相同的空值规则。
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+});
 builder.Services.AddControllers()
     .AddJsonOptions(option =>
     {

@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using ZX.Platform.Identity.Application.Factories.Dtos;
 using ZX.Platform.Identity.Application.Persistence;
 using ZX.Platform.Identity.Domain.Entities;
 
@@ -39,26 +38,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Repositories
             _dbContext.Factories.Add(factory);
         }
 
-        public async Task<(List<Factory>, int count)> GetPageListAsync(FactoryQueryDto factoryQuery, CancellationToken cancellationToken)
+        public Task<List<Factory>> GetAllAsync(CancellationToken cancellationToken)
         {
-            var factories = _dbContext.Factories.AsNoTracking();
-
-            if (!string.IsNullOrWhiteSpace(factoryQuery.Keyword))
-            {
-                var keyword = factoryQuery.Keyword.Trim();
-                factories = factories.Where(e => e.Code.Contains(keyword) || e.Name.Contains(keyword));
-            }
-
-            // 先统计总数，再分页查询，避免分页条件影响总数。
-            var count = await factories.CountAsync(cancellationToken);
-
-            var list = await factories.OrderByDescending(e => e.CreatedAtUtc)
+            return _dbContext.Factories.AsNoTracking()
+                .OrderByDescending(e => e.CreatedAtUtc)
                 .ThenBy(e => e.Id)
-                .Skip(factoryQuery.GetSkip())
-                .Take(factoryQuery.PageSize)
                 .ToListAsync(cancellationToken);
-
-            return (list, count);
         }
 
         /// <summary>

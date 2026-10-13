@@ -24,7 +24,7 @@ Identity 使用 EF Core 10 与 SQL Server。数据库由本服务拥有；其他
 
 两种唯一索引都没有按 `IsDeleted` 过滤：软删除后原账号和厂区编码仍被保留，不能用同一标识建立新的主数据。创建前的预查询使用 `IgnoreQueryFilters()`，因此能给出“已删除 / 已禁用”的友好冲突提示。
 
-数据库映射允许账号最长 100、厂区编码最长 50，但当前创建用户 DTO 将账号限制为最多 8 个字符；接口允许值以 DTO 为准，不能从列长推断 API 约束。请求字段详见[Identity 接口](identity.md)。
+数据库映射允许账号最长 100、厂区编码最长 50，但当前创建用户 DTO 将账号限制为最多 8 个字符；接口允许值以 DTO 为准，不能从列长推断 API 约束。请求字段详见[Identity 接口契约](api.md#用户请求字段)。
 
 ## 软删除与状态
 
@@ -34,7 +34,7 @@ Identity 使用 EF Core 10 与 SQL Server。数据库由本服务拥有；其他
 
 删除或停用主数据时，现有用户厂区关系不会自动删除。恢复主数据后这些关系仍在。关系列表本身不联查厂区状态，因此用户 DTO 的 `factoryIds` 可能包含后来停用或删除的厂区；读取关系不等于验证当前访问权限。
 
-`IgnoreQueryFilters()` 只在恢复、唯一性判断等明确场景使用，避免普通列表意外显示删除数据。状态接口和恢复时的 HTTP 行为见[Identity](identity.md#状态与厂区关系)。
+`IgnoreQueryFilters()` 只在恢复、唯一性判断等明确场景使用，避免普通列表意外显示删除数据。状态接口和恢复时的 HTTP 行为见[Identity 业务语义](identity.md#状态与厂区关系)。
 
 ## 审计字段
 
@@ -47,11 +47,79 @@ Identity 使用 EF Core 10 与 SQL Server。数据库由本服务拥有；其他
 | `CreatedByUserId` | 字段已存在，当前没有自动填写登录用户               |
 | `UpdatedByUserId` | 字段已存在，当前没有自动填写登录用户               |
 
-拦截器在修改时保护创建时间和创建人，不让本次更新覆盖原值。时间统一使用 `DateTimeOffset` 和 UTC；普通 DTO 输出 ISO 8601 日期字符串。
+拦截器在修改时保护创建时间和创建人，不让本次更新覆盖原值。时间统一使用 `DateTimeOffset` 和 UTC 存储；接口按 ISO 8601 保留 `Z` / 偏移量输出，约定见[API 响应与错误](http.md#时间字段格式)。
 
 审计时间不是操作日志或数据变更历史。谁修改了哪些字段、前后值和原因，需要后续独立的业务审计方案。
 
 源码：[AuditableEntitySaveChangesInterceptor.cs](../Services/Identity/ZX.Platform.Identity.Infrastructure/Persistence/Interceptors/AuditableEntitySaveChangesInterceptor.cs)。
+
+## 运维查询时间
+
+当前审计时间统一保存 UTC（`+00:00`）。运维直接查询原表，使用常用 SQL 模板按当地时间输入条件、显示结果，无需建立额外视图或人工加减小时。下面以北京时间 `2026-10-13` 全天为例：起点是当天零点，终点是次日零点，使用 `>=` / `<` 包含完整一天，避免小数秒精度造成遗漏。
+
+### SQL Server
+
+时间列使用 `datetimeoffset`，对应 .NET `DateTimeOffset`。带 `+08:00` 的北京时间与带 `+00:00` 的 UTC 可以直接比较，数据库按实际时刻比较。例如 `2026-10-13 11:09:30 +08:00` 和 `2026-10-13 03:09:30 +00:00` 表示同一时刻。
+
+以下使用当前 Identity 的实际表名和列名，运维只需修改开始、结束日期：
+
+```sql
+DECLARE @start datetimeoffset = '2026-10-13T00:00:00+08:00';
+DECLARE @end   datetimeoffset = '2026-10-14T00:00:00+08:00';
+
+SELECT
+    ACCOUNT,
+    DISPLAY_NAME,
+    CREATED_AT_UTC,
+    SWITCHOFFSET(CREATED_AT_UTC, '+08:00') AS CREATED_AT_BEIJING
+FROM dbo.ZX_IDENTITY_USER
+WHERE IS_DELETED = 0
+  AND CREATED_AT_UTC >= @start
+  AND CREATED_AT_UTC < @end
+ORDER BY CREATED_AT_UTC DESC;
+```
+
+`SWITCHOFFSET` 只转换结果的显示偏移，不修改原始数据；`CREATED_AT_UTC` 保留原值，`CREATED_AT_BEIJING` 便于直接阅读。原始 SQL 不会自动应用 EF Core 软删除过滤器，所以普通用户查询显式加 `IS_DELETED = 0`。
+
+北京时间使用固定 `+08:00` 即可；涉及夏令时的地区使用地区时区规则，例如 SQL Server 中的 `CREATED_AT_UTC AT TIME ZONE 'Pacific Standard Time'` 表示美国洛杉矶所在时区，会按该时刻的规则处理夏令时。日期范围的两个边界也应分别按目标地区时区换算，不能把美国统一当作固定 `-08:00`，也不能假定当地每一天都是 24 小时。
+
+### Oracle
+
+Oracle 也支持带时区的时间类型，但本项目当前只接入 SQL Server。以下为类型与查询语法参考，不表示已经提供 Oracle Provider、表结构或迁移。
+
+| Oracle 类型 | 时区行为 |
+| ----------- | -------- |
+| `DATE` | 保存日期和时分秒，不带时区，不保存小数秒 |
+| `TIMESTAMP` | 支持小数秒，不带时区 |
+| `TIMESTAMP WITH TIME ZONE` | 支持小数秒及偏移量或地区时区，可表达实际时刻 |
+| `TIMESTAMP WITH LOCAL TIME ZONE` | 写入时归一到数据库时区，读取时按会话时区显示，不保留输入的原始时区 |
+
+`TIMESTAMP WITH TIME ZONE` 具备与 SQL Server `datetimeoffset` 类似的带偏移时间能力，并支持地区时区。假设 Oracle 使用相同表名和列名，且 `CREATED_AT_UTC` 的类型为 `TIMESTAMP WITH TIME ZONE`，可这样查询：
+
+```sql
+SELECT
+    ACCOUNT,
+    DISPLAY_NAME,
+    CREATED_AT_UTC,
+    TO_CHAR(
+        CREATED_AT_UTC AT TIME ZONE 'Asia/Shanghai',
+        'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM'
+    ) AS CREATED_AT_BEIJING
+FROM ZX_IDENTITY_USER
+WHERE CREATED_AT_UTC >= TO_TIMESTAMP_TZ(
+        '2026-10-13 00:00:00 +08:00',
+        'YYYY-MM-DD HH24:MI:SS TZH:TZM'
+    )
+  AND CREATED_AT_UTC < TO_TIMESTAMP_TZ(
+        '2026-10-14 00:00:00 +08:00',
+        'YYYY-MM-DD HH24:MI:SS TZH:TZM'
+    )
+ORDER BY CREATED_AT_UTC DESC;
+```
+
+`AT TIME ZONE` 改变查询结果的时区，`TO_CHAR` 显式指定可读格式，避免依赖客户端的默认显示格式；条件仍比较原始时间列和带偏移量的边界。实际 Oracle 表应按自身映射补上软删除条件。越南可使用 `Asia/Ho_Chi_Minh`，美国需指定具体地区，例如 `America/Los_Angeles`，按该地区规则处理夏令时。Oracle 与 SQL Server 的地区时区标识不能直接混用。
+
+两种数据库的带偏移类型都允许保存 `+08:00`，但当前项目仍统一将 `*AtUtc` / `*_AT_UTC` 写为 UTC，保持接口、审计与跨地区查询约定一致。运维查询仅换算显示与条件，不改变存储约定。时间转换放在查询结果或参数上，筛选直接比较原始列，便于使用适用的索引；实际执行计划取决于索引与数据量。
 
 ## 保存与事务
 
@@ -73,11 +141,11 @@ Service 预查询只是友好提示，两个同时创建的请求仍可能都通
 
 ## 查询与分页
 
-用户分页支持账号 / 显示名称关键字、启用状态和厂区关系筛选；厂区分页支持编码 / 名称关键字。查询使用 `AsNoTracking()`，按 `CreatedAtUtc` 倒序、`Id` 次序分页，`total` 是同一筛选条件下未分页的总数。
+只有用户列表分页，支持账号 / 显示名称关键字、启用状态、厂区关系和创建时间范围筛选；查询使用 `AsNoTracking()`，按 `CreatedAtUtc` 倒序、`Id` 次序，`total` 是同一筛选条件下未分页的总数。厂区列表不分页，直接返回全部未删除厂区，同样按 `CreatedAtUtc` 倒序、`Id` 次序。
 
 用户列表获取当前页后，批量读取这些用户的关系并分组，避免每个用户单独查关系。启用厂区列表没有分页和明确排序，调用方不要依赖数据库返回顺序。
 
-当前未为列表与总数建立一致性快照，在其他请求同时修改数据时，两次查询可能看到不同的时点。筛选与参数边界见[分页与结果](identity.md#分页与结果)。
+当前未为列表与总数建立一致性快照，在其他请求同时修改数据时，两次查询可能看到不同的时点。筛选与参数边界见[分页与结果](api.md#分页与结果)。
 
 ## 迁移现状
 

@@ -54,6 +54,18 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Repositories
                     relation => relation.UserId == user.Id && relation.FactoryId == factoryId));
             }
 
+            if (userQuery.CreatedFromUtc.HasValue)
+            {
+                var createdFromUtc = userQuery.CreatedFromUtc.Value.ToUniversalTime();
+                users = users.Where(user => user.CreatedAtUtc >= createdFromUtc);
+            }
+
+            if (userQuery.CreatedToUtc.HasValue)
+            {
+                var createdToUtc = userQuery.CreatedToUtc.Value.ToUniversalTime();
+                users = users.Where(user => user.CreatedAtUtc < createdToUtc);
+            }
+
             var list = await users.OrderByDescending(e => e.CreatedAtUtc)
                 .ThenBy(e => e.Id)
                 .Skip(userQuery.GetSkip())

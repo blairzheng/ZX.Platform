@@ -8,14 +8,14 @@
 
 - Gateway：按 `/api/identity` 前缀转发到 Identity，处理可信代理提供的客户端 IP。
 - 用户：新增、详情、分页筛选、修改显示名称和密码、启停用、单条与批量软删除、恢复、调整厂区关系。
-- 厂区：新增、详情、分页查询、修改名称、启停用、软删除、恢复、查询全部启用厂区。
+- 厂区：新增、详情、列表查询（不分页，一次返回全部厂区）、修改名称、启停用、软删除、恢复、查询全部启用厂区。
 - 数据访问：EF Core Migration、数据库唯一约束、审计时间、软删除过滤、一次保存提交业务变更。
 - API：统一 JSON 响应、参数校验、异常映射、中文 / English 提示和 `traceId`。
 - 接口限频：同一 IP + HTTP 方法 + 路由模板，默认 3 秒分段滑动窗口最多 5 次，超限立即返回 `429 / 600429`。
 
 **登录、JWT、角色权限、动态菜单、当前用户审计和批量启停用接口尚未实现。** 现有 `UseAuthorization()` 不代表已经完成权限控制。MES、SPC 和文件服务属于后续规划。当前限流只控制请求频率，未设置固定总并发门槛或统一后端执行超时。
 
-前端用户管理已接入 Identity 的查询和写入接口，批量删除接口已在后端实现、前端仍待接入，批量操作入口暂时禁用；前端接入方式见[统一请求层](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/http.md)，页面规范从[前端文档导航](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/README.md)查阅。
+前端用户管理与厂区管理均已接入 Identity 的查询和写入接口，其中用户批量删除前后端都已接入。批量启停用接口仍未实现，批量操作入口不提供。前端接入方式见[统一请求层](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/http.md)，页面规范从[前端文档导航](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/README.md)查阅。
 
 ## 快速开始
 
@@ -61,7 +61,8 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 | [开发者指南](docs/developer-guide.md)       | 项目范围、目录、分层、调用链与新增功能流程 |
 | [开发环境、命令与排错](docs/development.md) | SDK、配置、启动、Gateway、Git 与部署边界   |
 | [数据库与持久化](docs/database.md)          | 实体、审计、软删除、唯一约束与 Migration   |
-| [Identity 接口](docs/identity.md)           | 用户和厂区路由、DTO、分页、状态及厂区关系  |
+| [Identity 接口契约](docs/api.md)            | 用户和厂区路由、DTO、分页与错误负载        |
+| [Identity 业务语义](docs/identity.md)       | 状态、厂区关系与当前能力边界               |
 | [API 响应与错误](docs/http.md)              | HTTP / 业务码、异常、校验与取消信号        |
 | [API 多语言](docs/localization.md)          | 请求语言、资源分组、消息键与扩展步骤       |
 | [接口限流](docs/rate-limiting.md)           | 滑动窗口、客户端 IP、配置和验收            |

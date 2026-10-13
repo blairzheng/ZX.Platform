@@ -46,18 +46,14 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpGet("getFactoryList")]
-        public async Task<IActionResult> GetPageListAsync([FromQuery] FactoryQueryDto factoryQuery, CancellationToken cancellationToken)
+        public async Task<IActionResult> GetAllAsync(CancellationToken cancellationToken)
         {
-            var (factories, count) = await _factoryService.GetPageListAsync(factoryQuery, cancellationToken);
-            var response = new ApiResponse<FactoryPageDto>
+            var factories = await _factoryService.GetAllAsync(cancellationToken);
+            var response = new ApiResponse<List<FactoryDetailDto>>
             {
                 Code = 0,
                 Message = _messages["Factory.ListLoaded"].Value,
-                Data = new FactoryPageDto
-                {
-                    List = factories,
-                    Total = count
-                }
+                Data = factories
             };
             return StatusCode(StatusCodes.Status200OK, response);
         }

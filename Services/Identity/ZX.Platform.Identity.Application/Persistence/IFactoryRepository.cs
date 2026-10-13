@@ -1,5 +1,4 @@
-﻿using ZX.Platform.Identity.Application.Factories.Dtos;
-using ZX.Platform.Identity.Domain.Entities;
+﻿using ZX.Platform.Identity.Domain.Entities;
 
 namespace ZX.Platform.Identity.Application.Persistence
 {
@@ -33,11 +32,9 @@ namespace ZX.Platform.Identity.Application.Persistence
         void Add(Factory factory);
 
         /// <summary>
-        /// 获取厂区分页列表。
+        /// 获取所有未删除厂区列表。厂区数据量小，不提供分页。
         /// </summary>
-        Task<(List<Factory>, int count)> GetPageListAsync(
-            FactoryQueryDto factoryQuery,
-            CancellationToken cancellationToken);
+        Task<List<Factory>> GetAllAsync(CancellationToken cancellationToken);
 
         /// <summary>
         /// 获取所有启用的厂区列表。

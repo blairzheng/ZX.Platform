@@ -92,6 +92,12 @@ namespace ZX.Platform.Identity.Application.Users
 
         public async Task<(List<UserDetailDto>, int count)> GetPageListAsync(UserQueryDto userQuery, CancellationToken cancellationToken)
         {
+            if (userQuery.CreatedFromUtc.HasValue && userQuery.CreatedToUtc.HasValue &&
+                userQuery.CreatedFromUtc.Value >= userQuery.CreatedToUtc.Value)
+            {
+                throw new BusinessException(ErrorCodes.ValidationFailed, "User.CreatedAtRangeInvalid");
+            }
+
             var (list, count) = await _userRepository.GetPageListAsync(userQuery, cancellationToken);
             var userFactories = await _userFactoryRepository.GetByUserIdsAsync(list.Select(user => user.Id).ToList(), cancellationToken);
             var factoryIdsByUser = userFactories.ToLookup(relation => relation.UserId, relation => relation.FactoryId);

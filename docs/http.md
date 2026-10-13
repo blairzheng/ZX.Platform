@@ -1,6 +1,6 @@
 # API 响应与错误
 
-[文档导航](README.md) · [Identity 接口](identity.md)
+[文档导航](README.md) · [Identity 接口契约](api.md) · [Identity 业务语义](identity.md)
 
 当前 Identity 普通业务 JSON 接口显式返回统一响应。HTTP 状态表示协议层的结果，JSON `code` 表示业务分类；调用方同时判断两者，不能通过匹配提示文字决定操作。
 
@@ -23,6 +23,26 @@
 | `traceId` | 请求与日志的关联编号，主要在失败时返回；可省略     |
 
 [ApiResponse.cs](../Services/Identity/ZX.Platform.Identity.Api/Contracts/ApiResponse.cs) 定义无数据的 `ApiResponse` 和继承它的 `ApiResponse<T>`。JSON 使用 `camelCase`，空值字段省略。错误的 traceId 优先使用 `Activity.Current?.Id`，否则使用 `HttpContext.TraceIdentifier`。
+
+MVC 的 `AddJsonOptions` 与异常处理、限流使用的 `WriteAsJsonAsync` 读取不同的配置；[Program.cs](../Services/Identity/ZX.Platform.Identity.Api/Program.cs) 通过 `AddJsonOptions` 和 `ConfigureHttpJsonOptions` 分别设置 `WhenWritingNull`，使两条响应路径统一省略空值。泛型 `Data` 不标注 `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]`：无约束的 `T?` 在 `T` 为 `Guid` 时仍是不可空值类型，使用该特性会导致序列化异常。全局空值规则不影响 `0`、`false` 等非空值的输出。
+
+## 时间字段格式
+
+创建、修改等事件时间使用 `DateTimeOffset`，数据库和领域层统一保存 UTC（见[数据库与持久化](database.md)）。接口使用 System.Text.Json 默认的 ISO 8601 格式，例如 `2026-10-13T03:09:30.9701695+00:00`，保留偏移量和小数秒；`+00:00` 和 `Z` 都表示 UTC。
+
+当前不再使用自定义 UTC JSON 转换器。审计时间通过 `TimeProvider.GetUtcNow()` 生成，查询时间边界通过 `ToUniversalTime()` 显式归一化；默认 JSON 序列化负责保留时间值及偏移量，不负责自动转换时区。
+
+接口传递实际时刻，不按服务器所在地区换算。前端公共 `formatDateTime` 默认跟随用户电脑时区：上例在中国时区显示为 2026-10-13 11:09，在越南时区显示为 10:09。厂区业务需要固定显示时区时显式传入 `timeZone`，例如 `Asia/Ho_Chi_Minh`。语言切换只改变呈现格式，不改变时区。
+
+同一页面的时间显示与日期范围筛选必须使用同一时区；若改为固定业务时区，查询边界也必须按该时区的当地零点换算为 UTC，不能继续沿用电脑本地零点。
+
+当前用户和厂区接口的审计时间由后端生成，不接收前端填写的时间。后续新增时间输入接口时，应要求表示实际时刻的字段携带 `Z` / 偏移量，并在保存前显式转成 UTC；默认反序列化不替业务自动归一化偏移量。不要通过全局转换器猜测无偏移时间所属的时区。
+
+仅表示日期的字段（例如业务日期）使用 `DateOnly` / `yyyy-MM-dd`，不按时间点转换。重复推送等定时功能尚未实现，后续应保存本地执行时间与业务时区，再计算下一次 UTC 执行时间。
+
+时间传输格式与页面显示格式分别维护；接口不返回无偏移的 `yyyy-MM-dd HH:mm:ss`，前端不手动加减小时数。
+
+运维直接查库时的当地时间显示、日期范围条件及 Oracle 类型参考，见[运维查询时间](database.md#运维查询时间)。
 
 ## HTTP 与业务码
 
@@ -84,7 +104,7 @@ throw new BusinessException(
 }
 ```
 
-附加数据不是每种错误都有。当前存在的冲突字段见[创建冲突](identity.md#创建冲突)，不要从历史设计中推断额外字段，也不要把消息文本当作 `reason`。
+附加数据不是每种错误都有。当前存在的冲突字段见[创建冲突](api.md#创建冲突)，不要从历史设计中推断额外字段，也不要把消息文本当作 `reason`。
 
 ## 取消、超时与重复提交
 
@@ -107,5 +127,6 @@ Controller 的 `CancellationToken` 来自请求取消信号，继续传入 Appli
 5. 系统错误包含 traceId，可关联服务日志，响应不含 SQL、连接字符串或堆栈。
 6. 中英文请求的 HTTP、code 和结构化字段一致，提示与 Content-Language 跟随选择。
 7. 频率超限返回 `429 / 600429`，随时间恢复；具体步骤见[限流验收](rate-limiting.md#人工验收)。
+8. 时间字段使用带 `Z` 或偏移量的 ISO 8601；数据库和领域层统一保存 UTC，调用方按业务显示时区格式化，不能重复加减小时。
 
 取消与网络错误的验收需同时核对客户端结果和数据库实际状态，不能只观察前端错误提示。
