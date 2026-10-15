@@ -24,6 +24,7 @@
 | 处理接口成功 / 失败 | [API 响应与错误](http.md)        | ApiResponse、错误码、结构化原因与取消         |
 | 增加中英文提示      | [API 多语言](localization.md)    | Accept-Language、资源、DTO 校验与异常消息键   |
 | 调整请求频率        | [接口限流](rate-limiting.md)     | 配置、分段窗口、可信代理与计数边界            |
+| 联调登录与会话      | [登录与会话](authentication.md) | Redis、Cookie、接管、强制下线及并发边界 |
 | 设计下一阶段        | [后续规划与设计取舍](roadmap.md) | 认证、厂区权限、幂等、日志和基础设施          |
 | 查阅过去讨论        | [历史文档](history/README.md)    | 原交接记录与前端迁移方案                      |
 

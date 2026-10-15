@@ -1,16 +1,21 @@
-@ZX.Platform.Identity.Api_HostAddress = http://localhost:5210
+@ZX.Platform.Identity.Api_HostAddress = https://localhost:7075
+
+@accessToken = <copy-accessToken-from-Authentication.http-login-response>
 
 GET {{ZX.Platform.Identity.Api_HostAddress}}/weatherforecast/
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ###
 
-### 修改用户密码（ChangePasswordHash 链路）
-PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Users/updatePassword
+### 本人修改密码（成功后重新登录）
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Auth/changePassword
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
+X-Identity-CSRF: 1
 
 {
-  "id": "00000000-0000-0000-0000-000000000000",
+  "currentPassword": "<current-password>",
   "newPassword": "NewPass123"
 }
 
@@ -18,6 +23,7 @@ Content-Type: application/json
 
 ### 创建厂区
 POST {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/add
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
@@ -29,18 +35,21 @@ Content-Type: application/json
 
 ### 厂区详情
 GET {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/getFactory?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ###
 
 ### 厂区列表（不分页，一次返回全部厂区）
 GET {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/getFactoryList
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ###
 
 ### 修改厂区名称
 PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/updateName
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
@@ -52,18 +61,22 @@ Content-Type: application/json
 
 ### 启用 / 禁用厂区
 PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/setFactoryEnable?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
 
 ###
 
 PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/setFactoryDisable?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
 
 ###
 
 ### 逻辑删除 / 恢复厂区
 PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/logicDelete?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
 
 ###
 
 PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/restore?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
 
 ###

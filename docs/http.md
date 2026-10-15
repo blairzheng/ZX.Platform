@@ -55,14 +55,16 @@ MVC 的 `AddJsonOptions` 与异常处理、限流使用的 `WriteAsJsonAsync` �
 | 数据冲突                       |  409 | 600003 |
 | 状态不允许 / DomainException   |  409 | 600004 |
 | 业务禁止操作                   |  403 | 600005 |
+| 未登录 / 凭据无效 / 会话失效    |  401 | 600401 |
 | 请求频率超限                   |  429 | 600429 |
 | 未知系统异常                   |  500 | 600500 |
+| 认证会话存储暂不可用           |  503 | 600503 |
 
-业务码定义在 [ErrorCodes.cs](../Services/Identity/ZX.Platform.Identity.Application/Errors/ErrorCodes.cs)。`Forbidden` 的映射已经存在，但实际认证授权尚未接入；401 协议与业务码等待登录设计后确定。
+业务码定义在 [ErrorCodes.cs](../Services/Identity/ZX.Platform.Identity.Application/Errors/ErrorCodes.cs)。认证失败返回 `401 / 600401` 和 `WWW-Authenticate: Bearer`；已登录但无权限返回 `403 / 600005`。JwtBearer 的 Challenge / Forbidden 事件与业务异常使用相同本地化 JSON 结构，见[登录与会话](authentication.md)。
 
 没有数据的成功操作仍返回 `200 + ApiResponse`；204 按协议不能携带 JSON 响应体。`600xxx` 不作为 HTTP 状态使用。
 
-当前没有自动包装所有响应的全局过滤器。Swagger、Gateway 自身 OpenAPI、WeatherForecast 模板接口、未知路由 404 和未来文件流不应被假定都返回此业务格式。Gateway 自身连接 / 转发失败也不一定带 Identity 的业务码，前端仍需处理普通 HTTP 错误。
+当前没有自动包装所有响应的全局过滤器。Swagger、Gateway 自身 OpenAPI、WeatherForecast 模板接口、未知路由和未来文件流不应被假定都返回此业务格式。默认登录策略下，未认证请求未知路由也可能先收到 401；已认证未知路由仍可返回普通 404。Gateway 自身连接 / 转发失败也不一定带 Identity 的业务码，前端仍需处理普通 HTTP 错误。
 
 ## 校验与异常分工
 
@@ -111,6 +113,8 @@ throw new BusinessException(
 Controller 的 `CancellationToken` 来自请求取消信号，继续传入 Application、Repository 和 EF Core 查询 / 保存。客户端断开连接或中止请求时，下游支持取消的操作可以响应信号。
 
 取消是协作式的：同步计算和没有观察令牌的操作不会自动停止。数据库已经提交的变更也不会因为前端取消而撤销。一次保存中的事务与跨请求的重复提交分别处理，见[保存与事务](database.md#保存与事务)。
+
+禁用、删除、改密码的会话撤销不使用请求取消令牌：这些安全变更一旦进入保存阶段，即使客户端断开或保存结果不确定，仍尝试撤销旧会话。Redis 失败返回 503，数据库可能已提交，恢复后应检查状态并重试下线；没有跨数据库与 Redis 的事务或用户锁。并发边界见[登录与会话](authentication.md#禁用删除和改密码)。
 
 当前没有统一后端执行超时或固定总并发限制。请求限频按时间窗口计数，不根据执行时长计数，也不能替代幂等。SQL Server、YARP 和 HTTP 服务器仍有各自的底层超时设置。
 

@@ -12,6 +12,9 @@ namespace ZX.Platform.Identity.Infrastructure.Security
         // 标准 BCrypt 最多安全处理 72 字节的密码。
         private const int MaximumPasswordBytes = 72;
 
+        private readonly Lazy<string> _dummyHash = new(() =>
+            BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N"), WorkFactor));
+
         public string Hash(string password)
         {
             ValidatePassword(password);
@@ -20,7 +23,7 @@ namespace ZX.Platform.Identity.Infrastructure.Security
 
         public bool Verify(string password, string passwordHash)
         {
-            if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(passwordHash))
+            if (string.IsNullOrEmpty(password))
             {
                 return false;
             }
@@ -30,7 +33,9 @@ namespace ZX.Platform.Identity.Infrastructure.Security
                 return false;
             }
 
-            return BCrypt.Net.BCrypt.Verify(password, passwordHash);
+            var hasHash = !string.IsNullOrEmpty(passwordHash);
+            var matches = BCrypt.Net.BCrypt.Verify(password, hasHash ? passwordHash : _dummyHash.Value);
+            return hasHash && matches;
         }
 
         private static void ValidatePassword(string password)

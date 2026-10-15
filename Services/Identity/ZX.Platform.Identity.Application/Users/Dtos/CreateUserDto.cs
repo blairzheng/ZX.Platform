@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
+using ZX.Platform.Identity.Application.Security;
+
 namespace ZX.Platform.Identity.Application.Users.Dtos
 {
     public class CreateUserDto
@@ -14,6 +16,7 @@ namespace ZX.Platform.Identity.Application.Users.Dtos
 
         [Required(ErrorMessage = "Validation.PasswordRequired")]
         [MinLength(8, ErrorMessage = "Validation.PasswordMinLength")]
+        [PasswordBytes]
         public string Password { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Validation.FactoriesRequired")]

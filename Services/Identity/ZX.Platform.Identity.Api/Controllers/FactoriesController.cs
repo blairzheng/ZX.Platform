@@ -4,10 +4,14 @@ using ZX.Platform.Identity.Api.Localization;
 using ZX.Platform.Identity.Application.Factories;
 using ZX.Platform.Identity.Application.Factories.Dtos;
 
+using Microsoft.AspNetCore.Authorization;
+using ZX.Platform.Identity.Api.Authentication;
+
 namespace ZX.Platform.Identity.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
     public class FactoriesController : ControllerBase
     {
         private readonly IFactoryService _factoryService;

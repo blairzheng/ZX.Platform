@@ -54,7 +54,7 @@ namespace ZX.Platform.Identity.Domain.Entities
         public bool IsEnabled { get; private set; }
 
         /// <summary>
-        /// 账户锁定结束时间；为空表示当前没有锁定时间
+        /// 连续登录失败次数
         /// </summary>
         public int AccessFailedCount { get; private set; }
 
@@ -137,7 +137,7 @@ namespace ZX.Platform.Identity.Domain.Entities
         /// <param name="now"></param>
         /// <returns></returns>
         public bool CanLogin(DateTimeOffset now) =>
-            IsEnabled && !IsLocked(now);
+            !IsDeleted && IsEnabled && !IsLocked(now);
 
         /// <summary>
         /// 记录一次登录失败，达到限制后锁定账户
@@ -155,6 +155,9 @@ namespace ZX.Platform.Identity.Domain.Entities
 
             if (lockoutDuration <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(lockoutDuration));
+
+            if (LockoutEndUtc.HasValue && LockoutEndUtc.Value <= now)
+                RecordLoginSuccess();
 
             AccessFailedCount++;
 

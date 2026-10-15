@@ -12,6 +12,7 @@ namespace ZX.Platform.Identity.Api.Extensions
             services.AddLocalization(options => options.ResourcesPath = "Resources");
             // 异常处理器和 MVC 配置长期持有此服务；语言由每次查找时的请求上下文决定。
             services.AddSingleton<IApiMessageLocalizer, ApiMessageLocalizer>();
+            services.AddSingleton<Microsoft.AspNetCore.Mvc.DataAnnotations.IValidationAttributeAdapterProvider, PasswordValidationAdapterProvider>();
             services.Configure<RequestLocalizationOptions>(options =>
             {
                 var cultures = new[] { "zh-CN", "en-US" };

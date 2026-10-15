@@ -11,17 +11,20 @@ namespace ZX.Platform.Identity.Api.Localization
         private readonly IStringLocalizer<ValidationMessages> _validation;
         private readonly IStringLocalizer<UserMessages> _user;
         private readonly IStringLocalizer<FactoryMessages> _factory;
+        private readonly IStringLocalizer<AuthMessages> _auth;
 
         public ApiMessageLocalizer(
             IStringLocalizer<CommonMessages> common,
             IStringLocalizer<ValidationMessages> validation,
             IStringLocalizer<UserMessages> user,
-            IStringLocalizer<FactoryMessages> factory)
+            IStringLocalizer<FactoryMessages> factory,
+            IStringLocalizer<AuthMessages> auth)
         {
             _common = common;
             _validation = validation;
             _user = user;
             _factory = factory;
+            _auth = auth;
         }
 
         public LocalizedString this[string key, params object[] arguments]
@@ -43,6 +46,9 @@ namespace ZX.Platform.Identity.Api.Localization
 
             if (key.StartsWith("Factory.", StringComparison.Ordinal))
                 return _factory;
+
+            if (key.StartsWith("Auth.", StringComparison.Ordinal))
+                return _auth;
 
             return _common;
         }

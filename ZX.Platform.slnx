@@ -4,4 +4,5 @@
   <Project Path="Services/Identity/ZX.Platform.Identity.Domain/ZX.Platform.Identity.Domain.csproj" />
   <Project Path="Services/Identity/ZX.Platform.Identity.Infrastructure/ZX.Platform.Identity.Infrastructure.csproj" />
   <Project Path="ZX.Platform.Gateway/ZX.Platform.Gateway.csproj" />
+  <Project Path="Tests/ZX.Platform.Identity.AuthChecks/ZX.Platform.Identity.AuthChecks.csproj" />
 </Solution>

@@ -41,10 +41,11 @@ Identity 已支持 `zh-CN` 和 `en-US` 的接口提示。翻译只影响展示�
 | `ValidationMessages` | `Validation.*`     | `ValidationMessages.resx` | `ValidationMessages.en-US.resx` |
 | `UserMessages`       | `User.*`           | `UserMessages.resx`       | `UserMessages.en-US.resx`       |
 | `FactoryMessages`    | `Factory.*`        | `FactoryMessages.resx`    | `FactoryMessages.en-US.resx`    |
+| `AuthMessages`       | `Auth.*`           | `AuthMessages.resx`       | `AuthMessages.en-US.resx`       |
 
 默认资源本身是中文，不额外依赖一个 `zh-CN` 文件。类型名、命名空间、目录和资源文件名保持匹配，资源由 .NET 编译装载。
 
-[ApiMessageLocalizer](../Services/Identity/ZX.Platform.Identity.Api/Localization/ApiMessageLocalizer.cs) 实现 `IApiMessageLocalizer`，按 `Validation.`、`User.`、`Factory.` 前缀选择资源，其余使用公共组。它是消息查找入口，不把各模块内容重新合并到一个大文件。
+[ApiMessageLocalizer](../Services/Identity/ZX.Platform.Identity.Api/Localization/ApiMessageLocalizer.cs) 实现 `IApiMessageLocalizer`，按 `Validation.`、`User.`、`Factory.`、`Auth.` 前缀选择资源，其余使用公共组。认证的 Challenge / Forbid 也通过此入口翻译。
 
 ## 成功提示与异常提示
 
@@ -83,6 +84,8 @@ public string DisplayName { get; set; } = string.Empty;
 ```
 
 MVC 使用 `IStringLocalizer<ValidationMessages>` 查找提示，按验证属性规则填充长度 / 范围等占位参数。参数绑定、缺少请求体和分页溢出也用校验组的资源，不通过匹配中文判断错误类型。
+
+自定义 `PasswordBytesAttribute` 显式设置 `ErrorMessage` 资源键，API 用 `PasswordValidationAdapterProvider` 提供本地化适配；否则自定义属性的错误可能直接输出资源键。标准 DataAnnotations 仍交给框架默认适配器。
 
 ## 新增一条消息
 

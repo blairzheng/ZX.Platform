@@ -5,6 +5,7 @@ using ZX.Platform.Identity.Api.Localization;
 using ZX.Platform.Identity.Application.Errors;
 using ZX.Platform.Identity.Application.Exceptions;
 using ZX.Platform.Identity.Domain.Exceptions;
+using ZX.Platform.Identity.Application.Authentication;
 
 namespace ZX.Platform.Identity.Api.ErrorHandling
 {
@@ -48,6 +49,13 @@ namespace ZX.Platform.Identity.Api.ErrorHandling
                     message,
                     traceId);
             }
+            else if (exception is AuthSessionUnavailableException)
+            {
+                statusCode = StatusCodes.Status503ServiceUnavailable;
+                code = ErrorCodes.ServiceUnavailable;
+                message = _messages["Auth.ServiceUnavailable"].Value;
+                _logger.LogError(exception, "认证会话存储不可用。TraceId={TraceId}", traceId);
+            }
             else if (exception is DomainException domainException)
             {
                 statusCode = StatusCodes.Status409Conflict;
@@ -79,6 +87,9 @@ namespace ZX.Platform.Identity.Api.ErrorHandling
             }
 
             httpContext.Response.StatusCode = statusCode;
+            if (statusCode == StatusCodes.Status401Unauthorized)
+                httpContext.Response.Headers.WWWAuthenticate = "Bearer";
+            httpContext.Response.Headers.CacheControl = "no-store";
 
             var response = new ApiResponse<object?>
             {
@@ -123,6 +134,9 @@ namespace ZX.Platform.Identity.Api.ErrorHandling
 
                 ErrorCodes.Forbidden =>
                     StatusCodes.Status403Forbidden,
+
+                ErrorCodes.Unauthorized =>
+                    StatusCodes.Status401Unauthorized,
 
                 ErrorCodes.TooManyRequests =>
                     StatusCodes.Status429TooManyRequests,

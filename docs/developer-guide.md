@@ -15,9 +15,10 @@ ZX.Platform 是按服务边界组织的后台基础平台。当前先把 Identit
 | HTTP 契约         | 显式成功响应、DTO 校验、全局异常处理、业务错误码   |
 | 提示语言          | 中文 / English，按请求头选择                       |
 | 请求入口          | YARP 转发、可信代理 IP、Identity 请求限频          |
+| 认证与会话        | 登录、刷新轮换、退出、当前用户、锁定及安全变更撤销 |
 | 前后端接入        | 管理端用户与厂区页面使用真实查询和写入接口         |
 
-用户批量软删除前后端均已接入。登录、JWT、角色权限、动态菜单、当前厂区权限校验、审计用户上下文和批量启停用尚未接入。实体中的登录失败与锁定方法只是模型能力，不能据此认定已有登录流程。详细计划见[后续规划](roadmap.md)。
+用户批量软删除前后端均已接入，后端认证已实现，前端登录尚未联调。当前用显式管理员账号名单保护管理接口；完整角色权限、动态菜单、当前厂区权限校验、审计用户上下文和批量启停用尚未接入。会话配置与边界见[登录与会话](authentication.md)，其他计划见[后续规划](roadmap.md)。
 
 ## 目录职责
 
@@ -27,10 +28,12 @@ ZX.Platform/
 ├── docs/
 ├── ZX.Platform.slnx
 ├── ZX.Platform.Gateway/
+├── Tests/ZX.Platform.Identity.AuthChecks/
 └── Services/
     └── Identity/
         ├── ZX.Platform.Identity.Api/
         │   ├── Controllers/
+        │   ├── Authentication/
         │   ├── Contracts/
         │   ├── ErrorHandling/
         │   ├── Extensions/
@@ -38,6 +41,7 @@ ZX.Platform/
         │   ├── Options/
         │   └── Resources/Localization/
         ├── ZX.Platform.Identity.Application/
+        │   ├── Authentication/
         │   ├── Common/
         │   ├── Errors/
         │   ├── Exceptions/
@@ -68,7 +72,7 @@ Visual Studio 的解决方案文件夹是逻辑分组；命令行和部署使用
 | -------------- | ------------------------------------------ | ---------------------------- |
 | Domain         | 实体行为、审计基类、领域异常               | 不引用其他业务层             |
 | Application    | 用例、DTO、业务异常、仓储与密码服务契约    | Domain                       |
-| Infrastructure | EF Core、SQL Server、Repository、BCrypt    | Application + Domain         |
+| Infrastructure | EF Core、SQL Server、Repository、BCrypt、Redis 会话 | Application + Domain         |
 | Api            | 路由、绑定、响应、翻译、异常映射和依赖注入 | Application + Infrastructure |
 | Gateway        | 统一入口、路径转发、代理配置               | 不引用 Identity 业务项目     |
 
@@ -127,7 +131,7 @@ DTO 描述一个用例需要哪些字段，放在 Application；Api 决定这些
 
 ## 启动与中间件
 
-Identity 启动时注册代理、本地化、频率限制、MVC 校验、异常处理、DbContext 和业务服务。数据库连接缺失或限流 / 代理配置非法时启动失败。
+Identity 启动时注册代理、本地化、频率限制、认证授权、MVC 校验、异常处理、DbContext 和业务服务。数据库 / Redis 连接配置缺失、JWT 签名密钥缺失或非法、限流 / 代理 / 认证配置非法时启动失败。JWT 使用标准库签发及 AddJwtBearer 验证，JwtSessionEvents 在验证后核对 Redis 当前会话；Redis 连接与会话存储为单例，业务服务与 DbContext 为 scoped。默认管理员名单为空。密钥配置、会话规则和明确接受的并发边界见[登录与会话](authentication.md)。
 
 开发环境 Swagger 单独提供。业务请求的主要中间件顺序：
 
@@ -138,6 +142,7 @@ UseForwardedHeaders
 → UseHttpsRedirection
 → UseRouting
 → UseRateLimiter
+→ UseAuthentication
 → UseAuthorization
 → Controller
 ```

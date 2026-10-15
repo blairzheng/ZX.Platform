@@ -28,4 +28,6 @@
   <data name="Validation.BodyRequired" xml:space="preserve"><value>请求体不能为空。</value></data>
   <data name="Validation.Failed" xml:space="preserve"><value>请求参数验证失败。</value></data>
   <data name="Validation.Separator" xml:space="preserve"><value>；</value></data>
+  <data name="Validation.CurrentPasswordRequired" xml:space="preserve"><value>当前密码不能为空。</value></data>
+  <data name="Validation.PasswordMaxBytes" xml:space="preserve"><value>密码的 UTF-8 编码长度不能超过 72 字节。</value></data>
 </root>

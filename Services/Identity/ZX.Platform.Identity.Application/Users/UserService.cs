@@ -1,5 +1,6 @@
 ﻿using ZX.Platform.Identity.Application.Errors;
 using ZX.Platform.Identity.Application.Exceptions;
+using ZX.Platform.Identity.Application.Authentication;
 using ZX.Platform.Identity.Application.Persistence;
 using ZX.Platform.Identity.Application.Security;
 using ZX.Platform.Identity.Application.Users.Dtos;
@@ -14,15 +15,17 @@ namespace ZX.Platform.Identity.Application.Users
         private readonly IFactoryRepository _factoryRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPasswordHasher _passwordHasher;
+        private readonly IAuthSessionStore _sessions;
 
         public UserService(IUserRepository userRepository, IUnitOfWork unitOfWork, IPasswordHasher passwordHasher,
-            IFactoryRepository factoryRepository, IUserFactoryRepository userFactoryRepository)
+            IFactoryRepository factoryRepository, IUserFactoryRepository userFactoryRepository, IAuthSessionStore sessions)
         {
             _userRepository = userRepository;
             _unitOfWork = unitOfWork;
             _passwordHasher = passwordHasher;
             _factoryRepository = factoryRepository;
             _userFactoryRepository = userFactoryRepository;
+            _sessions = sessions;
         }
         public async Task<Guid> CreateAsync(CreateUserDto createUser, CancellationToken cancellationToken)
         {
@@ -123,7 +126,14 @@ namespace ZX.Platform.Identity.Application.Users
             var user = await _userRepository.GetByIdAsync(id, cancellationToken);
             if (user == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
             user.Disable();
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            finally
+            {
+                await _sessions.RevokeUserAsync(id, CancellationToken.None);
+            }
         }
 
         public async Task SetUserEnableAsync(Guid id, CancellationToken cancellationToken)
@@ -139,7 +149,14 @@ namespace ZX.Platform.Identity.Application.Users
             var user = await _userRepository.GetByIdAsync(id, cancellationToken);
             if (user == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
             user.MarkDeleted();
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            finally
+            {
+                await _sessions.RevokeUserAsync(id, CancellationToken.None);
+            }
         }
 
         public async Task UpdateDisplayNameAsync(UpdateUserDisplayNameDto updateUserDisplayName, CancellationToken cancellationToken)
@@ -150,14 +167,11 @@ namespace ZX.Platform.Identity.Application.Users
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task UpdatePasswordAsync(UpdateUserPasswordDto updateUserPassword, CancellationToken cancellationToken)
+        public async Task ForceLogoutAsync(Guid id, CancellationToken cancellationToken)
         {
-            var user = await _userRepository.GetByIdAsync(updateUserPassword.Id, cancellationToken);
+            var user = await _userRepository.GetByIdIncludeDeletedAsync(id, cancellationToken);
             if (user == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
-            // 只把明文交给密码服务，数据库保存的是哈希，明文不进入实体和数据库。
-            var passwordHash = _passwordHasher.Hash(updateUserPassword.NewPassword);
-            user.ChangePasswordHash(passwordHash);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _sessions.RevokeUserAsync(id, cancellationToken);
         }
 
         public async Task RestoreAsync(Guid id, CancellationToken cancellationToken)
@@ -202,7 +216,7 @@ namespace ZX.Platform.Identity.Application.Users
 
         public async Task BatchDeleteAsync(List<Guid> guids, CancellationToken cancellationToken)
         {
-            if(guids == null || guids.Count == 0)
+            if (guids == null || guids.Count == 0)
             {
                 throw new BusinessException(ErrorCodes.ValidationFailed, "User.BatchDeleteNoIds");
             }
@@ -211,7 +225,16 @@ namespace ZX.Platform.Identity.Application.Users
             {
                 user.MarkDeleted();
             }
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            finally
+            {
+                // 独立 Redis 操作全部发起，避免一个撤销失败后跳过后续用户。
+                await Task.WhenAll(users.Select(user =>
+                    _sessions.RevokeUserAsync(user.Id, CancellationToken.None)));
+            }
         }
 
         #region 校验并获取传入的厂区数据

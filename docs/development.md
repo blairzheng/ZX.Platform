@@ -10,11 +10,12 @@
 | ----------------------- | ------------------------------------------------- |
 | .NET 10 SDK             | 项目均以 `net10.0` 为目标，编译与运行 Web API     |
 | SQL Server              | Identity 数据库；已有开发环境使用 SQL Server 2022 |
+| Redis                   | 共享认证会话；开发 Compose 使用 Redis 7.4         |
 | Visual Studio / VS Code | 编辑和调试，选择支持 .NET 10 的版本               |
 | Docker / WSL            | 可选，用于本机 SQL Server 等基础设施              |
 | Git                     | 后端独立仓库版本管理                              |
 
-YARP、EF Core、Swashbuckle 和 BCrypt 的版本以各 `.csproj` 为准。仓库没有 `global.json` 或本地工具清单；更换 SDK / 工具时应保持与项目目标兼容。
+YARP、EF Core、Swashbuckle、BCrypt 和 StackExchange.Redis 的版本以各 `.csproj` 为准。仓库没有 `global.json` 或本地工具清单；更换 SDK / 工具时应保持与项目目标兼容。
 
 ## 数据库配置
 
@@ -32,9 +33,17 @@ User Secrets 只用于本地开发，保存在项目之外，不是生产密钥�
 
 `appsettings.json` / `appsettings.Development.json` 维护可共享设置；`appsettings.Local.json` 虽被 Git 忽略，但当前程序没有自动加载这种文件，不能只创建它就期待生效。初始化和更新数据库见[迁移命令](database.md#迁移命令)。
 
+Development 已在 `appsettings.Development.json` 提供共享开发 JWT 密钥，拉代码或换电脑后无需单独生成；已有 User Secrets 或环境变量优先覆盖。开发密钥公开且仅用于开发，生产需注入独立密钥。按[认证配置](authentication.md#配置与管理员)指定数据库中已有的管理员账号，默认名单为空。Cookie 默认 Secure，开发 HTTP 入口的调整见[登录与会话](authentication.md)。Redis 默认 `127.0.0.1:6379`，通过 `ConnectionStrings:IdentityRedis` 覆盖；会话无法连接时接口返回 503，不退回内存。
+
 接口时间字段统一以 UTC 的 ISO 8601（带 `Z` / `+00:00`）传输，数据库也按 UTC 存储；前端或其他调用方在显示时再按业务时区格式化。后续定时任务应保存本地时间和明确的业务时区。约定见[时间字段格式](http.md#时间字段格式)。
 
 ## 本地启动
+
+有 Docker 时先启动开发 Redis；没有 Docker 可使用已部署的 Redis 并修改连接配置，见[Redis 启动与故障](authentication.md#redis-启动与故障)。
+
+```powershell
+docker compose -f compose.redis.yml up -d
+```
 
 ```powershell
 dotnet restore ZX.Platform.slnx
@@ -83,6 +92,8 @@ Vite、Gateway 和 Identity 共同传递客户端 IP。每层只信任已配置�
 
 ```powershell
 dotnet build ZX.Platform.slnx
+$env:IDENTITY_TEST_REDIS = "127.0.0.1:6379"
+dotnet run --project Tests/ZX.Platform.Identity.AuthChecks --no-launch-profile
 ```
 
 只检查某个服务时指定项目：
@@ -99,7 +110,11 @@ dotnet format whitespace . --folder --include Services/Identity/ZX.Platform.Iden
 git diff --check
 ```
 
-当前解决方案没有测试项目或 CI 验收流程。构建成功只说明编译通过；真实数据库、业务状态、代理部署和容量仍需单独验收。接口和限流的检查场景分别见[HTTP 验收](http.md#验收要点)与[限流验收](rate-limiting.md#人工验收)。
+认证检查项目不依赖额外测试框架，以进程退出码表示结果，连接真实 Redis，验证两个独立客户端、接管/撤销、轮换重放、503 故障、认证流程及临时本地 HTTP 接口；只使用随机测试前缀，不清库，不连接业务数据库。尚无 CI 验收流程；真实数据库、Gateway、浏览器 Cookie 和容量仍需单独验收。接口和限流场景分别见[HTTP 验收](http.md#验收要点)与[限流验收](rate-limiting.md#人工验收)。
+
+2026-10-15 本轮已通过解决方案编译及上述检查。最初使用隔离端口的临时 Windows Redis 5.0.14.1，检查后已关闭；随后通过仓库 Compose 在 WSL Docker 启动 Redis 7.4.11，确认 Windows 可连接 `127.0.0.1:6379`。替换为标准 JWT 后，再次通过解决方案编译及全部认证检查，包括实际 JwtBearer HTTP 验证、Redis 会话撤销及旧随机 Access 会话迁移。真实 SQL Server / Gateway / 浏览器链路及生产部署仍需单独验收。本次 JWT 依赖从本机 NuGet 缓存还原，还原命令仅本次设置 `NuGetAudit=false`；既有传递依赖 `System.Security.Cryptography.Pkcs 9.0.11` 的 NU1902 / NU1903 提示尚未处理，不能将本次无警告编译视为安全审计通过，依赖升级另行跟进。
+
+认证会话已移除全部 Lua，存储改为 JSON String，创建/接管只用一次 `SET` 保存 JSON 及绝对过期时间，同时登录以最后写入者为准。C# 读取判断，刷新和退出保留比较原 JSON 的条件事务。解决方案编译、真实 Redis / HTTP 认证检查再次通过，覆盖 JSON 存储和绝对过期时间、旧 Hash 迁移、多次刷新后的重放、旧刷新/退出不影响并发接管的新登录，以及退出与刷新并发后不会留下有效凭据。
 
 ## Git 与本机文件
 
@@ -120,7 +135,9 @@ git config --local http.https://github.com.proxy http://127.0.0.1:<代理端口>
 | 现象                              | 检查方向                                                                         |
 | --------------------------------- | -------------------------------------------------------------------------------- |
 | 提示未配置 IdentityDatabase       | 给 Identity.Api 设置 User Secrets；确认当前环境是 Development，或注入环境变量    |
+| 提示 SigningKey 缺失 / 非法        | 开发确认使用 Development 环境且旧 User Secrets / 环境变量没有覆盖为无效值；生产按认证文档注入独立密钥 |
 | SQL 连接失败                      | SQL Server 是否运行、端口映射、账号权限和数据库配置；不要仅检查 Swagger 是否打开 |
+| 认证返回 503 / 600503              | Redis 服务、地址、端口、ACL、网络；恢复后重试下线，确认先前数据库写入结果         |
 | 模型与数据库不一致                | 查看待应用 Migration，按数据库专题更新；不屏蔽模型变化警告                       |
 | Gateway 无法连接 Identity         | Identity 是否已启动、YARP 目标是否匹配实际端口、HTTPS 证书是否受信任             |
 | 前端请求落到 HTML / 404           | 核对完整前缀 `/api/identity/api/...` 和代理规则，业务接口不能进入 SPA 回退       |
@@ -131,6 +148,6 @@ git config --local http.https://github.com.proxy http://127.0.0.1:<代理端口>
 
 ## 部署边界
 
-两个 Web 项目均有 Dockerfile，但尚未建立 Docker Compose、CI/CD、健康检查或生产部署流程。当前 Identity Dockerfile 在首次 restore 前只复制 Api 的项目文件，没有复制其引用项目，因此容器构建需要进一步调整，不能将现有文件当作已验收的部署方案。
+两个 Web 项目均有 Dockerfile，另有仅供开发的 Redis Compose 及 Redis 健康检查；尚未建立完整平台 Compose、CI/CD、应用健康检查或生产部署流程。当前 Identity Dockerfile 在首次 restore 前只复制 Api 的项目文件，没有复制其引用项目，因此容器构建需要进一步调整，不能将现有文件当作已验收的部署方案。
 
 上线前需要按实际环境确定连接信息、HTTPS、代理地址、服务发现 / 目标地址、日志和验收流程。后续工作见[规划](roadmap.md)。

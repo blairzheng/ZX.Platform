@@ -4,22 +4,32 @@ using ZX.Platform.Identity.Api.Localization;
 using ZX.Platform.Identity.Application.Users;
 using ZX.Platform.Identity.Application.Users.Dtos;
 
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Authorization;
+using ZX.Platform.Identity.Api.Authentication;
+using ZX.Platform.Identity.Application.Authentication;
+
 namespace ZX.Platform.Identity.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
         private readonly IApiMessageLocalizer _messages;
+        private readonly AuthOptions _authOptions;
 
-        public UsersController(IUserService userService, IApiMessageLocalizer messages)
+        public UsersController(IUserService userService, IApiMessageLocalizer messages, AuthOptions authOptions)
         {
             _userService = userService;
             _messages = messages;
+            _authOptions = authOptions;
         }
 
         [HttpPost("add")]
+        [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
         public async Task<IActionResult> CreateAsync([FromBody] CreateUserDto createUser, CancellationToken cancellationToken)
         {
             var userId = await _userService.CreateAsync(createUser, cancellationToken);
@@ -33,6 +43,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpGet("getUser")]
+        [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
         public async Task<IActionResult> GetByIdAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             var user = await _userService.GetByIdAsync(id, cancellationToken);
@@ -46,6 +57,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpGet("getUserList")]
+        [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
         public async Task<IActionResult> GetPageListAsync([FromQuery] UserQueryDto userQuery, CancellationToken cancellationToken)
         {
             var (users, count) = await _userService.GetPageListAsync(userQuery, cancellationToken);
@@ -65,6 +77,10 @@ namespace ZX.Platform.Identity.Api.Controllers
         [HttpPut("updateDisplayName")]
         public async Task<IActionResult> UpdateDisplayNameAsync([FromBody] UpdateUserDisplayNameDto updateUserDisplayName, CancellationToken cancellationToken)
         {
+            if (updateUserDisplayName.Id != Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!) &&
+                !_authOptions.IsAdministrator(User.Identity!.Name!))
+                return Forbid();
+
             await _userService.UpdateDisplayNameAsync(updateUserDisplayName, cancellationToken);
             var response = new ApiResponse
             {
@@ -75,6 +91,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPut("setUserEnable")]
+        [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
         public async Task<IActionResult> SetUserEnableAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             await _userService.SetUserEnableAsync(id, cancellationToken);
@@ -87,6 +104,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPut("setUserDisable")]
+        [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
         public async Task<IActionResult> SetUserDisableAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             await _userService.SetUserDisableAsync(id, cancellationToken);
@@ -98,19 +116,21 @@ namespace ZX.Platform.Identity.Api.Controllers
             return StatusCode(StatusCodes.Status200OK, response);
         }
 
-        [HttpPut("updatePassword")]
-        public async Task<IActionResult> UpdatePasswordAsync([FromBody] UpdateUserPasswordDto updateUserPassword, CancellationToken cancellationToken)
+        [HttpPost("forceLogout")]
+        [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
+        public async Task<IActionResult> ForceLogoutAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
-            await _userService.UpdatePasswordAsync(updateUserPassword, cancellationToken);
+            await _userService.ForceLogoutAsync(id, cancellationToken);
             var response = new ApiResponse
             {
                 Code = 0,
-                Message = _messages["User.PasswordUpdated"].Value
+                Message = _messages["Auth.ForcedLogout"].Value
             };
             return StatusCode(StatusCodes.Status200OK, response);
         }
 
         [HttpPut("logicDelete")]
+        [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
         public async Task<IActionResult> SoftDeleteAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             await _userService.SoftDeleteAsync(id, cancellationToken);
@@ -123,6 +143,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPut("restore")]
+        [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
         public async Task<IActionResult> RestoreAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             await _userService.RestoreAsync(id, cancellationToken);
@@ -135,6 +156,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPut("updateUserFactories")]
+        [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
         public async Task<IActionResult> UpdateUserFactoriesAsync([FromBody] UpdateUserFactoryDto updateUserFactory, CancellationToken cancellationToken)
         {
             await _userService.UpdateUserFactoriesAsync(updateUserFactory, cancellationToken);
@@ -147,6 +169,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPut("batchDelete")]
+        [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
         public async Task<IActionResult> BatchDeleteAsync([FromBody] List<Guid> guids, CancellationToken cancellationToken)
         {
             await _userService.BatchDeleteAsync(guids, cancellationToken);

@@ -12,7 +12,7 @@ namespace ZX.Platform.Identity.Application.Users
 
         Task UpdateDisplayNameAsync(UpdateUserDisplayNameDto updateUserDisplayName, CancellationToken cancellationToken);
 
-        Task UpdatePasswordAsync(UpdateUserPasswordDto updateUserPassword, CancellationToken cancellationToken);
+        Task ForceLogoutAsync(Guid id, CancellationToken cancellationToken);
 
         Task SetUserEnableAsync(Guid id, CancellationToken cancellationToken);
 

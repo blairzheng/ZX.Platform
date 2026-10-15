@@ -28,6 +28,11 @@
         public const int Forbidden = 600005;
 
         /// <summary>
+        /// 未登录、凭据无效或会话已失效。
+        /// </summary>
+        public const int Unauthorized = 600401;
+
+        /// <summary>
         /// 请求频率超过限制。
         /// </summary>
         public const int TooManyRequests = 600429;
@@ -36,5 +41,10 @@
         /// 系统出现未处理异常。
         /// </summary>
         public const int SystemError = 600500;
+
+        /// <summary>
+        /// 依赖服务暂时不可用。
+        /// </summary>
+        public const int ServiceUnavailable = 600503;
     }
 }

@@ -19,6 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddTrustedForwardedHeaders(builder.Configuration);
 builder.Services.AddApiLocalization();
 builder.Services.AddApiRateLimiting(builder.Configuration);
+builder.Services.AddIdentityAuthentication(builder.Configuration, builder.Environment);
 // WriteAsJsonAsync 使用 HTTP JSON 配置，与 MVC 分别设置相同的空值规则。
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -35,7 +36,7 @@ builder.Services.AddControllers()
     })
     .AddUnifiedApiBehavior();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddIdentitySwagger();
 builder.Services.AddScoped<AuditableEntitySaveChangesInterceptor>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -85,6 +86,7 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 app.UseRateLimiter();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

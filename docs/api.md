@@ -8,6 +8,45 @@
 
 普通 JSON 接口统一返回 `ApiResponse`：创建成功 HTTP 201，其他成功 HTTP 200，业务 `code=0`。无数据的操作也返回 JSON，不使用带响应体的 204。响应结构、错误码、`traceId` 与取消语义见[API 响应与错误](http.md)。
 
+## 认证接口
+
+| HTTP | Identity 路径 | 凭据 / 输入 | 成功 `data` |
+| --- | --- | --- | --- |
+| POST | `/api/Auth/login` | JSON `{ account, password, replaceExistingSession? }`，匿名可调用 | `AccessTokenDto`，设置 Refresh Cookie |
+| POST | `/api/Auth/refresh` | Refresh Cookie，Access 可过期 | `AccessTokenDto`，轮换 Cookie |
+| POST | `/api/Auth/logout` | Refresh Cookie 或有效 Bearer；无凭据也成功 | 无，删除 Cookie |
+| GET | `/api/Auth/me` | 有效 Bearer | `{ id, account, displayName, isAdministrator }` |
+| PUT | `/api/Auth/changePassword` | 有效 Bearer，JSON `{ currentPassword, newPassword }` | 无，撤销会话并删除 Cookie |
+
+Auth 的 POST / PUT 均须请求头 `X-Identity-CSRF: 1`，缺少或不匹配返回 `403 / 600005`。登录账号必填、最多 8 字符，密码必填、最多 72 UTF-8 字节；当前密码同样最多 72 字节，新密码至少 8 字符且最多 72 UTF-8 字节。参数错误返回 `400 / 600001`。密码不 Trim。
+
+登录无效、账号不可登录或 Refresh 失效返回 `401 / 600401`，带本地化提示、traceId 及 `WWW-Authenticate: Bearer`；Refresh 失败还删除 Cookie。当前密码错误返回 `400 / 600001`，不撤销会话；改密成功后客户端须重新登录。
+
+单账号只允许一处会话。正确密码登录但已有有效会话时返回 `409 / 600003`，`data={ reason: "AlreadyOnline" }`，提示使用后端 message；不改变原 Cookie / 会话。用户确认接管后，重新提交相同账号、密码和 `replaceExistingSession=true`，再次验密并替换旧会话。Redis 不可用返回 `503 / 600503`，不会被当成 401 或清除 Refresh Cookie。
+
+登录 / 刷新成功示例（`accessToken` 是签名 JWT，前端直接作为 Bearer 使用）：
+
+```json
+{
+  "code": 0,
+  "message": "登录成功。",
+  "data": {
+    "tokenType": "Bearer",
+    "accessToken": "<signed-jwt>",
+    "accessTokenExpiresAtUtc": "2026-10-14T00:15:00+00:00",
+    "refreshTokenExpiresAtUtc": "2026-10-21T00:00:00+00:00"
+  }
+}
+```
+
+Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie。会话默认 15 分钟 / 7 天绝对有效期、每次刷新替换旧 Access / Refresh、旧 Refresh 重放撤销对应会话。Cookie 属性、CSRF 原因、并发刷新要求和管理员配置见[登录与会话](authentication.md)。认证响应不缓存。
+
+## 访问控制
+
+受保护接口使用 `Authorization: Bearer <accessToken>`；先由标准 JwtBearer 验证 JWT，再检查 Redis 当前会话及 `jti`。缺少、签名无效、Issuer / Audience 不匹配、过期或撤销返回 `401 / 600401`，身份有效但不满足权限返回 `403 / 600005`。除匿名认证动作外，新接口默认要求登录。
+
+当前用户 / 厂区管理接口要求配置中的管理员账号，唯一例外是 `Users/updateDisplayName`：普通用户可修改自己的名称，管理员可修改他人。修改密码只通过 `Auth/changePassword` 本人验证旧密码，已移除管理员 `Users/updatePassword`。完整角色权限及厂区数据范围待实现。
+
 ## 用户接口
 
 | HTTP | Identity 路径                    | 输入                          | 成功 `data`       |
@@ -18,13 +57,15 @@
 | PUT  | `/api/Users/updateDisplayName`   | JSON `{ id, displayName }`    | 无                |
 | PUT  | `/api/Users/setUserEnable`       | query `id`                    | 无                |
 | PUT  | `/api/Users/setUserDisable`      | query `id`                    | 无                |
-| PUT  | `/api/Users/updatePassword`      | JSON `{ id, newPassword }`    | 无                |
+| POST | `/api/Users/forceLogout`         | query `id`                    | 无                |
 | PUT  | `/api/Users/logicDelete`         | query `id`                    | 无                |
 | PUT  | `/api/Users/batchDelete`         | JSON Guid 数组                | 无                |
 | PUT  | `/api/Users/restore`             | query `id`                    | 无                |
 | PUT  | `/api/Users/updateUserFactories` | JSON `{ userId, factoryIds }` | 无                |
 
 注意软删除接口实际使用 **PUT `logicDelete`**，不是 HTTP DELETE。修改显示名称和厂区关系是两个独立用例，并非一个整体用户更新接口。
+
+`forceLogout` 要求管理员，用户不存在返回 404；已有或已无会话均返回 200。只下线、不禁用，允许随后重新登录。禁用、删除会自动撤销会话，无需先调用下线接口。并发竞争及 Redis 写入失败时数据库可能已提交的边界见[登录与会话](authentication.md#禁用删除和改密码)。
 
 源码：[UsersController.cs](../Services/Identity/ZX.Platform.Identity.Api/Controllers/UsersController.cs)、[用户 DTO](../Services/Identity/ZX.Platform.Identity.Application/Users/Dtos)。
 
@@ -34,13 +75,12 @@
 | --------------------------- | ------------------------------------------------- |
 | `CreateUserDto.account`     | 必填，最多 8 个字符；服务 Trim 后比较标准化账号   |
 | `CreateUserDto.displayName` | 必填，最多 100 个字符                             |
-| `CreateUserDto.password`    | 必填，至少 8 个字符；当前 DTO 没有声明最大长度    |
+| `CreateUserDto.password`    | 必填，至少 8 个字符且最多 72 个 UTF-8 字节        |
 | `CreateUserDto.factoryIds`  | 必填数组，至少 1 个；所有厂区必须存在且启用       |
 | `UpdateUserDisplayNameDto`  | `id` 为 Guid；`displayName` 必填且最多 100 个字符 |
-| `UpdateUserPasswordDto`     | `id` 为 Guid；`newPassword` 必填，8～72 个字符    |
 | `UpdateUserFactoryDto`      | `userId` 为 Guid；`factoryIds` 必填且至少 1 个    |
 
-当前 DTO 的字符串长度约束按 .NET 字符计数；不要把修改密码的 72 字符注解理解为所有密码入口统一的字节上限。密码交由 BCrypt 哈希，详情和分页都不返回密码或哈希。
+普通字符串长度约束按 .NET 字符计数；密码另用 `PasswordBytes` 统一限制最多 72 UTF-8 字节，中文等多字节字符按实际编码长度计算。密码交由 BCrypt 哈希，详情和分页都不返回密码或哈希。
 
 创建示例：厂区 Guid 要替换为数据库中实际存在并启用的厂区。
 
