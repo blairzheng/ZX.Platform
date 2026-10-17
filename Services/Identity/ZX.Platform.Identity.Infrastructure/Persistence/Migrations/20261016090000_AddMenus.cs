@@ -41,4 +41,4 @@ public partial class AddMenus : Migration
     }
 
     protected override void Down(MigrationBuilder migrationBuilder) => migrationBuilder.DropTable("ZX_IDENTITY_MENU");
-}\n
+}

@@ -132,6 +132,8 @@ git config --local http.https://github.com.proxy http://127.0.0.1:<代理端口>
 
 ## 常见问题
 
+运行和接口排错日志见[运行与接口日志](logging.md)：本机查看控制台，Linux systemd 部署后用 journald 查询。生产输出单行 JSON，包含请求摘要与 TraceId；持久化、容量及网页查看方式由部署环境配置。
+
 | 现象                              | 检查方向                                                                         |
 | --------------------------------- | -------------------------------------------------------------------------------- |
 | 提示未配置 IdentityDatabase       | 给 Identity.Api 设置 User Secrets；确认当前环境是 Development，或注入环境变量    |
@@ -150,4 +152,4 @@ git config --local http.https://github.com.proxy http://127.0.0.1:<代理端口>
 
 两个 Web 项目均有 Dockerfile，另有仅供开发的 Redis Compose 及 Redis 健康检查；尚未建立完整平台 Compose、CI/CD、应用健康检查或生产部署流程。当前 Identity Dockerfile 在首次 restore 前只复制 Api 的项目文件，没有复制其引用项目，因此容器构建需要进一步调整，不能将现有文件当作已验收的部署方案。
 
-上线前需要按实际环境确定连接信息、HTTPS、代理地址、服务发现 / 目标地址、日志和验收流程。后续工作见[规划](roadmap.md)。
+上线前需要按实际环境确定连接信息、HTTPS、代理地址、服务发现 / 目标地址，并落实[journald 日志配置与验收](logging.md)。后续工作见[规划](roadmap.md)。

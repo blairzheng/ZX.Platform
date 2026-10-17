@@ -17,6 +17,7 @@
 | ------------------- | -------------------------------- | --------------------------------------------- |
 | 理解架构 / 新增业务 | [开发者指南](developer-guide.md) | 四层职责、Repository / Unit of Work、开发约定 |
 | 启动 / 配置 / 排错  | [开发环境](development.md)       | User Secrets、端口、HTTPS、Gateway 和 Git     |
+| 查运行和接口日志 | [运行与接口日志](logging.md) | 请求摘要、TraceId、异步控制台输出、Linux journald |
 | 修改实体 / 数据库   | [数据库与持久化](database.md)    | 唯一索引、软删除、审计、关系和 Migration      |
 | 运维按当地时间查数据 | [运维查询时间](database.md#运维查询时间) | SQL Server 查询模板、Oracle 时间类型与换算参考 |
 | 联调用户 / 厂区     | [Identity 接口契约](api.md)      | 路由、HTTP 方法、请求字段、分页与错误负载     |

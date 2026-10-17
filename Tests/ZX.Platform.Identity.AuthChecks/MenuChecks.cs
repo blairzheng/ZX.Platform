@@ -80,4 +80,4 @@ internal static class MenuChecks
 
     private static IEnumerable<MenuDto> Flatten(IEnumerable<MenuDto> nodes) =>
         nodes.SelectMany(node => new[] { node }.Concat(Flatten(node.Children)));
-}\n
+}

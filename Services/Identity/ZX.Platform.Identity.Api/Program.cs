@@ -17,6 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddTrustedForwardedHeaders(builder.Configuration);
+builder.Services.AddRequestLogging();
 builder.Services.AddApiLocalization();
 builder.Services.AddApiRateLimiting(builder.Configuration);
 builder.Services.AddIdentityAuthentication(builder.Configuration, builder.Environment);
@@ -70,6 +71,8 @@ await using (var scope = app.Services.CreateAsyncScope())
 
 // 先还原可信代理提供的客户端信息，限流随后使用 RemoteIpAddress。
 app.UseForwardedHeaders();
+// 包住异常处理器，摘要才能记录业务异常转换后的最终 HTTP 状态码。
+app.UseHttpLogging();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

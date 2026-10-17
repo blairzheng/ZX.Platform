@@ -11,6 +11,7 @@
 - 厂区：新增、详情、列表查询（不分页，一次返回全部厂区）、修改名称、启停用、软删除、恢复、查询全部启用厂区。
 - 数据访问：EF Core Migration、数据库唯一约束、审计时间、软删除过滤、一次保存提交业务变更。
 - API：统一 JSON 响应、参数校验、异常映射、中文 / English 提示和 `traceId`。
+- 运行日志：请求摘要、耗时与 TraceId，开发文本 / 生产 JSON 控制台输出，Linux 由 journald 收集。
 - 接口限频：同一 IP + HTTP 方法 + 路由模板，默认 3 秒分段滑动窗口最多 5 次，超限立即返回 `429 / 600429`。
 - 认证：JWT Access Token、随机 Refresh Token、Redis 单账号单会话、确认接管、刷新轮换、退出、当前用户、账号锁定、自助改密码及会话撤销。
 - 授权：用户多角色、角色功能权限、权限目录自动同步、Redis 权限缓存及版本失效、前端菜单/页面/按钮权限。
@@ -76,6 +77,7 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 | [Identity 接口契约](docs/api.md)            | 用户和厂区路由、DTO、分页与错误负载        |
 | [Identity 业务语义](docs/identity.md)       | 状态、厂区关系与当前能力边界               |
 | [API 响应与错误](docs/http.md)              | HTTP / 业务码、异常、校验与取消信号        |
+| [运行与接口日志](docs/logging.md)          | 请求摘要、异步输出、TraceId 与 journald 部署查询 |
 | [API 多语言](docs/localization.md)          | 请求语言、资源分组、消息键与扩展步骤       |
 | [接口限流](docs/rate-limiting.md)           | 滑动窗口、客户端 IP、配置和验收            |
 | [登录与会话](docs/authentication.md)       | Redis、接管、刷新、下线及并发边界          |

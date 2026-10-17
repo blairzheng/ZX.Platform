@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddTrustedForwardedHeaders(builder.Configuration);
+builder.Services.AddRequestLogging();
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -14,6 +15,7 @@ builder.Services.AddReverseProxy()
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+app.UseHttpLogging();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
