@@ -67,6 +67,8 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 
 ## 开发文档
 
+换电脑或新助手接续开发时，先读[项目交接说明](docs/project-handoff.md)。
+
 第一次接手先读[开发者指南](docs/developer-guide.md)，再按任务从[文档导航](docs/README.md)查阅。
 
 | 文档                                        | 用途                                       |
