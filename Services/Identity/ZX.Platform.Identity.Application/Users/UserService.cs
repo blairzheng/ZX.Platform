@@ -1,6 +1,7 @@
 ﻿using ZX.Platform.Identity.Application.Errors;
 using ZX.Platform.Identity.Application.Exceptions;
 using ZX.Platform.Identity.Application.Authentication;
+using ZX.Platform.Identity.Application.Authorization;
 using ZX.Platform.Identity.Application.Persistence;
 using ZX.Platform.Identity.Application.Security;
 using ZX.Platform.Identity.Application.Users.Dtos;
@@ -16,9 +17,10 @@ namespace ZX.Platform.Identity.Application.Users
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IAuthSessionStore _sessions;
+        private readonly IPermissionCache _permissionCache;
 
         public UserService(IUserRepository userRepository, IUnitOfWork unitOfWork, IPasswordHasher passwordHasher,
-            IFactoryRepository factoryRepository, IUserFactoryRepository userFactoryRepository, IAuthSessionStore sessions)
+            IFactoryRepository factoryRepository, IUserFactoryRepository userFactoryRepository, IAuthSessionStore sessions, IPermissionCache permissionCache)
         {
             _userRepository = userRepository;
             _unitOfWork = unitOfWork;
@@ -26,6 +28,7 @@ namespace ZX.Platform.Identity.Application.Users
             _factoryRepository = factoryRepository;
             _userFactoryRepository = userFactoryRepository;
             _sessions = sessions;
+            _permissionCache = permissionCache;
         }
         public async Task<Guid> CreateAsync(CreateUserDto createUser, CancellationToken cancellationToken)
         {
@@ -132,7 +135,7 @@ namespace ZX.Platform.Identity.Application.Users
             }
             finally
             {
-                await _sessions.RevokeUserAsync(id, CancellationToken.None);
+                await Task.WhenAll(_sessions.RevokeUserAsync(id, CancellationToken.None), _permissionCache.InvalidateAsync(CancellationToken.None));
             }
         }
 
@@ -141,7 +144,8 @@ namespace ZX.Platform.Identity.Application.Users
             var user = await _userRepository.GetByIdAsync(id, cancellationToken);
             if (user == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
             user.Enable();
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            try { await _unitOfWork.SaveChangesAsync(cancellationToken); }
+            finally { await _permissionCache.InvalidateAsync(CancellationToken.None); }
         }
 
         public async Task SoftDeleteAsync(Guid id, CancellationToken cancellationToken)
@@ -155,7 +159,7 @@ namespace ZX.Platform.Identity.Application.Users
             }
             finally
             {
-                await _sessions.RevokeUserAsync(id, CancellationToken.None);
+                await Task.WhenAll(_sessions.RevokeUserAsync(id, CancellationToken.None), _permissionCache.InvalidateAsync(CancellationToken.None));
             }
         }
 
@@ -180,7 +184,8 @@ namespace ZX.Platform.Identity.Application.Users
             if (user == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
             if (!user.IsDeleted) throw new BusinessException(ErrorCodes.Conflict, "User.NotDeleted");
             user.Restore();
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            try { await _unitOfWork.SaveChangesAsync(cancellationToken); }
+            finally { await _permissionCache.InvalidateAsync(CancellationToken.None); }
         }
 
         public async Task UpdateUserFactoriesAsync(UpdateUserFactoryDto updateUserFactory, CancellationToken cancellationToken)
@@ -233,7 +238,7 @@ namespace ZX.Platform.Identity.Application.Users
             {
                 // 独立 Redis 操作全部发起，避免一个撤销失败后跳过后续用户。
                 await Task.WhenAll(users.Select(user =>
-                    _sessions.RevokeUserAsync(user.Id, CancellationToken.None)));
+                    _sessions.RevokeUserAsync(user.Id, CancellationToken.None)).Append(_permissionCache.InvalidateAsync(CancellationToken.None)));
             }
         }
 

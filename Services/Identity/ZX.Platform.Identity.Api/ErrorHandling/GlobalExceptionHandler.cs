@@ -6,6 +6,7 @@ using ZX.Platform.Identity.Application.Errors;
 using ZX.Platform.Identity.Application.Exceptions;
 using ZX.Platform.Identity.Domain.Exceptions;
 using ZX.Platform.Identity.Application.Authentication;
+using ZX.Platform.Identity.Application.Authorization;
 
 namespace ZX.Platform.Identity.Api.ErrorHandling
 {
@@ -49,7 +50,7 @@ namespace ZX.Platform.Identity.Api.ErrorHandling
                     message,
                     traceId);
             }
-            else if (exception is AuthSessionUnavailableException)
+            else if (exception is AuthSessionUnavailableException or AuthorizationUnavailableException)
             {
                 statusCode = StatusCodes.Status503ServiceUnavailable;
                 code = ErrorCodes.ServiceUnavailable;

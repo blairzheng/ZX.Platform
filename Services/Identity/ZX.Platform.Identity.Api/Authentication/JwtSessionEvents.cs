@@ -12,7 +12,6 @@ namespace ZX.Platform.Identity.Api.Authentication;
 // JWT 格式、签名及有效期由 JwtBearer 验证；这里只检查共享会话并统一响应。
 public sealed class JwtSessionEvents(IAuthSessionStore sessions, IApiMessageLocalizer messages) : JwtBearerEvents
 {
-    public const string AdministratorPolicy = "Administrator";
     public const string SessionIdClaim = "sid";
 
     public override async Task TokenValidated(TokenValidatedContext context)

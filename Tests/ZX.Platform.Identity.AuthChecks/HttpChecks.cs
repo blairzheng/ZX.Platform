@@ -8,6 +8,7 @@ using ZX.Platform.Identity.Api.ErrorHandling;
 using ZX.Platform.Identity.Api.Extensions;
 using ZX.Platform.Identity.Api.Localization;
 using ZX.Platform.Identity.Application.Authentication;
+using ZX.Platform.Identity.Application.Authorization;
 using ZX.Platform.Identity.Application.Persistence;
 using ZX.Platform.Identity.Application.Security;
 using ZX.Platform.Identity.Application.Users;
@@ -17,6 +18,8 @@ using StackExchange.Redis;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using ZX.Platform.Identity.Infrastructure.Persistence;
 
 namespace ZX.Platform.Identity.AuthChecks;
 
@@ -44,8 +47,15 @@ internal static class HttpChecks
         });
         builder.Services.AddSingleton<TimeProvider>(fixture.Clock);
         builder.Services.AddIdentityAuthentication(builder.Configuration, builder.Environment);
+        // HTTP 检查使用替代仓储，不注册/运行真实数据库初始化。
+        builder.Services.RemoveAll<IRoleRepository>();
+        builder.Services.RemoveAll<IMenuRepository>();
+        builder.Services.RemoveAll<AuthorizationInitializer>();
         builder.Services.AddScoped<IAuthSessionStore>(_ => simulateOutage ? offlineSessions : fixture.Sessions);
         builder.Services.AddSingleton<IUserRepository>(fixture.Users);
+        builder.Services.AddSingleton<IRoleRepository>(fixture.Roles);
+        builder.Services.AddSingleton<IMenuRepository>(fixture.Menus);
+        builder.Services.AddSingleton<IPermissionCache>(fixture.PermissionCache);
         builder.Services.AddSingleton<IUnitOfWork>(fixture.Unit);
         builder.Services.AddSingleton<IPasswordHasher>(fixture.Passwords);
         builder.Services.AddScoped<IUserService>(_ => fixture.UserService);
@@ -157,10 +167,18 @@ internal static class HttpChecks
         access = Access(takeover);
         cookie = Cookie(takeover);
         var me = await SendAsync(HttpMethod.Get, "/api/Auth/me", access: access);
-        Check.That(me.Status == HttpStatusCode.OK && me.Json.GetProperty("data").GetProperty("isAdministrator").GetBoolean(), "Current user must reflect configured admin status.");
+        Check.That(me.Status == HttpStatusCode.OK && me.Json.GetProperty("data").GetProperty("isAdministrator").GetBoolean(), "Current user must reflect the administrator role.");
+        Check.That(me.Json.GetProperty("data").GetProperty("menus").GetArrayLength() > 0, "Current user must include the visible menu tree.");
+        Check.That((await SendAsync(HttpMethod.Get, "/api/Menus/getMenuTree", access: access)).Status == HttpStatusCode.OK,
+            "Administrator must be able to read the management menu tree.");
+        var permissionTree = await SendAsync(HttpMethod.Get, "/api/Roles/permissionTree", access: access);
+        Check.That(permissionTree.Status == HttpStatusCode.OK && permissionTree.Json.GetProperty("data").GetArrayLength() > 0,
+            "Role assignment must expose the menu permission hierarchy.");
 
         var userLogin = await LoginAsync("USER");
         var userAccess = Access(userLogin);
+        Check.That((await SendAsync(HttpMethod.Get, "/api/Menus/getMenuTree", access: userAccess)).Status == HttpStatusCode.Forbidden,
+            "Menu management must enforce its own policy.");
         var forbidden = await SendAsync(HttpMethod.Get, "/api/Users/getUserList", access: userAccess, language: "en-US");
         Check.That(forbidden.Status == HttpStatusCode.Forbidden && forbidden.Json.GetProperty("code").GetInt32() == 600005 &&
             forbidden.Json.GetProperty("message").GetString()!.StartsWith("You do not"), "Ordinary user must receive localized 403 for management.");
@@ -168,6 +186,23 @@ internal static class HttpChecks
             "Ordinary user may change their own name.");
         Check.That((await SendAsync(HttpMethod.Put, "/api/Users/updateDisplayName", new { id = fixture.User.Id, displayName = "Other name" }, userAccess)).Status == HttpStatusCode.Forbidden,
             "Ordinary user cannot change another user's name.");
+
+        var roleCreated = await SendAsync(HttpMethod.Post, "/api/Roles/add", new { code = "HTTP_READER", name = "HTTP reader" }, access);
+        Check.That(roleCreated.Status == HttpStatusCode.Created, "An administrator may create roles.");
+        var roleId = roleCreated.Json.GetProperty("data").GetGuid();
+        var granted = await SendAsync(HttpMethod.Put, "/api/Roles/updatePermissions",
+            new { roleId, permissionCodes = new[] { IdentityPermissions.RoleRead } }, access);
+        Check.That(granted.Status == HttpStatusCode.OK, "An administrator may grant declared permissions.");
+        var assigned = await SendAsync(HttpMethod.Put, "/api/Roles/updateUserRoles",
+            new { userId = ordinary.Id, roleIds = new[] { roleId } }, access);
+        Check.That(assigned.Status == HttpStatusCode.OK &&
+            (await SendAsync(HttpMethod.Get, "/api/Roles/getRoleList", access: userAccess)).Status == HttpStatusCode.OK,
+            "Assigned roles must authorize an existing JWT without signing in again.");
+        Check.That((await SendAsync(HttpMethod.Put, "/api/Roles/update", new { id = roleId, name = "Denied" }, userAccess)).Status == HttpStatusCode.Forbidden,
+            "Read permission must not grant role modification.");
+        await SendAsync(HttpMethod.Put, "/api/Roles/updatePermissions", new { roleId, permissionCodes = Array.Empty<string>() }, access);
+        Check.That((await SendAsync(HttpMethod.Get, "/api/Roles/getRoleList", access: userAccess)).Status == HttpStatusCode.Forbidden,
+            "Revoked permissions must reject the same existing JWT on the next request.");
         Check.That((await SendAsync(HttpMethod.Post, $"/api/Users/forceLogout?id={fixture.User.Id}", access: userAccess)).Status == HttpStatusCode.Forbidden,
             "An ordinary user must not force another user offline.");
         Check.That((await SendAsync(HttpMethod.Post, $"/api/Users/forceLogout?id={ordinary.Id}", access: access)).Status == HttpStatusCode.OK,

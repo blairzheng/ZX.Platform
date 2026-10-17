@@ -1,3 +1,5 @@
+using ZX.Platform.Identity.Application.Menus.Dtos;
+
 namespace ZX.Platform.Identity.Application.Authentication.Dtos;
 
 public sealed class CurrentUserDto
@@ -6,4 +8,7 @@ public sealed class CurrentUserDto
     public required string Account { get; init; }
     public required string DisplayName { get; init; }
     public bool IsAdministrator { get; init; }
+    public string[] Roles { get; init; } = [];
+    public string[] Permissions { get; init; } = [];
+    public List<MenuDto> Menus { get; init; } = [];
 }

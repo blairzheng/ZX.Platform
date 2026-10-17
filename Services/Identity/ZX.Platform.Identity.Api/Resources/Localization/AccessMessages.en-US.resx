@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Access.RoleListLoaded" xml:space="preserve"><value>Roles loaded.</value></data>
+  <data name="Access.RoleCreated" xml:space="preserve"><value>Role created.</value></data>
+  <data name="Access.RoleUpdated" xml:space="preserve"><value>Role updated.</value></data>
+  <data name="Access.RoleStatusUpdated" xml:space="preserve"><value>Role status updated.</value></data>
+  <data name="Access.RoleDeleted" xml:space="preserve"><value>Role deleted.</value></data>
+  <data name="Access.PermissionListLoaded" xml:space="preserve"><value>Permissions loaded.</value></data>
+  <data name="Access.PermissionsUpdated" xml:space="preserve"><value>Role permissions updated.</value></data>
+  <data name="Access.UserRolesLoaded" xml:space="preserve"><value>User roles loaded.</value></data>
+  <data name="Access.UserRolesUpdated" xml:space="preserve"><value>User roles updated.</value></data>
+  <data name="Access.RoleNotFound" xml:space="preserve"><value>Role not found.</value></data>
+  <data name="Access.RoleCodeExists" xml:space="preserve"><value>The role code already exists or is reserved, including deleted roles.</value></data>
+  <data name="Access.RoleUnavailable" xml:space="preserve"><value>A selected role does not exist, is deleted or is disabled.</value></data>
+  <data name="Access.UnknownPermission" xml:space="preserve"><value>An unknown or inactive permission was selected. Refresh and try again.</value></data>
+  <data name="Access.BuiltInRoleReadOnly" xml:space="preserve"><value>The built-in administrator role cannot be modified, disabled or deleted.</value></data>
+  <data name="Access.CannotRemoveOwnAdministrator" xml:space="preserve"><value>You cannot remove your own administrator role.</value></data>
+  <data name="Access.CannotDeactivateSelf" xml:space="preserve"><value>You cannot disable or delete the current user.</value></data>
+  <data name="Access.Group.user" xml:space="preserve"><value>Users</value></data>
+  <data name="Access.Group.factory" xml:space="preserve"><value>Factories</value></data>
+  <data name="Access.Group.role" xml:space="preserve"><value>Roles</value></data>
+  <data name="Access.Permission.identity.user.read" xml:space="preserve"><value>View users</value></data>
+  <data name="Access.Permission.identity.user.create" xml:space="preserve"><value>Create users</value></data>
+  <data name="Access.Permission.identity.user.rename" xml:space="preserve"><value>Rename other users</value></data>
+  <data name="Access.Permission.identity.user.status" xml:space="preserve"><value>Enable or disable users</value></data>
+  <data name="Access.Permission.identity.user.delete" xml:space="preserve"><value>Delete users</value></data>
+  <data name="Access.Permission.identity.user.restore" xml:space="preserve"><value>Restore users</value></data>
+  <data name="Access.Permission.identity.user.factories" xml:space="preserve"><value>Assign user factories</value></data>
+  <data name="Access.Permission.identity.user.roles" xml:space="preserve"><value>Assign user roles</value></data>
+  <data name="Access.Permission.identity.user.forceLogout" xml:space="preserve"><value>Force users offline</value></data>
+  <data name="Access.Permission.identity.factory.read" xml:space="preserve"><value>View factories</value></data>
+  <data name="Access.Permission.identity.factory.create" xml:space="preserve"><value>Create factories</value></data>
+  <data name="Access.Permission.identity.factory.rename" xml:space="preserve"><value>Rename factories</value></data>
+  <data name="Access.Permission.identity.factory.status" xml:space="preserve"><value>Enable or disable factories</value></data>
+  <data name="Access.Permission.identity.factory.delete" xml:space="preserve"><value>Delete factories</value></data>
+  <data name="Access.Permission.identity.factory.restore" xml:space="preserve"><value>Restore factories</value></data>
+  <data name="Access.Permission.identity.role.read" xml:space="preserve"><value>View roles</value></data>
+  <data name="Access.Permission.identity.role.create" xml:space="preserve"><value>Create roles</value></data>
+  <data name="Access.Permission.identity.role.update" xml:space="preserve"><value>Edit role details</value></data>
+  <data name="Access.Permission.identity.role.status" xml:space="preserve"><value>Enable or disable roles</value></data>
+  <data name="Access.Permission.identity.role.delete" xml:space="preserve"><value>Delete roles</value></data>
+  <data name="Access.Permission.identity.role.permissions" xml:space="preserve"><value>Assign role permissions</value></data>
+  <data name="Access.MenuTreeLoaded" xml:space="preserve"><value>Menus loaded.</value></data>
+  <data name="Access.MenuCreated" xml:space="preserve"><value>Menu created.</value></data>
+  <data name="Access.MenuUpdated" xml:space="preserve"><value>Menu updated.</value></data>
+  <data name="Access.MenuStatusUpdated" xml:space="preserve"><value>Menu status updated.</value></data>
+  <data name="Access.MenuDeleted" xml:space="preserve"><value>Menu deleted.</value></data>
+  <data name="Access.BuiltInMenuStructureReadOnly" xml:space="preserve"><value>Only titles, icons and sort order can be changed for built-in menus.</value></data>
+  <data name="Access.MenuCodeExists" xml:space="preserve"><value>The menu code already exists or is reserved, including deleted menus.</value></data>
+  <data name="Access.MenuNotFound" xml:space="preserve"><value>Menu not found.</value></data>
+  <data name="Access.InvalidMenu" xml:space="preserve"><value>Invalid menu kind or field combination.</value></data>
+  <data name="Access.InvalidMenuParent" xml:space="preserve"><value>Invalid parent menu or cyclic hierarchy.</value></data>
+  <data name="Access.MenuHasChildren" xml:space="preserve"><value>Remove or move child menus first.</value></data>
+  <data name="Access.InvalidMenuRoute" xml:space="preserve"><value>Invalid route path or component identifier, or a reserved route path.</value></data>
+  <data name="Access.MenuPathExists" xml:space="preserve"><value>The route path is already used by another page.</value></data>
+  <data name="Access.MenuPermissionExists" xml:space="preserve"><value>This action permission is already assigned to a menu.</value></data>
+  <data name="Access.InvalidMenuIcon" xml:space="preserve"><value>Use svg:name or ep:name for menu icons.</value></data>
+  <data name="Access.Group.menu" xml:space="preserve"><value>Menus</value></data>
+  <data name="Access.Permission.identity.menu.read" xml:space="preserve"><value>View menus</value></data>
+  <data name="Access.Permission.identity.menu.create" xml:space="preserve"><value>Create menus</value></data>
+  <data name="Access.Permission.identity.menu.update" xml:space="preserve"><value>Edit menus</value></data>
+  <data name="Access.Permission.identity.menu.status" xml:space="preserve"><value>Enable or disable menus</value></data>
+  <data name="Access.Permission.identity.menu.delete" xml:space="preserve"><value>Delete menus</value></data>
+</root>

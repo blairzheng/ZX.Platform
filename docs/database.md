@@ -11,6 +11,11 @@ Identity 使用 EF Core 10 与 SQL Server。数据库由本服务拥有；其他
 | `User`        | `ZX_IDENTITY_USER`         | 应用生成 `Guid`；`NormalizedAccount` 全表唯一 | 软删除与恢复       |
 | `Factory`     | `ZX_IDENTITY_FACTORY`      | 应用生成 `Guid`；`Code` 全表唯一              | 软删除与恢复       |
 | `UserFactory` | `ZX_IDENTITY_USER_FACTORY` | `UserId + FactoryId` 联合主键                 | 新增或物理删除关系 |
+| `Role` | `ZX_IDENTITY_ROLE` | Guid；`Code` 全表唯一 | 软删除；内置角色只读 |
+| `Permission` | `ZX_IDENTITY_PERMISSION` | `Code` 主键 | 启动同步，移除定义后停用 |
+| `UserRole` | `ZX_IDENTITY_USER_ROLE` | `UserId + RoleId` 联合主键 | 新增或物理删除关系 |
+| `RolePermission` | `ZX_IDENTITY_ROLE_PERMISSION` | `RoleId + PermissionCode` 联合主键 | 新增或物理删除关系 |
+| `Menu` | `ZX_IDENTITY_MENU` | Guid；Code 全表唯一；未删除页面 Path、操作 PermissionCode 分别唯一 | 软删除；内置节点仅维护名称/图标/排序 |
 
 `UserFactory` 表示用户和厂区的多对多关系，包含 `IsDefault` 和审计字段，**没有 `IsEnabled` 或软删除字段**。默认厂区的实体方法已经存在，当前接口创建关系时均使用 `IsDefault=false`，尚未建立设置默认厂区的用例。
 
@@ -28,7 +33,7 @@ Identity 使用 EF Core 10 与 SQL Server。数据库由本服务拥有；其他
 
 ## 软删除与状态
 
-`User` 和 `Factory` 继承 `SoftDeletableEntity`。`MarkDeleted()` 设置 `IsDeleted=true`，各实体同时设 `IsEnabled=false`；`Restore()` 清除删除状态并重新启用。
+`User`、`Factory`、`Role` 和 `Menu` 继承 `SoftDeletableEntity`。`MarkDeleted()` 设置 `IsDeleted=true`，各实体同时设 `IsEnabled=false`。用户和厂区提供恢复接口；角色和菜单当前不提供恢复。角色、菜单及授权关联也有审计字段；权限目录仅保存编码和活跃状态，不继承审计实体。角色关系与缓存失效见[角色与权限](authorization.md)。
 
 普通查询默认使用 `!IsDeleted` 的全局过滤器，包括详情、分页和启用厂区查询。恢复用例通过专用查询包含已删除数据；普通启用接口不会绕过过滤器取得已删除对象。
 
@@ -155,6 +160,9 @@ Migration 和模型快照放在 Infrastructure 的 `Persistence/Migrations/`，�
 2. `20260916013615_AlignUserFactoryQueryFilter`。
 3. `20260916030633_RemoveIdentityNavigations`。
 4. `20260920085118_RemoveUserFactoryIsEnabled`。
+5. `20261016080000_AddRolesAndPermissions`：角色、权限目录、用户角色及角色权限四表。
+6. `20261016090000_AddMenus`：菜单表、父级索引和按类型/未删除状态过滤的唯一路径及操作权限索引；启动时补齐默认菜单。
+7. `20261017015833_AddMenuDisplayOptions`：菜单显示、标签显示、固定标签三列。已有行的 SHOW_IN_MENU / SHOW_IN_TAGS 设为 true，AFFIX 设为 false，保持升级前的导航、标签及缓存行为。
 
 历史迁移反映模型演进，最终模型以当前 Configuration 和快照为准。不要只取最后一份 Migration 建库，也不要改动已应用的迁移来掩盖后续模型变化。
 
@@ -176,7 +184,7 @@ dotnet ef migrations list --project Services/Identity/ZX.Platform.Identity.Infra
 dotnet ef database update --project Services/Identity/ZX.Platform.Identity.Infrastructure --startup-project Services/Identity/ZX.Platform.Identity.Api --context PlatformIdentityDbContext
 ```
 
-`database update` 会修改所配置的数据库，执行前核对环境和目标。应用启动时没有自动调用 `Database.Migrate()`。
+`database update` 会修改所配置的数据库，执行前核对环境和目标。应用启动时没有自动调用 `Database.Migrate()`。角色权限版本启动会访问新增表，升级后必须先应用迁移；不要先启动旧数据库结构上的新程序。当前开发库已应用上述迁移；其他环境部署前仍需先执行迁移，并核对目标数据库。
 
 模型或 Fluent API 发生变化时新增迁移，名称改为描述实际变更的名字：
 

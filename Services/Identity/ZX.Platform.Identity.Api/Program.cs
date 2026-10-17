@@ -62,6 +62,12 @@ builder.Services.AddScoped<IUserFactoryRepository, UserFactoryRepository>();
 
 var app = builder.Build();
 
+// 先应用数据库迁移再启动；这里只同步权限目录和首次管理员关系，不自动迁移数据库。
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<AuthorizationInitializer>().InitializeAsync(CancellationToken.None);
+}
+
 // 先还原可信代理提供的客户端信息，限流随后使用 RemoteIpAddress。
 app.UseForwardedHeaders();
 

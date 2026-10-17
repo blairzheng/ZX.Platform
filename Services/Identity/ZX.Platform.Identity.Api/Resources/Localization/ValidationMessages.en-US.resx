@@ -30,4 +30,11 @@
   <data name="Validation.Separator" xml:space="preserve"><value>; </value></data>
   <data name="Validation.CurrentPasswordRequired" xml:space="preserve"><value>Current password is required.</value></data>
   <data name="Validation.PasswordMaxBytes" xml:space="preserve"><value>Password must not exceed 72 bytes in UTF-8.</value></data>
+  <data name="Validation.Required" xml:space="preserve"><value>{0} is required.</value></data>
+  <data name="Validation.StringLength" xml:space="preserve"><value>{0} cannot exceed {1} characters.</value></data>
+  <data name="Validation.MaxLength" xml:space="preserve"><value>{0} cannot contain more than {1} items.</value></data>
+  <data name="Validation.RoleCode" xml:space="preserve"><value>Role codes must start with a letter and contain only letters, numbers and underscores.</value></data>
+  <data name="Validation.MenuKind" xml:space="preserve"><value>Invalid menu kind.</value></data>
+  <data name="Validation.MenuSort" xml:space="preserve"><value>Sort order must be between 0 and 10000.</value></data>
+  <data name="Validation.MenuCode" xml:space="preserve"><value>Menu codes must start with a letter and contain only letters, numbers, underscores and hyphens.</value></data>
 </root>

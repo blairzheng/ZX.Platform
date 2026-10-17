@@ -11,6 +11,10 @@ using StackExchange.Redis;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
+using ZX.Platform.Identity.Application.Authorization;
+using Role = ZX.Platform.Identity.Domain.Entities.Role;
+using ZX.Platform.Identity.Application.Menus;
+using ZX.Platform.Identity.Infrastructure.Persistence;
 
 namespace ZX.Platform.Identity.AuthChecks;
 
@@ -69,6 +73,44 @@ internal sealed class TestUnitOfWork : IUnitOfWork
     }
 }
 
+internal sealed class TestRoles(TestUsers users) : IRoleRepository
+{
+    public List<Role> Items { get; } = [];
+    public List<UserRole> UserRoles { get; } = [];
+    public List<RolePermission> RolePermissions { get; } = [];
+    public void Add(Role role) => Items.Add(role);
+    public Task<Role?> GetByIdAsync(Guid id, CancellationToken token) => Task.FromResult(Items.FirstOrDefault(role => role.Id == id && !role.IsDeleted));
+    public Task<Role?> GetByCodeAsync(string code, CancellationToken token) => Task.FromResult(Items.FirstOrDefault(role => role.Code == code));
+    public Task<List<Role>> GetAllAsync(CancellationToken token) => Task.FromResult(Items.Where(role => !role.IsDeleted).ToList());
+    public Task<List<Role>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken token) => Task.FromResult(Items.Where(role => ids.Contains(role.Id) && !role.IsDeleted).ToList());
+    public Task<List<RolePermission>> GetPermissionsAsync(IEnumerable<Guid> roleIds, CancellationToken token) => Task.FromResult(RolePermissions.Where(item => roleIds.Contains(item.RoleId)).ToList());
+    public void AddPermission(RolePermission permission) => RolePermissions.Add(permission);
+    public void RemovePermission(RolePermission permission) => RolePermissions.Remove(permission);
+    public Task<List<UserRole>> GetUserRolesAsync(Guid userId, CancellationToken token) => Task.FromResult(UserRoles.Where(item => item.UserId == userId).ToList());
+    public void AddUserRole(UserRole relation) => UserRoles.Add(relation);
+    public void RemoveUserRole(UserRole relation) => UserRoles.Remove(relation);
+    public Task<List<Guid>> GetAdministratorUserIdsAsync(IEnumerable<Guid> ids, CancellationToken token) => Task.FromResult(
+        UserRoles.Where(item => ids.Contains(item.UserId) && Items.Any(role => role.Id == item.RoleId && role.IsBuiltIn && role.IsEnabled && !role.IsDeleted)).Select(item => item.UserId).ToList());
+    public Task<AuthorizationSnapshot> GetAuthorizationAsync(Guid userId, CancellationToken token)
+    {
+        if (!users.Items.Any(user => user.Id == userId && user.IsEnabled && !user.IsDeleted))
+            return Task.FromResult(new AuthorizationSnapshot(false, [], []));
+        var roles = Items.Where(role => role.IsEnabled && !role.IsDeleted && UserRoles.Any(item => item.UserId == userId && item.RoleId == role.Id)).ToList();
+        var administrator = roles.Any(role => role.IsBuiltIn && role.Code == Role.AdministratorCode);
+        return Task.FromResult(new AuthorizationSnapshot(administrator, roles.Select(role => role.Code).ToArray(),
+            administrator ? IdentityPermissions.All.ToArray() : RolePermissions.Where(item => roles.Any(role => role.Id == item.RoleId)).Select(item => item.PermissionCode).Distinct().ToArray()));
+    }
+}
+
+internal sealed class TestMenus : IMenuRepository
+{
+    public List<Menu> Items { get; } = [];
+    public void Add(Menu menu) => Items.Add(menu);
+    public Task<List<Menu>> GetAllAsync(CancellationToken token) => Task.FromResult(Items.Where(menu => !menu.IsDeleted).ToList());
+    public Task<Menu?> GetByIdAsync(Guid id, CancellationToken token) => Task.FromResult(Items.FirstOrDefault(menu => menu.Id == id && !menu.IsDeleted));
+    public Task<bool> CodeExistsAsync(string code, CancellationToken token) => Task.FromResult(Items.Any(menu => menu.Code == code));
+}
+
 internal sealed class Fixture : IDisposable
 {
     public TestClock Clock { get; } = new();
@@ -77,6 +119,9 @@ internal sealed class Fixture : IDisposable
     public JwtAccessTokenIssuer AccessTokens { get; }
     public TestPasswords Passwords { get; } = new();
     public TestUsers Users { get; } = new();
+    public TestRoles Roles { get; }
+    public TestMenus Menus { get; } = new();
+    public RedisPermissionCache PermissionCache { get; }
     public TestUnitOfWork Unit { get; } = new();
     public RedisSessionOptions RedisOptions { get; } = new() { KeyPrefix = $"zx:identity:checks:{Guid.NewGuid():N}:" };
     public RedisAuthSessionStore Sessions { get; }
@@ -88,11 +133,17 @@ internal sealed class Fixture : IDisposable
     {
         AccessTokens = new(Jwt);
         Sessions = new(TestRedis.Connection, Options, RedisOptions, AccessTokens, Clock);
-        Auth = new(Users, Unit, Passwords, Sessions, Options, Clock);
+        Roles = new(Users);
+        PermissionCache = new(TestRedis.Connection, RedisOptions);
+        DefaultMenus.AddMissing(Menus.Items, Menus.Add);
+        Auth = new(Users, Unit, Passwords, Sessions, Options, Clock, new PermissionService(Roles, PermissionCache), new MenuService(Menus, Unit));
         // 这些检查仅调用用户状态/密码用例，不使用厂区仓储。
-        UserService = new(Users, Unit, Passwords, null!, null!, Sessions);
+        UserService = new(Users, Unit, Passwords, null!, null!, Sessions, PermissionCache);
         User = User.Create("ADMIN", "Administrator", Passwords.Hash("Example123!"));
         Users.Add(User);
+        var administrator = Role.CreateAdministrator();
+        Roles.Add(administrator);
+        Roles.AddUserRole(UserRole.Create(User.Id, administrator.Id));
     }
 
     public Task<AuthTokens> LoginAsync(string password = "Example123!", bool replaceExisting = false) =>

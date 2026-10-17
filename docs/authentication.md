@@ -8,7 +8,7 @@
 
 Access Token 使用标准 JWT，由 `System.IdentityModel.Tokens.Jwt` 签发，ASP.NET Core `AddJwtBearer()` 验证签名、Issuer、Audience、有效期、HS256 算法及 `typ=at+jwt`，不自行解析和验证 Access Token。Refresh Token 继续使用密码学安全随机凭据。业务请求只接受 `Authorization: Bearer <accessToken>`，不接受 URL Token 或用 Refresh Cookie 代替业务请求认证。
 
-数据库保存用户、BCrypt 密码哈希和账号状态；Redis 保存当前会话。JWT 标准验证通过后，每个需要认证的请求查询一次 Redis，核对用户、SessionId 和当前 Access `jti`，不逐请求查用户表或 HTTP 调用 Identity。多个 Identity 实例必须使用相同 JWT 配置和密钥、Redis 数据库、键前缀、Token 生命周期及管理员配置。连接通过单例 `IConnectionMultiplexer` 复用，无本机会话缓存或内存降级。
+数据库保存用户、BCrypt 密码哈希、账号状态及角色授权；Redis 保存当前会话与权限缓存。JWT 标准验证通过后，每个需要认证的请求查询 Redis 核对用户、SessionId 和当前 Access `jti`。功能权限检查再使用一次 MGET，缓存未命中才查询授权表，不逐请求 HTTP 调用 Identity。多个实例必须使用相同 JWT 配置和密钥、数据库、Redis、键前缀、Token 生命周期及权限目录版本。连接通过单例 `IConnectionMultiplexer` 复用，无跨请求本机缓存或内存降级。权限缓存规则见[角色与权限](authorization.md)。
 
 存储接口为 `Application/Authentication/IAuthSessionStore`，实现为 `Infrastructure/Security/RedisAuthSessionStore`；`JwtAccessTokenIssuer` 负责调用标准库签发 JWT，API 的 `JwtSessionEvents.TokenValidated` 在 `JwtBearer` 校验成功后检查共享会话，并统一 401 / 403 响应。旧的 `SessionAuthenticationHandler`、随机 Access 格式、Access 哈希匹配已移除。JSON 会话使用新键名，与旧 `zx:identity:auth:user:{userId}` Hash 隔离，避免 Redis 类型冲突。旧随机 Token 及旧 Hash 会话均不兼容，更新后需重新登录；旧键按原 TTL 到期，不需要清空 Redis。多实例更新时需统一切换版本，不能让仍认可旧 Hash 会话的实例继续提供服务。
 
@@ -66,7 +66,7 @@ Auth 的 POST / PUT 均要求 `X-Identity-CSRF: 1`。这是非简单请求头，
 | `Authentication:RefreshTokenDays` | 7 | 1～30 天，绝对有效期 |
 | `Authentication:MaximumFailedAttempts` | 5 | 1～20 次 |
 | `Authentication:LockoutMinutes` | 15 | 1～1440 分钟 |
-| `Authentication:AdministratorAccounts` | `[]` | 显式指定已有账号，忽略大小写 |
+| `Authentication:AdministratorAccounts` | `[]` | 仅首次引导内置管理员，指定已有账号、忽略大小写 |
 | `AuthenticationCookie:Secure` | true | 仅 Development 可设 false |
 | `ConnectionStrings:IdentityRedis` | `127.0.0.1:6379,connectTimeout=3000,asyncTimeout=3000` | Redis 地址，生产凭据外部注入 |
 | `AuthenticationRedis:KeyPrefix` | `zx:identity:auth:` | 相同环境所有实例一致，不同环境必须隔离 |
@@ -90,15 +90,15 @@ Remove-Variable identityJwtBytes, identityJwtRng, identityJwtKey
 
 自定义密钥只在首次配置或计划更换时生成。缺少密钥、Base64 无效或长度不足时启动失败；非 Development 不自动加载开发配置文件，因此未注入密钥时仍拒绝启动。更换密钥会使原 JWT 无法验证；当前没有多密钥轮换机制，已有有效 Refresh 可按会话规则换取新 JWT。各实例使用一致的 Issuer、Audience 和密钥、不同环境隔离 Redis 会话，ClockSkew 为零，需同步系统时间。HS256 为共享签名密钥，持有它的服务也能签发 Token，未来向独立信任边界扩展时应采用非对称签名及公钥验证。
 
-完整角色权限尚未实现，暂用管理员账号名单保护用户和厂区管理接口，空名单不会给任何人管理权限。普通用户可查看自己的当前用户信息、退出、自助改密码和修改自己的显示名称；管理员可修改他人显示名称。没有公开注册接口，不自动创建默认账号或密码。
+角色与功能权限已接入，管理接口使用各自 Policy。普通用户仍可查看自己的当前用户信息、退出、自助改密码和修改自己的显示名称；修改他人名称需要相应权限。没有公开注册接口，不自动创建默认账号或密码。
 
-现有开发数据库选择一个已存在、启用且知道密码的账号配置为管理员，例如实际账号是 `ZX001`：
+首次引导时，先应用角色迁移，再选择一个已存在、启用且知道密码的账号，例如实际账号是 `ZX001`：
 
 ```powershell
 dotnet user-secrets set "Authentication:AdministratorAccounts:0" "ZX001" --project Services/Identity/ZX.Platform.Identity.Api
 ```
 
-配置变更重启生效。环境变量对应 `Authentication__AdministratorAccounts__0`。名单不是密码配置，不能创建缺失用户；全新空库的首个账号还需受控初始化，当前未提供引导接口。
+环境变量对应 `Authentication__AdministratorAccounts__0`。仅当数据库还没有 `ADMINISTRATOR` 角色时，启动使用名单创建该角色并绑定用户。角色存在后配置变更不再授予或撤销权限，后续在用户页分配角色；清空配置也不会删除已有管理员。空名单不自动授权；全新空库的首个账号仍需受控初始化。完整步骤见[首次管理员初始化](authorization.md#首次管理员初始化)。
 
 ## Redis 启动与故障
 
@@ -130,8 +130,8 @@ $env:IDENTITY_TEST_REDIS = "127.0.0.1:6379"
 dotnet run --project Tests/ZX.Platform.Identity.AuthChecks --no-launch-profile
 ```
 
-检查使用真实 Redis、两个独立 Redis 连接、真实 BCrypt、替代用户仓储和临时 HTTP 服务。覆盖 JSON String 存储、创建及刷新后的绝对过期时间、旧 Hash 会话迁移、JWT 签名篡改、错误 Issuer / Audience / 密钥 / 类型、无签名、有效期、会话 Claims、匿名刷新携带过期 Access、跨实例接管/下线、原子轮换与多次刷新后的重放、锁定、旧退出不影响新登录、503 故障、Cookie、CSRF、权限、多语言及接受的竞争边界。每组使用随机 `zx:identity:checks:` 前缀并只清理自己的键，不清库；仍建议使用独立测试 Redis。不连接业务数据库，不替代真实 SQL Server / Gateway / 浏览器的部署验收。手工示例见 Api `.http` 文件。
+检查使用真实 Redis、两个独立 Redis 连接、真实 BCrypt、替代用户仓储和临时 HTTP 服务。覆盖 JSON String 存储、创建及刷新后的绝对过期时间、旧 Hash 会话迁移、JWT 签名篡改、错误 Issuer / Audience / 密钥 / 类型、无签名、有效期、会话 Claims、匿名刷新携带过期 Access、跨实例接管/下线、原子轮换与多次刷新后的重放、锁定、旧退出不影响新登录、503 故障、Cookie、CSRF、权限、多语言及接受的竞争边界。每组使用随机 `zx:identity:checks:` 前缀并只清理自己的键，不清库；仍建议使用独立测试 Redis。不连接业务数据库，不替代真实 SQL Server / Gateway / 浏览器的部署验收。新增角色授权检查还覆盖模型与迁移快照、权限并集、Redis 版本失效和内置管理员保护，HTTP 检查覆盖旧 JWT 在授权/撤权后分别通过/拒绝。手工示例见 Api `Authorization.http` 及认证 `.http` 文件。
 
-各业务服务仍需独立认证并检查自己的功能权限与厂区数据范围，不能只相信 Gateway，也不能将 `UserFactory` 或登录成功视为所有业务授权。新增业务服务时提取公共 Redis 认证组件，不逐请求 HTTP 调 Identity。角色权限、公共认证组件、首账号初始化及审计用户上下文属于后续工作。
+各业务服务仍需独立认证并检查自己的功能权限与厂区数据范围，不能只相信 Gateway，也不能将 `UserFactory` 或登录成功视为所有业务授权。Identity 的角色权限已接入，本次尚未执行新增授权的真实数据库和浏览器验收，清单见[角色与权限](authorization.md#验证与待验收)。新增业务服务时提取公共认证/授权组件，不逐请求 HTTP 调 Identity。跨服务组件、首账号初始化及审计用户上下文属于后续工作。
 
 前端登录通过同源 Gateway 代理，Access 保存在 localStorage，Refresh 仅在 HttpOnly Cookie；HTTP 本机开发按上文调整 Development Cookie 配置。前端拼图插件目前只提供拖动交互，后端未验证挑战，不能将其当作服务端防机器人能力。前端认证说明及手工验收清单见 ZX.front.vue 的 `docs/authentication.md`。

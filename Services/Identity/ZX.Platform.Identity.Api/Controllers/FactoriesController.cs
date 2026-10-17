@@ -5,13 +5,14 @@ using ZX.Platform.Identity.Application.Factories;
 using ZX.Platform.Identity.Application.Factories.Dtos;
 
 using Microsoft.AspNetCore.Authorization;
-using ZX.Platform.Identity.Api.Authentication;
+using ZX.Platform.Identity.Api.Authorization;
+using ZX.Platform.Identity.Application.Authorization;
 
 namespace ZX.Platform.Identity.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = JwtSessionEvents.AdministratorPolicy)]
+    [Authorize]
     public class FactoriesController : ControllerBase
     {
         private readonly IFactoryService _factoryService;
@@ -24,6 +25,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPost("add")]
+        [Authorize(Policy = IdentityPermissions.FactoryCreate)]
         public async Task<IActionResult> CreateAsync([FromBody] CreateFactoryDto createFactory, CancellationToken cancellationToken)
         {
             var factoryId = await _factoryService.CreateAsync(createFactory, cancellationToken);
@@ -37,6 +39,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpGet("getFactory")]
+        [Authorize(Policy = IdentityPermissions.FactoryRead)]
         public async Task<IActionResult> GetByIdAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             var factory = await _factoryService.GetByIdAsync(id, cancellationToken);
@@ -50,6 +53,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpGet("getFactoryList")]
+        [Authorize(Policy = IdentityPermissions.FactoryRead)]
         public async Task<IActionResult> GetAllAsync(CancellationToken cancellationToken)
         {
             var factories = await _factoryService.GetAllAsync(cancellationToken);
@@ -63,6 +67,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPut("updateName")]
+        [Authorize(Policy = IdentityPermissions.FactoryRename)]
         public async Task<IActionResult> UpdateNameAsync([FromBody] UpdateFactoryNameDto updateFactoryName, CancellationToken cancellationToken)
         {
             await _factoryService.UpdateNameAsync(updateFactoryName, cancellationToken);
@@ -75,6 +80,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPut("setFactoryEnable")]
+        [Authorize(Policy = IdentityPermissions.FactoryChangeStatus)]
         public async Task<IActionResult> SetFactoryEnableAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             await _factoryService.SetFactoryEnableAsync(id, cancellationToken);
@@ -87,6 +93,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPut("setFactoryDisable")]
+        [Authorize(Policy = IdentityPermissions.FactoryChangeStatus)]
         public async Task<IActionResult> SetFactoryDisableAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             await _factoryService.SetFactoryDisableAsync(id, cancellationToken);
@@ -99,6 +106,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPut("logicDelete")]
+        [Authorize(Policy = IdentityPermissions.FactoryDelete)]
         public async Task<IActionResult> SoftDeleteAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             await _factoryService.SoftDeleteAsync(id, cancellationToken);
@@ -111,6 +119,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpPut("restore")]
+        [Authorize(Policy = IdentityPermissions.FactoryRestore)]
         public async Task<IActionResult> RestoreAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             await _factoryService.RestoreAsync(id, cancellationToken);
@@ -123,6 +132,7 @@ namespace ZX.Platform.Identity.Api.Controllers
         }
 
         [HttpGet("getAllEnabledFactories")]
+        [Authorize(Policy = PermissionPolicies.FactoryOptions)]
         public async Task<IActionResult> GetAllEnabledFactoriesAsync(CancellationToken cancellationToken)
         {
             var factories = await _factoryService.GetAllEnabledFactoriesAsync(cancellationToken);

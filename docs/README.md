@@ -25,6 +25,7 @@
 | 增加中英文提示      | [API 多语言](localization.md)    | Accept-Language、资源、DTO 校验与异常消息键   |
 | 调整请求频率        | [接口限流](rate-limiting.md)     | 配置、分段窗口、可信代理与计数边界            |
 | 联调登录与会话      | [登录与会话](authentication.md) | Redis、Cookie、接管、强制下线及并发边界 |
+| 管理角色与权限 | [角色与权限](authorization.md) | 管理员引导、权限目录、菜单树授权、动态菜单及缓存失效 |
 | 设计下一阶段        | [后续规划与设计取舍](roadmap.md) | 认证、厂区权限、幂等、日志和基础设施          |
 | 查阅过去讨论        | [历史文档](history/README.md)    | 原交接记录与前端迁移方案                      |
 

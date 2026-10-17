@@ -5,6 +5,8 @@ using ZX.Platform.Identity.Application.Persistence;
 using ZX.Platform.Identity.Application.Security;
 using System.Security.Cryptography;
 using System.Text;
+using ZX.Platform.Identity.Application.Authorization;
+using ZX.Platform.Identity.Application.Menus;
 
 namespace ZX.Platform.Identity.Application.Authentication;
 
@@ -14,7 +16,9 @@ public sealed class AuthService(
     IPasswordHasher passwords,
     IAuthSessionStore sessions,
     AuthOptions options,
-    TimeProvider timeProvider) : IAuthService
+    TimeProvider timeProvider,
+    IPermissionService permissions,
+    IMenuService menus) : IAuthService
 {
     public async Task<AuthTokens> LoginAsync(LoginDto input, CancellationToken cancellationToken)
     {
@@ -70,12 +74,16 @@ public sealed class AuthService(
         if (user is null || !user.IsEnabled)
             throw InvalidSession();
 
+        var authorization = await permissions.GetAsync(userId, cancellationToken);
         return new CurrentUserDto
         {
             Id = user.Id,
             Account = user.Account,
             DisplayName = user.DisplayName,
-            IsAdministrator = options.IsAdministrator(user.Account)
+            IsAdministrator = authorization.IsAdministrator,
+            Roles = authorization.Roles,
+            Permissions = authorization.Permissions,
+            Menus = await menus.GetCurrentAsync(authorization, cancellationToken)
         };
     }
 

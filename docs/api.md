@@ -15,7 +15,7 @@
 | POST | `/api/Auth/login` | JSON `{ account, password, replaceExistingSession? }`，匿名可调用 | `AccessTokenDto`，设置 Refresh Cookie |
 | POST | `/api/Auth/refresh` | Refresh Cookie，Access 可过期 | `AccessTokenDto`，轮换 Cookie |
 | POST | `/api/Auth/logout` | Refresh Cookie 或有效 Bearer；无凭据也成功 | 无，删除 Cookie |
-| GET | `/api/Auth/me` | 有效 Bearer | `{ id, account, displayName, isAdministrator }` |
+| GET | `/api/Auth/me` | 有效 Bearer | `{ id, account, displayName, isAdministrator, roles, permissions, menus }` |
 | PUT | `/api/Auth/changePassword` | 有效 Bearer，JSON `{ currentPassword, newPassword }` | 无，撤销会话并删除 Cookie |
 
 Auth 的 POST / PUT 均须请求头 `X-Identity-CSRF: 1`，缺少或不匹配返回 `403 / 600005`。登录账号必填、最多 8 字符，密码必填、最多 72 UTF-8 字节；当前密码同样最多 72 字节，新密码至少 8 字符且最多 72 UTF-8 字节。参数错误返回 `400 / 600001`。密码不 Trim。
@@ -45,7 +45,25 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 
 受保护接口使用 `Authorization: Bearer <accessToken>`；先由标准 JwtBearer 验证 JWT，再检查 Redis 当前会话及 `jti`。缺少、签名无效、Issuer / Audience 不匹配、过期或撤销返回 `401 / 600401`，身份有效但不满足权限返回 `403 / 600005`。除匿名认证动作外，新接口默认要求登录。
 
-当前用户 / 厂区管理接口要求配置中的管理员账号，唯一例外是 `Users/updateDisplayName`：普通用户可修改自己的名称，管理员可修改他人。修改密码只通过 `Auth/changePassword` 本人验证旧密码，已移除管理员 `Users/updatePassword`。完整角色权限及厂区数据范围待实现。
+用户、厂区及角色接口按功能权限授权，权限来自用户绑定的启用角色。`Users/updateDisplayName` 允许已登录用户修改自己的名称，修改他人需要 `identity.user.rename`。修改密码只通过 `Auth/changePassword` 本人验证旧密码。`Auth/me` 的 `roles` 是有效角色编码数组，`permissions` 是权限代码数组，内置管理员的数组包含全部当前权限。初始化、缓存与管理员保护见[角色与权限](authorization.md)。厂区数据范围授权仍待实现。
+
+| 接口动作 | 所需权限 |
+| --- | --- |
+| Users/getUser、getUserList | `identity.user.read` |
+| Users/add | `identity.user.create` |
+| Users/setUserEnable、setUserDisable | `identity.user.status` |
+| Users/logicDelete、batchDelete | `identity.user.delete` |
+| Users/restore | `identity.user.restore` |
+| Users/updateUserFactories | `identity.user.factories` |
+| Users/forceLogout | `identity.user.forceLogout` |
+| Factories/getFactory、getFactoryList | `identity.factory.read` |
+| Factories/add | `identity.factory.create` |
+| Factories/updateName | `identity.factory.rename` |
+| Factories/setFactoryEnable、setFactoryDisable | `identity.factory.status` |
+| Factories/logicDelete | `identity.factory.delete` |
+| Factories/restore | `identity.factory.restore` |
+
+`Factories/getAllEnabledFactories` 接受以下任一权限：`identity.factory.read`、`identity.user.read`、`identity.user.create`、`identity.user.factories`，用于用户查询及厂区选择器，无需额外授予厂区管理权限。
 
 ## 用户接口
 
@@ -65,7 +83,7 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 
 注意软删除接口实际使用 **PUT `logicDelete`**，不是 HTTP DELETE。修改显示名称和厂区关系是两个独立用例，并非一个整体用户更新接口。
 
-`forceLogout` 要求管理员，用户不存在返回 404；已有或已无会话均返回 200。只下线、不禁用，允许随后重新登录。禁用、删除会自动撤销会话，无需先调用下线接口。并发竞争及 Redis 写入失败时数据库可能已提交的边界见[登录与会话](authentication.md#禁用删除和改密码)。
+`forceLogout` 要求 `identity.user.forceLogout`，用户不存在返回 404；已有或已无会话均返回 200。只下线、不禁用，允许随后重新登录。禁用、删除会自动撤销会话，无需先调用下线接口。禁用及删除（含批量）不能包含操作者本人；操作其他内置管理员还要求操作者为内置管理员。并发竞争及 Redis 写入失败时数据库可能已提交的边界见[登录与会话](authentication.md#禁用删除和改密码)。
 
 源码：[UsersController.cs](../Services/Identity/ZX.Platform.Identity.Api/Controllers/UsersController.cs)、[用户 DTO](../Services/Identity/ZX.Platform.Identity.Application/Users/Dtos)。
 
@@ -113,9 +131,65 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 
 源码：[FactoriesController.cs](../Services/Identity/ZX.Platform.Identity.Api/Controllers/FactoriesController.cs)、[厂区 DTO](../Services/Identity/ZX.Platform.Identity.Application/Factories/Dtos)。
 
+## 角色与权限接口
+
+| HTTP | Identity 路径 | 输入 | 成功 `data` | 权限 |
+| --- | --- | --- | --- | --- |
+| GET | `/api/Roles/getRoleList` | 无，不分页 | `RoleDto[]` | `identity.role.read` |
+| GET | `/api/Roles/options` | 无 | `{ id, code, name, isEnabled, isBuiltIn }[]` | `identity.user.roles` |
+| POST | `/api/Roles/add` | JSON `{ code, name, description? }` | 新角色 Guid | `identity.role.create` |
+| PUT | `/api/Roles/update` | JSON `{ id, name, description? }` | 无 | `identity.role.update` |
+| PUT | `/api/Roles/setRoleEnable` | query `id` | 无 | `identity.role.status` |
+| PUT | `/api/Roles/setRoleDisable` | query `id` | 无 | `identity.role.status` |
+| PUT | `/api/Roles/logicDelete` | query `id` | 无 | `identity.role.delete` |
+| GET | `/api/Roles/permissions` | 无 | `{ code, group, name, groupName }[]` | `identity.role.permissions` |
+| GET | `/api/Roles/permissionTree` | 无 | `MenuDto[]`，菜单分组及权限叶子 | `identity.role.permissions` |
+| PUT | `/api/Roles/updatePermissions` | JSON `{ roleId, permissionCodes }` | 无 | `identity.role.permissions` |
+| GET | `/api/Roles/userRoles` | query `userId` | Guid 数组 | `identity.user.roles` |
+| PUT | `/api/Roles/updateUserRoles` | JSON `{ userId, roleIds }` | 无 | `identity.user.roles` |
+
+`RoleDto` 包含 `id`、`code`、`name`、`description`、`isEnabled`、`isBuiltIn`、`createdAtUtc`、`permissionCodes`。列表排除软删除角色，内置角色优先、再按编码排序。角色编码必填、最多 50 字符，首字符为英文字母，其余为字母/数字/下划线，保存为大写；不允许修改编码，已删除编码不能复用。名称必填且最多 200 字符，描述最多 500 字符。
+
+`permissionCodes` 和 `roleIds` 必须是数组，分别最多 500 / 200 项；空数组清空绑定，重复值自动去重。权限代码必须来自当前目录。新增绑定的角色必须存在、未删除且启用，已有停用角色可保留或移除；停用角色不产生有效权限。`userRoles` 返回未删除角色关系，包含已有停用角色；不存在用户返回 404。权限及分组名称按请求语言返回。
+
+内置 `ADMINISTRATOR` 角色不能编辑、停用、删除或调整权限，相关操作返回 `409 / 600004`。只有内置管理员能增删他人的内置管理员角色（否则 403），且不能移除自己的管理员角色。其他参数及状态错误沿用统一业务码与后端本地化 message。
+
+源码：[RolesController.cs](../Services/Identity/ZX.Platform.Identity.Api/Controllers/RolesController.cs)、[角色 DTO](../Services/Identity/ZX.Platform.Identity.Application/Roles/Dtos)。
+
+## 菜单接口
+
+| HTTP | Identity 路径 | 输入 | 成功 `data` | 权限 |
+| --- | --- | --- | --- | --- |
+| GET | `/api/Menus/getMenuTree` | 无，不分页 | 完整管理树 `MenuDto[]` | `identity.menu.read` |
+| GET | `/api/Menus/options` | 无 | 完整树，供上级选择 | `identity.menu.create` 或 `identity.menu.update` |
+| GET | `/api/Menus/permissions` | 无 | `{ code, name }[]`，当前有效权限 | `identity.menu.create` 或 `identity.menu.update` |
+| POST | `/api/Menus/add` | JSON `CreateMenuDto` | 新菜单 Guid | `identity.menu.create` |
+| PUT | `/api/Menus/update` | JSON `UpdateMenuDto` | 无 | `identity.menu.update` |
+| PUT | `/api/Menus/setEnabled` | query `id, enabled` | 无 | `identity.menu.status` |
+| PUT | `/api/Menus/logicDelete` | query `id` | 无 | `identity.menu.delete` |
+
+`MenuDto` 字段：`id`、可空 `parentId`、`code`、`kind`、`title`、`titleEn`、`icon`、`path`、`component`、`permissionCode`、`sort`、`keepAlive`、`showInMenu`、`showInTags`、`affix`、`isEnabled`、`isBuiltIn`、`children`。父级优先，再按 sort、code 排序。`Auth/me.menus` 使用相同结构，但只含启用且有查看权限的目录/页面，不含操作节点；隐藏导航的页面仍返回以注册路由，不是管理全量树。
+
+创建输入为 `code` 加上述可维护字段；修改为 `id` 加可维护字段，不修改 code。编码必填，最多100字符，以字母开头，其余字母/数字/下划线/连字符；删除后也不能复用。kind 必须是 `directory` / `page` / `action`，title 必填且最多200字符，titleEn 最多200字符；icon/component/permissionCode 最多100，path 最多200；sort 为0～10000；keepAlive、showInMenu、showInTags 为 bool，省略时默认 true；affix 为 bool，默认 false。
+
+| 显示字段 | 作用 |
+| --- | --- |
+| `showInMenu` | 目录/页面是否显示在导航；false 仅隐藏入口，仍返回用户有权访问的页面路由。隐藏目录同时隐藏下级入口，空导航目录不展示。 |
+| `showInTags` | 页面是否显示标签；false 映射为前端 hideInTags，同时不缓存该页面。 |
+| `keepAlive` | 页面是否缓存；仅在 showInTags=true 时生效。 |
+| `affix` | 页面是否固定标签；true 时必须是 page 且 showInTags=true，否则返回 400。 |
+
+操作节点不生成导航或页面，上述显示配置不参与授权。停用节点会从 Auth/me 的树中排除，页面路由也随之移除；这与 showInMenu=false 只隐藏导航不同。
+
+目录不能填路由、组件、权限；页面须填写绝对路径、登记组件及已声明权限；操作须挂在页面下且无路由、组件。目录/页面仅允许根或目录父级，不能自引用、产生循环或移动到过深层级。路径仅允许由字母/数字/下划线/连字符组成的绝对路径段，不能覆盖 `/login`、`/overview`、`/examples/users`（忽略大小写）；组件限 `SystemUser` / `SystemFactory` / `SystemRole` / `SystemMenu`。图标为空或 `svg:name` / `ep:Name`，名称同样只含字母/数字/下划线/连字符且以字母开头。
+
+未知权限、非法层级/字段、带子节点删除返回 `400 / 600001`；编码/路径/操作权限重复返回 `409 / 600003`；不存在返回404；内置节点改结构、启停或删除返回 `409 / 600004`。内置节点仅允许维护 title、titleEn、icon、sort。页面路径、操作权限只在未删除的同类节点中唯一，页面与操作可关联相同查看权限。
+
+`Roles/permissionTree` 临时补齐页面查看权限叶子，并将未挂菜单的有效权限放到“未归类权限”；虚拟节点只用于角色授权，不作为菜单 id 调用维护接口。保存角色仍提交权限代码数组，不提交菜单 ID。菜单停用/删除不撤销接口授权，详见[动态菜单与授权树](authorization.md#动态菜单与授权树)。
+
 ## 分页与结果
 
-只有用户列表使用分页；厂区列表不分页，`getFactoryList` 直接返回全部未删除厂区。
+只有用户列表使用分页；厂区与角色列表不分页，分别直接返回全部未删除记录。
 
 | 参数             | 默认值 / 范围                        | 用户列表                 |
 | ---------------- | ------------------------------------ | ------------------------ |

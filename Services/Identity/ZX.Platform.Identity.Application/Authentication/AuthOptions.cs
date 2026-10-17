@@ -16,9 +16,6 @@ public sealed class AuthOptions
     [Range(1, 1440)]
     public int LockoutMinutes { get; set; } = 15;
 
-    // 过渡权限：显式指定已有账号；空名单不会赋予任何人管理权限。
+    // 仅首次创建内置管理员角色时绑定已有账号；不再参与运行时授权。
     public string[] AdministratorAccounts { get; set; } = [];
-
-    public bool IsAdministrator(string account) => AdministratorAccounts.Any(
-        item => string.Equals(item.Trim(), account, StringComparison.OrdinalIgnoreCase));
 }

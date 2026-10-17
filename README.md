@@ -13,12 +13,13 @@
 - API：统一 JSON 响应、参数校验、异常映射、中文 / English 提示和 `traceId`。
 - 接口限频：同一 IP + HTTP 方法 + 路由模板，默认 3 秒分段滑动窗口最多 5 次，超限立即返回 `429 / 600429`。
 - 认证：JWT Access Token、随机 Refresh Token、Redis 单账号单会话、确认接管、刷新轮换、退出、当前用户、账号锁定、自助改密码及会话撤销。
+- 授权：用户多角色、角色功能权限、权限目录自动同步、Redis 权限缓存及版本失效、前端菜单/页面/按钮权限。
 
-**完整角色权限、动态菜单、当前用户审计和批量启停用接口尚未实现。** 当前用显式配置的管理员账号名单保护管理接口，普通用户可维护自己的名称和密码，见[登录与会话](docs/authentication.md)。Identity 实例共享 Redis 会话；不使用用户级分布式锁，接受并发登录与安全变更的竞争窗口，具体边界见该专题。MOM 业务与文件服务属于后续规划；未设置固定总并发门槛或统一后端执行超时。
+管理接口按角色功能权限授权，首次管理员由配置引导，后续通过用户角色分配维护，见[角色与权限](docs/authorization.md)。动态菜单管理与角色菜单授权树已接入。厂区数据权限、当前用户审计和批量启停用尚未实现。Identity 实例共享 Redis 会话及权限缓存，不使用用户级分布式锁；并发登录与安全变更边界见[登录与会话](docs/authentication.md)。MOM 业务与文件服务属于后续规划，未设置固定总并发门槛或统一后端执行超时。
 
 前端用户管理与厂区管理均已接入 Identity 的查询和写入接口，其中用户批量删除前后端都已接入。批量启停用接口仍未实现，批量操作入口不提供。前端接入方式见[统一请求层](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/http.md)，页面规范从[前端文档导航](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/README.md)查阅。
 
-本次仅完成后端认证，前端登录尚未联调；原管理页面请求在携带有效 Bearer 前会返回 401。
+前端登录及角色权限已完成代码接入，真实数据库迁移、Gateway 与浏览器验收仍需执行，不能视为已通过端到端验证。
 
 ## 快速开始
 
@@ -43,7 +44,7 @@ dotnet user-secrets set "ConnectionStrings:IdentityDatabase" "Server=127.0.0.1,1
 
 替换示例中的账号和密码，并按[数据库迁移说明](docs/database.md#迁移命令)初始化或更新数据库。连接信息保存在本机，不提交到仓库。
 
-Development 已在 `appsettings.Development.json` 提供共享开发 JWT 密钥，开发者无需单独生成，已有 User Secrets 可继续覆盖；生产必须注入独立密钥，不能使用公开开发密钥。再按[认证配置](docs/authentication.md#配置与管理员)指定一个数据库中已有、启用且知道密码的管理员账号；管理员默认名单为空，不自动生成账号或密码。登录后用返回的 Access Token 调用管理接口；Swagger 已提供 Authorize 输入入口。
+Development 已提供共享开发 JWT 密钥，已有 User Secrets 可继续覆盖；生产必须注入独立密钥。启动前先应用角色权限及菜单迁移，再按[首次管理员初始化](docs/authorization.md#首次管理员初始化)指定已有启用账号；默认不自动创建账号或密码，配置仅首次引导角色。登录后用 Access Token 调用管理接口，Swagger 提供 Authorize 入口。
 
 在两个终端分别启动：
 
@@ -78,6 +79,7 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 | [API 多语言](docs/localization.md)          | 请求语言、资源分组、消息键与扩展步骤       |
 | [接口限流](docs/rate-limiting.md)           | 滑动窗口、客户端 IP、配置和验收            |
 | [登录与会话](docs/authentication.md)       | Redis、接管、刷新、下线及并发边界          |
+| [角色与权限](docs/authorization.md) | 模型、权限目录、管理员引导及缓存失效 |
 | [后续规划与设计取舍](docs/roadmap.md)       | 认证授权、多租户、MES 幂等、日志与部署     |
 
 ## 文档维护

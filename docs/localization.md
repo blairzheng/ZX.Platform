@@ -42,10 +42,11 @@ Identity 已支持 `zh-CN` 和 `en-US` 的接口提示。翻译只影响展示�
 | `UserMessages`       | `User.*`           | `UserMessages.resx`       | `UserMessages.en-US.resx`       |
 | `FactoryMessages`    | `Factory.*`        | `FactoryMessages.resx`    | `FactoryMessages.en-US.resx`    |
 | `AuthMessages`       | `Auth.*`           | `AuthMessages.resx`       | `AuthMessages.en-US.resx`       |
+| `AccessMessages` | `Access.*` | `AccessMessages.resx` | `AccessMessages.en-US.resx` |
 
 默认资源本身是中文，不额外依赖一个 `zh-CN` 文件。类型名、命名空间、目录和资源文件名保持匹配，资源由 .NET 编译装载。
 
-[ApiMessageLocalizer](../Services/Identity/ZX.Platform.Identity.Api/Localization/ApiMessageLocalizer.cs) 实现 `IApiMessageLocalizer`，按 `Validation.`、`User.`、`Factory.`、`Auth.` 前缀选择资源，其余使用公共组。认证的 Challenge / Forbid 也通过此入口翻译。
+[ApiMessageLocalizer](../Services/Identity/ZX.Platform.Identity.Api/Localization/ApiMessageLocalizer.cs) 实现 `IApiMessageLocalizer`，按 `Validation.`、`User.`、`Factory.`、`Auth.`、`Access.` 前缀选择资源，其余使用公共组。认证的 Challenge / Forbid 也通过此入口翻译。角色权限目录的分组及名称同样使用 `AccessMessages`，按请求语言返回。
 
 ## 成功提示与异常提示
 

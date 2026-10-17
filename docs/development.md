@@ -33,7 +33,7 @@ User Secrets 只用于本地开发，保存在项目之外，不是生产密钥�
 
 `appsettings.json` / `appsettings.Development.json` 维护可共享设置；`appsettings.Local.json` 虽被 Git 忽略，但当前程序没有自动加载这种文件，不能只创建它就期待生效。初始化和更新数据库见[迁移命令](database.md#迁移命令)。
 
-Development 已在 `appsettings.Development.json` 提供共享开发 JWT 密钥，拉代码或换电脑后无需单独生成；已有 User Secrets 或环境变量优先覆盖。开发密钥公开且仅用于开发，生产需注入独立密钥。按[认证配置](authentication.md#配置与管理员)指定数据库中已有的管理员账号，默认名单为空。Cookie 默认 Secure，开发 HTTP 入口的调整见[登录与会话](authentication.md)。Redis 默认 `127.0.0.1:6379`，通过 `ConnectionStrings:IdentityRedis` 覆盖；会话无法连接时接口返回 503，不退回内存。
+Development 已在 `appsettings.Development.json` 提供共享开发 JWT 密钥，拉代码或换电脑后无需单独生成；已有 User Secrets 或环境变量优先覆盖。开发密钥公开且仅用于开发，生产需注入独立密钥。先应用角色权限迁移，再按[首次管理员初始化](authorization.md#首次管理员初始化)配置已有账号；名单仅引导一次，后续通过用户角色维护。Cookie 默认 Secure，开发 HTTP 入口的调整见[登录与会话](authentication.md)。Redis 默认 `127.0.0.1:6379`，通过 `ConnectionStrings:IdentityRedis` 覆盖；会话无法连接时接口返回 503，不退回内存。
 
 接口时间字段统一以 UTC 的 ISO 8601（带 `Z` / `+00:00`）传输，数据库也按 UTC 存储；前端或其他调用方在显示时再按业务时区格式化。后续定时任务应保存本地时间和明确的业务时区。约定见[时间字段格式](http.md#时间字段格式)。
 

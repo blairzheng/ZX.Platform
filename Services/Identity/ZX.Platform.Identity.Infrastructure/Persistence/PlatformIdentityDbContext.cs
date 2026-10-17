@@ -29,6 +29,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence
         /// </summary>
         public DbSet<UserFactory> UserFactories => Set<UserFactory>();
 
+        public DbSet<Role> Roles => Set<Role>();
+        public DbSet<Permission> Permissions => Set<Permission>();
+        public DbSet<UserRole> UserRoles => Set<UserRole>();
+        public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+        public DbSet<Menu> Menus => Set<Menu>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

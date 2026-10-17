@@ -53,10 +53,8 @@ public static class AuthenticationExtensions
         services.AddAuthorization(authorization =>
         {
             authorization.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-            authorization.AddPolicy(JwtSessionEvents.AdministratorPolicy, policy =>
-                policy.RequireAuthenticatedUser().RequireAssertion(context =>
-                    context.User.Identity?.Name is string account && options.IsAdministrator(account)));
         });
+        services.AddIdentityPermissions();
         return services;
     }
 }
