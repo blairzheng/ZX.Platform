@@ -8,11 +8,12 @@ public sealed class Role : SoftDeletableEntity
     public const string AdministratorCode = "ADMINISTRATOR";
 
     private Role() { }
+    private string? _description;
 
     public Guid Id { get; private set; }
     public string Code { get; private set; } = string.Empty;
     public string Name { get; private set; } = string.Empty;
-    public string Description { get; private set; } = string.Empty;
+    public string Description { get => _description ?? string.Empty; private set => _description = value; }
     public bool IsEnabled { get; private set; }
     public bool IsBuiltIn { get; private set; }
 

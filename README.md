@@ -1,6 +1,6 @@
 # ZX.Platform
 
-使用 .NET 10、ASP.NET Core、YARP、EF Core 和 SQL Server 构建的后台基础平台。当前后端仓库包含 Gateway 与 Identity 微服务，供后续用户、厂区、权限和业务模块继续开发。
+使用 .NET 10、ASP.NET Core、YARP、EF Core 和 Oracle 构建的后台基础平台。当前后端仓库包含 Gateway 与 Identity 微服务，供后续用户、厂区、权限和业务模块继续开发。
 
 管理端在独立的 [ZX.front.vue 仓库](https://github.com/blairzheng/ZX.front.vue)维护。
 
@@ -20,11 +20,11 @@
 
 前端用户管理与厂区管理均已接入 Identity 的查询和写入接口，其中用户批量删除前后端都已接入。批量启停用接口仍未实现，批量操作入口不提供。前端接入方式见[统一请求层](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/http.md)，页面规范从[前端文档导航](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/README.md)查阅。
 
-前端登录及角色权限已完成代码接入，真实数据库迁移、Gateway 与浏览器验收仍需执行，不能视为已通过端到端验证。
+前端登录及角色权限已完成代码接入，Oracle 后端切换后，Gateway 与浏览器完整联调仍需执行，不能视为已通过端到端验证。
 
 ## 快速开始
 
-需要 .NET 10 SDK，以及可访问的 SQL Server 和 Redis。以下命令在仓库根目录执行。有 Docker 时可先启动开发 Redis（默认 `127.0.0.1:6379`）：
+需要 .NET 10 SDK，以及可访问的 Oracle 23ai / 26ai 和 Redis。以下命令在仓库根目录执行。Apple Silicon Mac 可按[本机基础设施](docs/local-infrastructure.md)启动 Oracle 与 Redis；其他平台使用可访问的 Oracle 服务。有 Docker 时可先启动开发 Redis（默认 `127.0.0.1:6379`）：
 
 ```powershell
 docker compose -f compose.redis.yml up -d
@@ -40,12 +40,12 @@ dotnet dev-certs https --trust
 Identity 启动前必须设置 `ConnectionStrings:IdentityDatabase`，开发环境使用 User Secrets：
 
 ```powershell
-dotnet user-secrets set "ConnectionStrings:IdentityDatabase" "Server=127.0.0.1,14330;Database=ZX_PLATFORM_IDENTITY;User Id=<数据库账号>;Password=<数据库密码>;TrustServerCertificate=True" --project Services/Identity/ZX.Platform.Identity.Api
+dotnet user-secrets set "ConnectionStrings:IdentityDatabase" "User Id=ZX_IDENTITY;Password=<数据库密码>;Data Source=127.0.0.1:1521/FREEPDB1" --project Services/Identity/ZX.Platform.Identity.Api
 ```
 
 替换示例中的账号和密码，并按[数据库迁移说明](docs/database.md#迁移命令)初始化或更新数据库。连接信息保存在本机，不提交到仓库。
 
-Development 已提供共享开发 JWT 密钥，已有 User Secrets 可继续覆盖；生产必须注入独立密钥。启动前先应用角色权限及菜单迁移，再按[首次管理员初始化](docs/authorization.md#首次管理员初始化)指定已有启用账号；默认不自动创建账号或密码，配置仅首次引导角色。登录后用 Access Token 调用管理接口，Swagger 提供 Authorize 入口。
+Development 已提供共享开发 JWT 密钥，已有 User Secrets 可继续覆盖；生产必须注入独立密钥。启动前先应用 Oracle 初始迁移，再按[首次管理员初始化](docs/authorization.md#首次管理员初始化)指定已有启用账号；默认不自动创建账号或密码，配置仅首次引导角色。登录后用 Access Token 调用管理接口，Swagger 提供 Authorize 入口。
 
 在两个终端分别启动：
 

@@ -2,7 +2,7 @@
 
 [文档导航](README.md) · [开发者指南](developer-guide.md)
 
-Identity 使用 EF Core 10 与 SQL Server。数据库由本服务拥有；其他业务服务通过接口或集成事件协作，不直接读写 Identity 的表。
+Identity 使用 EF Core 10 与 Oracle.EntityFrameworkCore 10.23.26400，目标为 Oracle 23ai / 26ai（使用原生 BOOLEAN）。数据库由本服务拥有；其他业务服务通过接口或集成事件协作，不直接读写 Identity 的表。
 
 ## 模型与表
 
@@ -30,6 +30,14 @@ Identity 使用 EF Core 10 与 SQL Server。数据库由本服务拥有；其他
 两种唯一索引都没有按 `IsDeleted` 过滤：软删除后原账号和厂区编码仍被保留，不能用同一标识建立新的主数据。创建前的预查询使用 `IgnoreQueryFilters()`，因此能给出“已删除 / 已禁用”的友好冲突提示。
 
 数据库映射允许账号最长 100、厂区编码最长 50，但当前创建用户 DTO 将账号限制为最多 8 个字符；接口允许值以 DTO 为准，不能从列长推断 API 约束。请求字段详见[Identity 接口契约](api.md#用户请求字段)。
+
+## Oracle 类型与空字符串
+
+Guid 映射为 `RAW(16)`，布尔值为 `BOOLEAN`，UTC 时间为 `TIMESTAMP(7) WITH TIME ZONE`，有长度限制的 Unicode 文本为 `NVARCHAR2(n)`。
+
+Oracle 将空字符串存为 NULL。菜单的英文标题、图标、路径、组件、权限以及角色说明允许数据库 NULL，实体通过后备字段将它们还原为空字符串，保持接口契约。账号、编码、中文标题等必填字段仍为 NOT NULL。
+
+Oracle 不支持 SQL Server 的筛选索引。菜单通过两个虚拟列及唯一索引实现条件唯一性：仅未删除页面产生 `ACTIVE_PAGE_PATH`，仅未删除操作产生 `ACTIVE_ACTION_PERMISSION`，其余行返回 NULL。条件使用 `IS_DELETED IS FALSE`；Oracle B-tree 索引不保存全 NULL 的键。停用但未删除的菜单仍占用索引值，删除后可复用路径或操作权限，编码始终保留。
 
 ## 软删除与状态
 
@@ -62,36 +70,6 @@ Identity 使用 EF Core 10 与 SQL Server。数据库由本服务拥有；其他
 
 当前审计时间统一保存 UTC（`+00:00`）。运维直接查询原表，使用常用 SQL 模板按当地时间输入条件、显示结果，无需建立额外视图或人工加减小时。下面以北京时间 `2026-10-13` 全天为例：起点是当天零点，终点是次日零点，使用 `>=` / `<` 包含完整一天，避免小数秒精度造成遗漏。
 
-### SQL Server
-
-时间列使用 `datetimeoffset`，对应 .NET `DateTimeOffset`。带 `+08:00` 的北京时间与带 `+00:00` 的 UTC 可以直接比较，数据库按实际时刻比较。例如 `2026-10-13 11:09:30 +08:00` 和 `2026-10-13 03:09:30 +00:00` 表示同一时刻。
-
-以下使用当前 Identity 的实际表名和列名，运维只需修改开始、结束日期：
-
-```sql
-DECLARE @start datetimeoffset = '2026-10-13T00:00:00+08:00';
-DECLARE @end   datetimeoffset = '2026-10-14T00:00:00+08:00';
-
-SELECT
-    ACCOUNT,
-    DISPLAY_NAME,
-    CREATED_AT_UTC,
-    SWITCHOFFSET(CREATED_AT_UTC, '+08:00') AS CREATED_AT_BEIJING
-FROM dbo.ZX_IDENTITY_USER
-WHERE IS_DELETED = 0
-  AND CREATED_AT_UTC >= @start
-  AND CREATED_AT_UTC < @end
-ORDER BY CREATED_AT_UTC DESC;
-```
-
-`SWITCHOFFSET` 只转换结果的显示偏移，不修改原始数据；`CREATED_AT_UTC` 保留原值，`CREATED_AT_BEIJING` 便于直接阅读。原始 SQL 不会自动应用 EF Core 软删除过滤器，所以普通用户查询显式加 `IS_DELETED = 0`。
-
-北京时间使用固定 `+08:00` 即可；涉及夏令时的地区使用地区时区规则，例如 SQL Server 中的 `CREATED_AT_UTC AT TIME ZONE 'Pacific Standard Time'` 表示美国洛杉矶所在时区，会按该时刻的规则处理夏令时。日期范围的两个边界也应分别按目标地区时区换算，不能把美国统一当作固定 `-08:00`，也不能假定当地每一天都是 24 小时。
-
-### Oracle
-
-Oracle 也支持带时区的时间类型，但本项目当前只接入 SQL Server。以下为类型与查询语法参考，不表示已经提供 Oracle Provider、表结构或迁移。
-
 | Oracle 类型 | 时区行为 |
 | ----------- | -------- |
 | `DATE` | 保存日期和时分秒，不带时区，不保存小数秒 |
@@ -99,7 +77,7 @@ Oracle 也支持带时区的时间类型，但本项目当前只接入 SQL Serve
 | `TIMESTAMP WITH TIME ZONE` | 支持小数秒及偏移量或地区时区，可表达实际时刻 |
 | `TIMESTAMP WITH LOCAL TIME ZONE` | 写入时归一到数据库时区，读取时按会话时区显示，不保留输入的原始时区 |
 
-`TIMESTAMP WITH TIME ZONE` 具备与 SQL Server `datetimeoffset` 类似的带偏移时间能力，并支持地区时区。假设 Oracle 使用相同表名和列名，且 `CREATED_AT_UTC` 的类型为 `TIMESTAMP WITH TIME ZONE`，可这样查询：
+当前 `CREATED_AT_UTC` 映射为 `TIMESTAMP(7) WITH TIME ZONE`，可这样查询：
 
 ```sql
 SELECT
@@ -111,7 +89,8 @@ SELECT
         'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM'
     ) AS CREATED_AT_BEIJING
 FROM ZX_IDENTITY_USER
-WHERE CREATED_AT_UTC >= TO_TIMESTAMP_TZ(
+WHERE IS_DELETED IS FALSE
+  AND CREATED_AT_UTC >= TO_TIMESTAMP_TZ(
         '2026-10-13 00:00:00 +08:00',
         'YYYY-MM-DD HH24:MI:SS TZH:TZM'
     )
@@ -122,9 +101,9 @@ WHERE CREATED_AT_UTC >= TO_TIMESTAMP_TZ(
 ORDER BY CREATED_AT_UTC DESC;
 ```
 
-`AT TIME ZONE` 改变查询结果的时区，`TO_CHAR` 显式指定可读格式，避免依赖客户端的默认显示格式；条件仍比较原始时间列和带偏移量的边界。实际 Oracle 表应按自身映射补上软删除条件。越南可使用 `Asia/Ho_Chi_Minh`，美国需指定具体地区，例如 `America/Los_Angeles`，按该地区规则处理夏令时。Oracle 与 SQL Server 的地区时区标识不能直接混用。
+`AT TIME ZONE` 改变查询结果的时区，`TO_CHAR` 显式指定可读格式，避免依赖客户端的默认显示格式；条件仍比较原始时间列和带偏移量的边界。原始 SQL 不自动应用 EF 查询过滤器，普通业务查询应保留示例的软删除条件。越南可使用 `Asia/Ho_Chi_Minh`，美国需指定具体地区，例如 `America/Los_Angeles`，按该地区规则处理夏令时。地区时区使用 Oracle 支持的标识。
 
-两种数据库的带偏移类型都允许保存 `+08:00`，但当前项目仍统一将 `*AtUtc` / `*_AT_UTC` 写为 UTC，保持接口、审计与跨地区查询约定一致。运维查询仅换算显示与条件，不改变存储约定。时间转换放在查询结果或参数上，筛选直接比较原始列，便于使用适用的索引；实际执行计划取决于索引与数据量。
+带偏移类型允许保存 `+08:00`，但当前项目统一将 `*AtUtc` / `*_AT_UTC` 写为 UTC，保持接口、审计与跨地区查询约定一致。运维查询仅换算显示与条件，不改变存储约定。时间转换放在查询结果或参数上，筛选直接比较原始列，便于使用适用的索引；实际执行计划取决于索引与数据量。
 
 ## 保存与事务
 
@@ -140,7 +119,7 @@ ORDER BY CREATED_AT_UTC DESC;
 
 Service 预查询只是友好提示，两个同时创建的请求仍可能都通过查询。最终由数据库唯一索引拒绝重复。
 
-当前 `SaveChangesAsync` 捕获 `DbUpdateException` 的内部 SQL Server 错误 `2601` / `2627`，转换为 `UniqueConstraintException`。API 将它映射为 `409 / 600003` 和通用本地化重复提示，不把数据库异常详情返回客户端。
+当前 `SaveChangesAsync` 捕获 `DbUpdateException` 的内部 Oracle 错误 `ORA-00001`（Number = 1），转换为 `UniqueConstraintException`。API 将它映射为 `409 / 600003` 和通用本地化重复提示，不把数据库异常详情返回客户端。
 
 这个保存阶段冲突不会重新查询账号并生成专用 `data.reason`。它与 Service 预查询返回的 `AccountDeleted` 等结构化冲突有所区别，调用方要允许通用冲突响应。
 
@@ -154,7 +133,9 @@ Service 预查询只是友好提示，两个同时创建的请求仍可能都通
 
 ## 迁移现状
 
-Migration 和模型快照放在 Infrastructure 的 `Persistence/Migrations/`，并纳入 Git。当前迁移顺序为：
+当前 Oracle Migration 和 `OracleIdentityDbContextModelSnapshot` 放在 Infrastructure 的 `Persistence/OracleMigrations/`。初始迁移 `20261022013212_InitialOracleIdentitySchema` 一次创建八张业务表和全部索引；它是新空库基线，不转换 SQL Server 数据。
+
+旧 `Persistence/Migrations/` 保留 SQL Server 历史，已从编译项排除；原文件不改写，不会被 Oracle 执行。历史顺序为：
 
 1. `20260915065433_InitialIdentitySchema`。
 2. `20260916013615_AlignUserFactoryQueryFilter`。
@@ -168,7 +149,7 @@ Migration 和模型快照放在 Infrastructure 的 `Persistence/Migrations/`，�
 
 ## 迁移命令
 
-在仓库根目录运行。`--project` 指向保存迁移的 Infrastructure，`--startup-project` 指向负责配置数据库与 DI 的 Api。
+在仓库根目录运行。macOS / Linux 先执行 `export ASPNETCORE_ENVIRONMENT=Development`；下面代码块中的 `$env:` 是 PowerShell 写法。`--project` 指向保存迁移的 Infrastructure，`--startup-project` 指向负责配置数据库与 DI 的 Api。
 
 如尚未安装 EF CLI，使用与当前 EF Core 匹配的版本；已经安装时按需更新：
 
@@ -184,15 +165,19 @@ dotnet ef migrations list --project Services/Identity/ZX.Platform.Identity.Infra
 dotnet ef database update --project Services/Identity/ZX.Platform.Identity.Infrastructure --startup-project Services/Identity/ZX.Platform.Identity.Api --context PlatformIdentityDbContext
 ```
 
-`database update` 会修改所配置的数据库，执行前核对环境和目标。应用启动时没有自动调用 `Database.Migrate()`。角色权限版本启动会访问新增表，升级后必须先应用迁移；不要先启动旧数据库结构上的新程序。当前开发库已应用上述迁移；其他环境部署前仍需先执行迁移，并核对目标数据库。
+`database update` 会修改所配置的数据库，执行前核对环境和目标。应用启动时没有自动调用 `Database.Migrate()`。角色权限版本启动会访问新增表，升级后必须先应用迁移；不要先启动旧数据库结构上的新程序。本机 ZX_IDENTITY 已应用 Oracle 初始迁移；其他环境部署前仍需先执行 Oracle 迁移，并核对目标数据库。
 
 模型或 Fluent API 发生变化时新增迁移，名称改为描述实际变更的名字：
 
 ```powershell
-dotnet ef migrations add <描述本次模型变更的名称> --project Services/Identity/ZX.Platform.Identity.Infrastructure --startup-project Services/Identity/ZX.Platform.Identity.Api --context PlatformIdentityDbContext --output-dir Persistence/Migrations
+dotnet ef migrations add <描述本次模型变更的名称> --project Services/Identity/ZX.Platform.Identity.Infrastructure --startup-project Services/Identity/ZX.Platform.Identity.Api --context PlatformIdentityDbContext --output-dir Persistence/OracleMigrations
 ```
 
 检查生成的 `Up/Down`、列类型、默认值、索引和可能的数据丢失，再决定应用方式。不要屏蔽 `PendingModelChangesWarning`，也不要通过删除迁移绕过真实变更。
+
+## 可选 Oracle 集成检查
+
+AuthChecks 默认仍只连接 Redis。显式设置 `IDENTITY_TEST_ORACLE` 为已应用迁移的测试 schema 连接字符串后，额外验证 Oracle 中文/Guid/BOOLEAN/UTC 往返、文本筛选和分页、集合查询、可选空文本、唯一异常、软删除及菜单路径/权限复用。检查仅在一个事务内写入随机测试记录，最终全部回滚，不执行 DDL、不创建管理员。应使用测试库，连接凭据不要提交到 Git。
 
 ## 验收重点
 

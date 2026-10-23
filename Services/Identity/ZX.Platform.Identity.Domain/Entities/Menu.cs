@@ -8,17 +8,23 @@ public sealed class Menu : SoftDeletableEntity
     public const string Directory = "directory";
     public const string Page = "page";
     public const string Action = "action";
+    private string? _titleEn;
+    private string? _icon;
+    private string? _path;
+    private string? _component;
+    private string? _permissionCode;
     private Menu() { }
     public Guid Id { get; private set; }
     public Guid? ParentId { get; private set; }
     public string Code { get; private set; } = string.Empty;
     public string Kind { get; private set; } = string.Empty;
     public string Title { get; private set; } = string.Empty;
-    public string TitleEn { get; private set; } = string.Empty;
-    public string Icon { get; private set; } = string.Empty;
-    public string Path { get; private set; } = string.Empty;
-    public string Component { get; private set; } = string.Empty;
-    public string PermissionCode { get; private set; } = string.Empty;
+    // 数据库允许可选文本为 NULL，领域和接口继续使用空字符串。
+    public string TitleEn { get => _titleEn ?? string.Empty; private set => _titleEn = value; }
+    public string Icon { get => _icon ?? string.Empty; private set => _icon = value; }
+    public string Path { get => _path ?? string.Empty; private set => _path = value; }
+    public string Component { get => _component ?? string.Empty; private set => _component = value; }
+    public string PermissionCode { get => _permissionCode ?? string.Empty; private set => _permissionCode = value; }
     public int Sort { get; private set; }
     public bool KeepAlive { get; private set; }
     public bool ShowInMenu { get; private set; } = true;

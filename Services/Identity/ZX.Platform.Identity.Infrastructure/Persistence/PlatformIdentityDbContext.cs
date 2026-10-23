@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using Oracle.ManagedDataAccess.Client;
 using Microsoft.EntityFrameworkCore;
 using ZX.Platform.Identity.Application.Exceptions;
 using ZX.Platform.Identity.Application.Persistence;
@@ -52,7 +52,7 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence
             }
             catch (DbUpdateException exception)
             {
-                if (exception.InnerException is SqlException sqlException && sqlException.Number is 2601 or 2627)
+                if (exception.InnerException is OracleException { Number: 1 })
                 {
                     throw new UniqueConstraintException("保存数据时发生唯一约束冲突。", exception);
                 }

@@ -1,0 +1,18 @@
+# 仅供本机开发；数据库文件保存在命名卷，密码通过本地环境文件传入。
+services:
+  oracle:
+    image: container-registry.oracle.com/database/free:23.26.3.0-lite-arm64
+    platform: linux/arm64
+    ports:
+      - "127.0.0.1:1521:1521"
+    environment:
+      ORACLE_PWD: ${ORACLE_PWD:?请通过 --env-file .env.oracle.local 提供本机密码}
+      ORACLE_CHARACTERSET: AL32UTF8
+    volumes:
+      - identity-oracle:/opt/oracle/oradata
+    shm_size: 1gb
+    mem_limit: 4g
+    restart: unless-stopped
+
+volumes:
+  identity-oracle:

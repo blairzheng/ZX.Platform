@@ -130,7 +130,7 @@ $env:IDENTITY_TEST_REDIS = "127.0.0.1:6379"
 dotnet run --project Tests/ZX.Platform.Identity.AuthChecks --no-launch-profile
 ```
 
-检查使用真实 Redis、两个独立 Redis 连接、真实 BCrypt、替代用户仓储和临时 HTTP 服务。覆盖 JSON String 存储、创建及刷新后的绝对过期时间、旧 Hash 会话迁移、JWT 签名篡改、错误 Issuer / Audience / 密钥 / 类型、无签名、有效期、会话 Claims、匿名刷新携带过期 Access、跨实例接管/下线、原子轮换与多次刷新后的重放、锁定、旧退出不影响新登录、503 故障、Cookie、CSRF、权限、多语言及接受的竞争边界。每组使用随机 `zx:identity:checks:` 前缀并只清理自己的键，不清库；仍建议使用独立测试 Redis。不连接业务数据库，不替代真实 SQL Server / Gateway / 浏览器的部署验收。新增角色授权检查还覆盖模型与迁移快照、权限并集、Redis 版本失效和内置管理员保护，HTTP 检查覆盖旧 JWT 在授权/撤权后分别通过/拒绝。手工示例见 Api `Authorization.http` 及认证 `.http` 文件。
+检查使用真实 Redis、两个独立 Redis 连接、真实 BCrypt、替代用户仓储和临时 HTTP 服务。覆盖 JSON String 存储、创建及刷新后的绝对过期时间、旧 Hash 会话迁移、JWT 签名篡改、错误 Issuer / Audience / 密钥 / 类型、无签名、有效期、会话 Claims、匿名刷新携带过期 Access、跨实例接管/下线、原子轮换与多次刷新后的重放、锁定、旧退出不影响新登录、503 故障、Cookie、CSRF、权限、多语言及接受的竞争边界。每组使用随机 `zx:identity:checks:` 前缀并只清理自己的键，不清库；仍建议使用独立测试 Redis。默认不连接业务数据库；显式设置 IDENTITY_TEST_ORACLE 后会额外执行可回滚的 Oracle 集成检查，见[数据库专题](database.md#可选-oracle-集成检查)。这些检查不替代 Gateway / 浏览器部署验收。新增角色授权检查还覆盖模型与迁移快照、权限并集、Redis 版本失效和内置管理员保护，HTTP 检查覆盖旧 JWT 在授权/撤权后分别通过/拒绝。手工示例见 Api `Authorization.http` 及认证 `.http` 文件。
 
 各业务服务仍需独立认证并检查自己的功能权限与厂区数据范围，不能只相信 Gateway，也不能将 `UserFactory` 或登录成功视为所有业务授权。Identity 的角色权限已接入，本次尚未执行新增授权的真实数据库和浏览器验收，清单见[角色与权限](authorization.md#验证与待验收)。新增业务服务时提取公共认证/授权组件，不逐请求 HTTP 调 Identity。跨服务组件、首账号初始化及审计用户上下文属于后续工作。
 

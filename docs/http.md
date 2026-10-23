@@ -73,7 +73,7 @@ MVC 的 `AddJsonOptions` 与异常处理、限流使用的 `WriteAsJsonAsync` �
 | DTO / MVC ModelState | 必填、长度、范围、格式、绑定和 JSON 输入错误 | `AddUnifiedApiBehavior` 返回 `400 / 600001`         |
 | Application          | 查库后发现的业务问题                         | `BusinessException(Code, MessageKey, ResponseData)` |
 | Domain               | 实体自身状态和规则                           | `DomainException(MessageKey)`                       |
-| Infrastructure       | SQL Server 唯一约束错误                      | `UniqueConstraintException`                         |
+| Infrastructure       | Oracle 唯一约束错误                      | `UniqueConstraintException`                         |
 | API 全局处理器       | 映射异常、翻译提示、记录日志                 | `GlobalExceptionHandler`                            |
 
 `[ApiController]` 在动作执行前处理无效 ModelState；统一校验扩展去重并拼接校验提示，返回 traceId。JSON 解析异常详情不直接展示给调用方。
@@ -116,7 +116,7 @@ Controller 的 `CancellationToken` 来自请求取消信号，继续传入 Appli
 
 禁用、删除、改密码的会话撤销不使用请求取消令牌：这些安全变更一旦进入保存阶段，即使客户端断开或保存结果不确定，仍尝试撤销旧会话。Redis 失败返回 503，数据库可能已提交，恢复后应检查状态并重试下线；没有跨数据库与 Redis 的事务或用户锁。并发边界见[登录与会话](authentication.md#禁用删除和改密码)。
 
-当前没有统一后端执行超时或固定总并发限制。请求限频按时间窗口计数，不根据执行时长计数，也不能替代幂等。SQL Server、YARP 和 HTTP 服务器仍有各自的底层超时设置。
+当前没有统一后端执行超时或固定总并发限制。请求限频按时间窗口计数，不根据执行时长计数，也不能替代幂等。Oracle、YARP 和 HTTP 服务器仍有各自的底层超时设置。
 
 前端统一请求层默认超时 15 秒，合法长任务可按单次请求调整；超时 / 网络错误时先确认保存结果，不无条件重试写请求。当前创建用户依靠账号唯一约束防止重复记录，不保证重复请求返回第一次的成功结果。
 

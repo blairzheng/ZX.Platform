@@ -17,14 +17,13 @@ internal static class AuthorizationChecks
     {
         // 只比较模型并生成 SQL，不打开连接、不执行数据库迁移。
         var options = new DbContextOptionsBuilder<PlatformIdentityDbContext>()
-            .UseSqlServer("Server=unused;Database=ModelCheck;Integrated Security=true;TrustServerCertificate=true").Options;
+            .UseOracle("User Id=unused;Password=unused;Data Source=localhost/FREEPDB1").Options;
         await using (var db = new PlatformIdentityDbContext(options))
         {
             Check.That(!db.Database.HasPendingModelChanges(), "Authorization mappings must match the committed model snapshot.");
-            var sql = db.GetService<IMigrator>().GenerateScript(
-                "20260920085118_RemoveUserFactoryIsEnabled", "20261016080000_AddRolesAndPermissions");
+            var sql = db.GetService<IMigrator>().GenerateScript();
             foreach (var table in new[] { "ZX_IDENTITY_ROLE", "ZX_IDENTITY_PERMISSION", "ZX_IDENTITY_USER_ROLE", "ZX_IDENTITY_ROLE_PERMISSION" })
-                Check.That(sql.Contains($"CREATE TABLE [{table}]"), $"Migration must create {table}.");
+                Check.That(sql.Contains("CREATE TABLE") && sql.Contains($"\"{table}\" ("), $"Migration must create {table}.");
         }
 
         using var fixture = new Fixture();

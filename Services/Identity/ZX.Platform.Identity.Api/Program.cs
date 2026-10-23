@@ -49,7 +49,7 @@ var identityConnectionString =
 
 builder.Services.AddDbContext<PlatformIdentityDbContext>((serviceProvider, options) =>
 {
-    options.UseSqlServer(identityConnectionString);
+    options.UseOracle(identityConnectionString);
     options.AddInterceptors(serviceProvider.GetRequiredService<AuditableEntitySaveChangesInterceptor>());
 });
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();

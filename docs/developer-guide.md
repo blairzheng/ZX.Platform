@@ -11,7 +11,7 @@ ZX.Platform 是按服务边界组织的后台基础平台。当前先把 Identit
 | 已实现            | 具体说明                                           |
 | ----------------- | -------------------------------------------------- |
 | Identity 基础业务 | 用户、厂区、用户厂区关系、状态、软删除与恢复       |
-| 持久化            | EF Core、SQL Server、Migration、唯一索引、审计时间 |
+| 持久化            | EF Core、Oracle、Migration、唯一索引、审计时间 |
 | HTTP 契约         | 显式成功响应、DTO 校验、全局异常处理、业务错误码   |
 | 提示语言          | 中文 / English，按请求头选择                       |
 | 请求入口          | YARP 转发、可信代理 IP、Identity 请求限频          |
@@ -72,7 +72,7 @@ Visual Studio 的解决方案文件夹是逻辑分组；命令行和部署使用
 | -------------- | ------------------------------------------ | ---------------------------- |
 | Domain         | 实体行为、审计基类、领域异常               | 不引用其他业务层             |
 | Application    | 用例、DTO、业务异常、仓储与密码服务契约    | Domain                       |
-| Infrastructure | EF Core、SQL Server、Repository、BCrypt、Redis 会话 | Application + Domain         |
+| Infrastructure | EF Core、Oracle、Repository、BCrypt、Redis 会话 | Application + Domain         |
 | Api            | 路由、绑定、响应、翻译、异常映射和依赖注入 | Application + Infrastructure |
 | Gateway        | 统一入口、路径转发、代理配置               | 不引用 Identity 业务项目     |
 
@@ -83,7 +83,7 @@ Visual Studio 的解决方案文件夹是逻辑分组；命令行和部署使用
                                       ├→ Domain 实体行为
                                       └→ IRepository / IUnitOfWork
                                             ↓ 依赖注入提供实现
-                                        Infrastructure → SQL Server
+                                        Infrastructure → Oracle
 ```
 
 Application 调用的仓储接口定义在自己的 `Persistence/` 下，Infrastructure 实现这些接口。运行时会使用数据库实现，编译时业务层仍不依赖 EF Core。Api 的 [Program.cs](../Services/Identity/ZX.Platform.Identity.Api/Program.cs) 负责连接接口和实现。

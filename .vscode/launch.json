@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Identity API (HTTPS)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build: Identity API",
+      "program": "${workspaceFolder}/Services/Identity/ZX.Platform.Identity.Api/bin/Debug/net10.0/ZX.Platform.Identity.Api.dll",
+      "cwd": "${workspaceFolder}/Services/Identity/ZX.Platform.Identity.Api",
+      "launchSettingsFilePath": "${workspaceFolder}/Services/Identity/ZX.Platform.Identity.Api/Properties/launchSettings.json",
+      "launchSettingsProfile": "https",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Gateway (HTTPS)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build: Gateway",
+      "program": "${workspaceFolder}/ZX.Platform.Gateway/bin/Debug/net10.0/ZX.Platform.Gateway.dll",
+      "cwd": "${workspaceFolder}/ZX.Platform.Gateway",
+      "launchSettingsFilePath": "${workspaceFolder}/ZX.Platform.Gateway/Properties/launchSettings.json",
+      "launchSettingsProfile": "https",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Identity API + Gateway",
+      "configurations": ["Identity API (HTTPS)", "Gateway (HTTPS)"],
+      "stopAll": true
+    }
+  ]
+}
