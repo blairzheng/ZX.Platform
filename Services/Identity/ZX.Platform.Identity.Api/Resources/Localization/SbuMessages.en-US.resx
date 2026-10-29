@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Sbu.Created" xml:space="preserve"><value>Sbu created successfully.</value></data>
+  <data name="Sbu.DetailsLoaded" xml:space="preserve"><value>Sbu details retrieved successfully.</value></data>
+  <data name="Sbu.ListLoaded" xml:space="preserve"><value>Sbu list retrieved successfully.</value></data>
+  <data name="Sbu.NameUpdated" xml:space="preserve"><value>Sbu name updated successfully.</value></data>
+  <data name="Sbu.StatusUpdated" xml:space="preserve"><value>Sbu status updated successfully.</value></data>
+  <data name="Sbu.Deleted" xml:space="preserve"><value>Sbu deleted successfully.</value></data>
+  <data name="Sbu.Restored" xml:space="preserve"><value>Sbu restored successfully.</value></data>
+  <data name="Sbu.EnabledListLoaded" xml:space="preserve"><value>Enabled SBUs retrieved successfully.</value></data>
+  <data name="Sbu.CodeDeleted" xml:space="preserve"><value>This sbu code was deleted and cannot be reused. Contact an administrator to restore the sbu or use another code.</value></data>
+  <data name="Sbu.Disabled" xml:space="preserve"><value>This sbu is disabled and cannot be recreated. Contact an administrator.</value></data>
+  <data name="Sbu.CodeExists" xml:space="preserve"><value>This sbu code already exists.</value></data>
+  <data name="Sbu.NotFound" xml:space="preserve"><value>Sbu not found.</value></data>
+  <data name="Sbu.NotDeleted" xml:space="preserve"><value>This sbu has not been deleted and does not need to be restored.</value></data>
+  <data name="Sbu.RestoreBeforeEnable" xml:space="preserve"><value>Restore the deleted sbu before enabling it.</value></data>
+</root>

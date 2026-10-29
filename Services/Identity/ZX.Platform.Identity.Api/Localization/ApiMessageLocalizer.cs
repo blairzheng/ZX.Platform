@@ -10,7 +10,7 @@ namespace ZX.Platform.Identity.Api.Localization
         private readonly IStringLocalizer<CommonMessages> _common;
         private readonly IStringLocalizer<ValidationMessages> _validation;
         private readonly IStringLocalizer<UserMessages> _user;
-        private readonly IStringLocalizer<FactoryMessages> _factory;
+        private readonly IStringLocalizer<SbuMessages> _sbu;
         private readonly IStringLocalizer<AuthMessages> _auth;
         private readonly IStringLocalizer<AccessMessages> _access;
 
@@ -18,14 +18,14 @@ namespace ZX.Platform.Identity.Api.Localization
             IStringLocalizer<CommonMessages> common,
             IStringLocalizer<ValidationMessages> validation,
             IStringLocalizer<UserMessages> user,
-            IStringLocalizer<FactoryMessages> factory,
+            IStringLocalizer<SbuMessages> sbu,
             IStringLocalizer<AuthMessages> auth,
             IStringLocalizer<AccessMessages> access)
         {
             _common = common;
             _validation = validation;
             _user = user;
-            _factory = factory;
+            _sbu = sbu;
             _auth = auth;
             _access = access;
         }
@@ -50,8 +50,8 @@ namespace ZX.Platform.Identity.Api.Localization
             if (key.StartsWith("User.", StringComparison.Ordinal))
                 return _user;
 
-            if (key.StartsWith("Factory.", StringComparison.Ordinal))
-                return _factory;
+            if (key.StartsWith("Sbu.", StringComparison.Ordinal))
+                return _sbu;
 
             if (key.StartsWith("Auth.", StringComparison.Ordinal))
                 return _auth;

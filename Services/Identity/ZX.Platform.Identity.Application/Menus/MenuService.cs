@@ -111,7 +111,7 @@ public sealed class MenuService(IMenuRepository menus, IUnitOfWork unitOfWork) :
         {
             if (!Regex.IsMatch(input.Path, @"^/[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*$", RegexOptions.CultureInvariant) ||
                 new[] { "/login", "/overview", "/applications", "/examples/users" }.Contains(input.Path, StringComparer.OrdinalIgnoreCase) ||
-                input.Component is not ("SystemUser" or "SystemFactory" or "SystemRole" or "SystemMenu")) throw Error("Access.InvalidMenuRoute");
+                input.Component is not ("SystemUser" or "SystemSbu" or "SystemRole" or "SystemMenu")) throw Error("Access.InvalidMenuRoute");
             if (all.Any(menu => menu.Id != id && menu.Kind == Menu.Page && string.Equals(menu.Path, input.Path, StringComparison.OrdinalIgnoreCase)))
                 throw Error("Access.MenuPathExists", ErrorCodes.Conflict);
         }

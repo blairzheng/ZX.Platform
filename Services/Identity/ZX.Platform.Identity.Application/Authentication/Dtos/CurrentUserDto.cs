@@ -10,5 +10,14 @@ public sealed class CurrentUserDto
     public bool IsAdministrator { get; init; }
     public string[] Roles { get; init; } = [];
     public string[] Permissions { get; init; } = [];
+    public List<CurrentUserSbuDto> Sbus { get; init; } = [];
     public List<MenuDto> Menus { get; init; } = [];
+}
+
+public sealed class CurrentUserSbuDto
+{
+    public Guid Id { get; init; }
+    public required string Code { get; init; }
+    public required string Name { get; init; }
+    public bool IsDefault { get; init; }
 }

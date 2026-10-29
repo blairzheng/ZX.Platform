@@ -2,7 +2,7 @@
 
 [项目首页](../README.md) · [文档导航](README.md)
 
-ZX.Platform 是按服务边界组织的后台基础平台。当前先把 Identity 的用户、厂区与接口链路打通，再按明确的业务需求扩展认证、权限及 MES 等服务。
+ZX.Platform 是按服务边界组织的后台基础平台。当前先把 Identity 的用户、SBU与接口链路打通，再按明确的业务需求扩展认证、权限及 MES 等服务。
 
 ## 项目范围
 
@@ -10,15 +10,15 @@ ZX.Platform 是按服务边界组织的后台基础平台。当前先把 Identit
 
 | 已实现            | 具体说明                                           |
 | ----------------- | -------------------------------------------------- |
-| Identity 基础业务 | 用户、厂区、用户厂区关系、状态、软删除与恢复       |
+| Identity 基础业务 | 用户、SBU、用户SBU关系、状态、软删除与恢复       |
 | 持久化            | EF Core、Oracle、Migration、唯一索引、审计时间 |
 | HTTP 契约         | 显式成功响应、DTO 校验、全局异常处理、业务错误码   |
 | 提示语言          | 中文 / English，按请求头选择                       |
 | 请求入口          | YARP 转发、可信代理 IP、Identity 请求限频          |
 | 认证与会话        | 登录、刷新轮换、退出、当前用户、锁定及安全变更撤销 |
-| 前后端接入        | 管理端用户与厂区页面使用真实查询和写入接口         |
+| 前后端接入        | 管理端用户与SBU页面使用真实查询和写入接口         |
 
-用户批量软删除、登录与角色权限均已完成前后端代码接入，真实数据库与浏览器联调待验收。管理接口按功能 Policy 授权，管理员配置仅首次引导；模型、目录同步及权限缓存见[角色与权限](authorization.md)。动态菜单已完成后端菜单树和前端动态路由接入。厂区数据权限、审计用户上下文和批量启停用尚未接入，其他计划见[后续规划](roadmap.md)。
+用户批量软删除、登录与角色权限均已完成前后端代码接入，真实数据库与浏览器联调待验收。管理接口按功能 Policy 授权，首个管理员由本地 SQL 初始化；模型、目录同步及权限缓存见[角色与权限](authorization.md)。动态菜单已完成后端菜单树和前端动态路由接入。SBU数据权限、审计用户上下文和批量启停用尚未接入，其他计划见[后续规划](roadmap.md)。
 
 ## 目录职责
 
@@ -46,7 +46,7 @@ ZX.Platform/
         │   ├── Errors/
         │   ├── Exceptions/
         │   ├── Users/
-        │   ├── Factories/
+        │   ├── Sbus/
         │   ├── Persistence/
         │   └── Security/
         ├── ZX.Platform.Identity.Domain/
@@ -94,7 +94,7 @@ DTO 描述一个用例需要哪些字段，放在 Application；Api 决定这些
 
 - 空值、长度、范围和类型：DTO / MVC 模型验证。
 - 一个实体自己能判断的状态规则：Domain。例如删除用户时同时禁用、恢复时重新启用。
-- 需要查询其他对象或数据库才能判断的规则：Application。例如账号重复、厂区是否存在且启用。
+- 需要查询其他对象或数据库才能判断的规则：Application。例如账号重复、SBU是否存在且启用。
 - 查询和登记持久化：Repository；最终提交：Unit of Work。
 
 实体使用 `private set`、私有构造函数、`Create` 工厂和行为方法，避免服务随意赋值。`User.Create()` 只是创建业务对象，依赖注入用于服务、仓储和技术组件，两者并不冲突。
@@ -103,7 +103,7 @@ DTO 描述一个用例需要哪些字段，放在 Application；Api 决定这些
 
 写入用例查询实体时由 EF Core 跟踪，调用实体方法后统一 `SaveChangesAsync`，不需要再 `Update(entity)` 把全部字段标为修改。分页查询使用 `AsNoTracking()`，适合读取并映射 DTO。
 
-`Add(entity)` / `Remove(entity)` 只登记跟踪状态，是同步方法；真正的数据库 I/O 在保存时发生。一个用例内的多个变更尽量一次保存，例如创建用户与厂区关系。
+`Add(entity)` / `Remove(entity)` 只登记跟踪状态，是同步方法；真正的数据库 I/O 在保存时发生。一个用例内的多个变更尽量一次保存，例如创建用户与SBU关系。
 
 `PlatformIdentityDbContext` 实现 `IUnitOfWork`，Api 将两者注册为同一个 scoped 实例。每次请求使用自己的 DbContext；不要在同一个 DbContext 上并行执行多个查询。数据库事务、软删除、唯一冲突的细节见[持久化专题](database.md)。
 
@@ -131,7 +131,7 @@ DTO 描述一个用例需要哪些字段，放在 Application；Api 决定这些
 
 ## 启动与中间件
 
-Identity 启动注册代理、本地化、限频、认证授权、MVC 校验、异常处理、DbContext 和业务服务，并在开始接收请求前同步权限目录、补齐初始菜单、执行首次管理员引导。先应用数据库迁移；缺表、数据库/Redis 不可用或配置非法会启动失败。JWT 使用标准库签发及 AddJwtBearer 验证，随后核对 Redis 当前会话。Redis 连接、会话存储及权限缓存为单例，权限服务、业务服务与 DbContext 为 scoped；权限服务只在当前请求内复用快照。配置与并发边界见[登录与会话](authentication.md)和[角色与权限](authorization.md)。
+Identity 启动注册代理、本地化、限频、认证授权、MVC 校验、异常处理、DbContext 和业务服务，并在开始接收请求前同步权限目录、补齐默认菜单。先应用数据库迁移并通过单独 SQL 创建首个管理员；缺表、数据库/Redis 不可用或配置非法会启动失败。JWT 使用标准库签发及 AddJwtBearer 验证，随后核对 Redis 当前会话。Redis 连接、会话存储及权限缓存为单例，权限服务、业务服务与 DbContext 为 scoped；权限服务只在当前请求内复用快照。配置与并发边界见[登录与会话](authentication.md)和[角色与权限](authorization.md)。
 
 开发环境 Swagger 单独提供。业务请求的主要中间件顺序：
 
@@ -154,7 +154,7 @@ UseForwardedHeaders
 
 ## 开发约定
 
-- 优先普通 class 和直接可读的代码；DTO 使用 `Dto` 后缀，业务术语统一为“厂区”。
+- 优先普通 class 和直接可读的代码；DTO 使用 `Dto` 后缀，业务术语统一为“SBU”。
 - 类型、公开成员用 `PascalCase`，参数和局部变量用 `camelCase`，私有字段用 `_camelCase`。
 - 业务异步 I/O 方法以 `Async` 结尾，显式接收并继续传递 `CancellationToken`；框架 override 可遵循框架签名。
 - 只转交底层 `Task` 可以直接返回；需要处理结果、顺序调用或捕获异步异常时使用 `async/await`。

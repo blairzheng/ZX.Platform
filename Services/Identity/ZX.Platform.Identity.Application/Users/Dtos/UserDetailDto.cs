@@ -32,6 +32,6 @@
         /// </summary>
         public DateTimeOffset? UpdatedAtUtc { get; set; }
 
-        public List<Guid> FactoryIds { get; set; } = new();
+        public List<Guid> SbuIds { get; set; } = new();
     }
 }

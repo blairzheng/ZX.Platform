@@ -21,8 +21,8 @@ X-Identity-CSRF: 1
 
 ###
 
-### 创建厂区
-POST {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/add
+### 创建SBU
+POST {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/add
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
@@ -33,22 +33,22 @@ Content-Type: application/json
 
 ###
 
-### 厂区详情
-GET {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/getFactory?id=00000000-0000-0000-0000-000000000000
+### SBU详情
+GET {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/getSbu?id=00000000-0000-0000-0000-000000000000
 Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ###
 
-### 厂区列表（不分页，一次返回全部厂区）
-GET {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/getFactoryList
+### SBU列表（不分页，一次返回全部SBU）
+GET {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/getSbuList
 Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ###
 
-### 修改厂区名称
-PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/updateName
+### 修改SBU名称
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/updateName
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
@@ -59,24 +59,24 @@ Content-Type: application/json
 
 ###
 
-### 启用 / 禁用厂区
-PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/setFactoryEnable?id=00000000-0000-0000-0000-000000000000
+### 启用 / 禁用SBU
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/setSbuEnable?id=00000000-0000-0000-0000-000000000000
 Authorization: Bearer {{accessToken}}
 
 ###
 
-PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/setFactoryDisable?id=00000000-0000-0000-0000-000000000000
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/setSbuDisable?id=00000000-0000-0000-0000-000000000000
 Authorization: Bearer {{accessToken}}
 
 ###
 
-### 逻辑删除 / 恢复厂区
-PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/logicDelete?id=00000000-0000-0000-0000-000000000000
+### 逻辑删除 / 恢复SBU
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/logicDelete?id=00000000-0000-0000-0000-000000000000
 Authorization: Bearer {{accessToken}}
 
 ###
 
-PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Factories/restore?id=00000000-0000-0000-0000-000000000000
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/restore?id=00000000-0000-0000-0000-000000000000
 Authorization: Bearer {{accessToken}}
 
 ###

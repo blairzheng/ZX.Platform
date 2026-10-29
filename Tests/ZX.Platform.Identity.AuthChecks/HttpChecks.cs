@@ -40,7 +40,6 @@ internal static class HttpChecks
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["Authentication:AdministratorAccounts:0"] = "ADMIN",
             ["AuthenticationCookie:Secure"] = "false",
             ["AuthenticationJwt:SigningKey"] = fixture.Jwt.SigningKey,
             ["ConnectionStrings:IdentityRedis"] = TestRedis.ConnectionString
@@ -67,7 +66,7 @@ internal static class HttpChecks
         builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
         builder.Services.AddControllers().AddApplicationPart(typeof(AuthController).Assembly)
             .AddJsonOptions(options => options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)
-            .AddDataAnnotationsLocalization(options => options.DataAnnotationLocalizerProvider = (_, factory) => factory.Create(typeof(ValidationMessages)))
+            .AddDataAnnotationsLocalization(options => options.DataAnnotationLocalizerProvider = (_, sbu) => sbu.Create(typeof(ValidationMessages)))
             .AddUnifiedApiBehavior();
         await using var app = builder.Build();
         app.UseRequestLocalization();

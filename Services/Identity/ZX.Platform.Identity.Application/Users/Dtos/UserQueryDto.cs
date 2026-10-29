@@ -8,7 +8,7 @@ namespace ZX.Platform.Identity.Application.Users.Dtos
 
         public bool? IsEnabled { get; set; }
 
-        public Guid? FactoryId { get; set; }
+        public Guid? SbuId { get; set; }
 
         // 创建时间下界（包含），使用带偏移量的 ISO 8601 时间。
         public DateTimeOffset? CreatedFromUtc { get; set; }

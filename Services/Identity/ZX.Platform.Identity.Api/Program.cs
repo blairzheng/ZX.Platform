@@ -1,9 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 using ZX.Platform.Identity.Api.ErrorHandling;
 using ZX.Platform.Identity.Api.Extensions;
 using ZX.Platform.Identity.Api.Localization;
-using ZX.Platform.Identity.Application.Factories;
+using ZX.Platform.Identity.Application.Sbus;
 using ZX.Platform.Identity.Application.Persistence;
 using ZX.Platform.Identity.Application.Security;
 using ZX.Platform.Identity.Application.Users;
@@ -33,7 +32,7 @@ builder.Services.AddControllers()
     })
     .AddDataAnnotationsLocalization(options =>
     {
-        options.DataAnnotationLocalizerProvider = (_, factory) => factory.Create(typeof(ValidationMessages));
+        options.DataAnnotationLocalizerProvider = (_, sbu) => sbu.Create(typeof(ValidationMessages));
     })
     .AddUnifiedApiBehavior();
 builder.Services.AddEndpointsApiExplorer();
@@ -42,28 +41,19 @@ builder.Services.AddScoped<AuditableEntitySaveChangesInterceptor>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
-var identityConnectionString =
-    builder.Configuration.GetConnectionString("IdentityDatabase")
-    ?? throw new InvalidOperationException(
-        "未配置 IdentityDatabase 数据库连接字符串。");
-
-builder.Services.AddDbContext<PlatformIdentityDbContext>((serviceProvider, options) =>
-{
-    options.UseOracle(identityConnectionString);
-    options.AddInterceptors(serviceProvider.GetRequiredService<AuditableEntitySaveChangesInterceptor>());
-});
+builder.Services.AddIdentityDatabase(builder.Configuration);
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IFactoryRepository, FactoryRepository>();
+builder.Services.AddScoped<ISbuRepository, SbuRepository>();
 builder.Services.AddScoped<IUnitOfWork>(serviceProvider =>
     serviceProvider.GetRequiredService<PlatformIdentityDbContext>());
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IFactoryService, FactoryService>();
-builder.Services.AddScoped<IUserFactoryRepository, UserFactoryRepository>();
+builder.Services.AddScoped<ISbuService, SbuService>();
+builder.Services.AddScoped<IUserSbuRepository, UserSbuRepository>();
 
 var app = builder.Build();
 
-// 先应用数据库迁移再启动；这里只同步权限目录和首次管理员关系，不自动迁移数据库。
+// 数据库结构和首个管理员由外部流程准备；启动时只同步权限目录和默认菜单，不执行数据库 DDL。
 await using (var scope = app.Services.CreateAsyncScope())
 {
     await scope.ServiceProvider.GetRequiredService<AuthorizationInitializer>().InitializeAsync(CancellationToken.None);

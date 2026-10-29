@@ -16,7 +16,7 @@ Identity 已支持 `zh-CN` 和 `en-US` 的接口提示。翻译只影响展示�
 
 只使用 `AcceptLanguageHeaderRequestCultureProvider`，URL 和 Cookie 不参与语言覆盖。缺少请求头或无法匹配支持语言时回退中文；请求语言由 .NET 请求本地化中间件协商，响应的 `Content-Language` 标识实际选择。
 
-前端每次请求发送当前界面语言，调用方明确设置的同名请求头优先。切换界面语言不会重发已经发送的请求；账号、显示名称和厂区名称等业务数据不会自动翻译。
+前端每次请求发送当前界面语言，调用方明确设置的同名请求头优先。切换界面语言不会重发已经发送的请求；账号、显示名称和SBU名称等业务数据不会自动翻译。
 
 ## 注册与中间件
 
@@ -40,13 +40,13 @@ Identity 已支持 `zh-CN` 和 `en-US` 的接口提示。翻译只影响展示�
 | `CommonMessages`     | `Error.*` 等公共键 | `CommonMessages.resx`     | `CommonMessages.en-US.resx`     |
 | `ValidationMessages` | `Validation.*`     | `ValidationMessages.resx` | `ValidationMessages.en-US.resx` |
 | `UserMessages`       | `User.*`           | `UserMessages.resx`       | `UserMessages.en-US.resx`       |
-| `FactoryMessages`    | `Factory.*`        | `FactoryMessages.resx`    | `FactoryMessages.en-US.resx`    |
+| `SbuMessages`    | `Sbu.*`        | `SbuMessages.resx`    | `SbuMessages.en-US.resx`    |
 | `AuthMessages`       | `Auth.*`           | `AuthMessages.resx`       | `AuthMessages.en-US.resx`       |
 | `AccessMessages` | `Access.*` | `AccessMessages.resx` | `AccessMessages.en-US.resx` |
 
 默认资源本身是中文，不额外依赖一个 `zh-CN` 文件。类型名、命名空间、目录和资源文件名保持匹配，资源由 .NET 编译装载。
 
-[ApiMessageLocalizer](../Services/Identity/ZX.Platform.Identity.Api/Localization/ApiMessageLocalizer.cs) 实现 `IApiMessageLocalizer`，按 `Validation.`、`User.`、`Factory.`、`Auth.`、`Access.` 前缀选择资源，其余使用公共组。认证的 Challenge / Forbid 也通过此入口翻译。角色权限目录的分组及名称同样使用 `AccessMessages`，按请求语言返回。
+[ApiMessageLocalizer](../Services/Identity/ZX.Platform.Identity.Api/Localization/ApiMessageLocalizer.cs) 实现 `IApiMessageLocalizer`，按 `Validation.`、`User.`、`Sbu.`、`Auth.`、`Access.` 前缀选择资源，其余使用公共组。认证的 Challenge / Forbid 也通过此入口翻译。角色权限目录的分组及名称同样使用 `AccessMessages`，按请求语言返回。
 
 ## 成功提示与异常提示
 

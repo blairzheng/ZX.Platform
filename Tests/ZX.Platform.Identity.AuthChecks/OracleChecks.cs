@@ -16,18 +16,20 @@ internal static class OracleChecks
         var connection = Environment.GetEnvironmentVariable("IDENTITY_TEST_ORACLE");
         if (string.IsNullOrWhiteSpace(connection)) return;
 
-        var options = new DbContextOptionsBuilder<PlatformIdentityDbContext>()
-            .UseOracle(connection)
-            .AddInterceptors(new AuditableEntitySaveChangesInterceptor(TimeProvider.System)).Options;
-        await using var db = new PlatformIdentityDbContext(options);
+        var schema = Environment.GetEnvironmentVariable("IDENTITY_TEST_ORACLE_SCHEMA")
+            ?? PlatformIdentityDbContext.DefaultSchema;
+        var options = new DbContextOptionsBuilder<PlatformIdentityDbContext>();
+        PlatformIdentityDbContext.Configure(options, connection, schema);
+        options.AddInterceptors(new AuditableEntitySaveChangesInterceptor(TimeProvider.System));
+        await using var db = new PlatformIdentityDbContext(options.Options, new IdentityDatabaseSchema(schema));
         Check.That(!(await db.Database.GetPendingMigrationsAsync()).Any(), "Apply Oracle migrations before integration checks.");
         await using var transaction = await db.Database.BeginTransactionAsync();
         var suffix = Guid.NewGuid().ToString("N");
         var account = suffix[..8];
         var user = User.Create(account, "Oracle 中文校验", "integration-check-never-used-for-login");
-        var factory = Factory.Create("check-" + suffix, "Oracle 测试厂区");
+        var sbu = Sbu.Create("check-" + suffix, "Oracle 测试SBU");
         var role = Role.Create("CHECK_" + suffix, "Oracle 测试角色");
-        db.AddRange(user, factory, role);
+        db.AddRange(user, sbu, role);
         var directory = Menu.Create("check-dir-" + suffix, Menu.Directory, null, "测试目录", "", "", "", "", "", 0, false);
         var secondDirectory = Menu.Create("check-dir2-" + suffix, Menu.Directory, null, "第二目录", "", "", "", "", "", 0, false);
         var path = "/check/" + suffix;

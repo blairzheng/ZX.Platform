@@ -32,9 +32,9 @@ public sealed class MenuConfiguration : IEntityTypeConfiguration<Menu>
         builder.HasIndex(menu => menu.ParentId);
         // Oracle 无筛选索引；虚拟列只为未删除的对应类型提供索引值，其他行返回 NULL。
         builder.Property<string>("ActivePagePath").HasColumnName("ACTIVE_PAGE_PATH").HasMaxLength(200)
-            .HasComputedColumnSql("CASE WHEN \"KIND\" = N'page' AND \"IS_DELETED\" IS FALSE THEN \"PATH\" END", stored: false);
+            .HasComputedColumnSql("CASE WHEN \"KIND\" = N'page' AND \"IS_DELETED\" = 0 THEN \"PATH\" END", stored: false);
         builder.Property<string>("ActiveActionPermission").HasColumnName("ACTIVE_ACTION_PERMISSION").HasMaxLength(100)
-            .HasComputedColumnSql("CASE WHEN \"KIND\" = N'action' AND \"IS_DELETED\" IS FALSE THEN \"PERMISSION_CODE\" END", stored: false);
+            .HasComputedColumnSql("CASE WHEN \"KIND\" = N'action' AND \"IS_DELETED\" = 0 THEN \"PERMISSION_CODE\" END", stored: false);
         builder.HasIndex("ActivePagePath").IsUnique().HasFilter(null);
         builder.HasIndex("ActiveActionPermission").IsUnique().HasFilter(null);
         builder.ConfigureAuditing();

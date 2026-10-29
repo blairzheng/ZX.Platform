@@ -19,8 +19,7 @@ namespace ZX.Platform.Identity.Application.Users.Dtos
         [PasswordBytes]
         public string Password { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Validation.FactoriesRequired")]
-        [MinLength(1, ErrorMessage = "Validation.FactoriesMinLength")]
-        public List<Guid> FactoryIds { get; set; } = new();
+        [Required(ErrorMessage = "Validation.SbusRequired")]
+        public List<Guid> SbuIds { get; set; } = new();
     }
 }

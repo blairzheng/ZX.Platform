@@ -15,7 +15,7 @@
 | POST | `/api/Auth/login` | JSON `{ account, password, replaceExistingSession? }`，匿名可调用 | `AccessTokenDto`，设置 Refresh Cookie |
 | POST | `/api/Auth/refresh` | Refresh Cookie，Access 可过期 | `AccessTokenDto`，轮换 Cookie |
 | POST | `/api/Auth/logout` | Refresh Cookie 或有效 Bearer；无凭据也成功 | 无，删除 Cookie |
-| GET | `/api/Auth/me` | 有效 Bearer | `{ id, account, displayName, isAdministrator, roles, permissions, menus }` |
+| GET | `/api/Auth/me` | 有效 Bearer | `{ id, account, displayName, isAdministrator, roles, permissions, sbus, menus }` |
 | PUT | `/api/Auth/changePassword` | 有效 Bearer，JSON `{ currentPassword, newPassword }` | 无，撤销会话并删除 Cookie |
 
 Auth 的 POST / PUT 均须请求头 `X-Identity-CSRF: 1`，缺少或不匹配返回 `403 / 600005`。登录账号必填、最多 8 字符，密码必填、最多 72 UTF-8 字节；当前密码同样最多 72 字节，新密码至少 8 字符且最多 72 UTF-8 字节。参数错误返回 `400 / 600001`。密码不 Trim。
@@ -45,7 +45,7 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 
 受保护接口使用 `Authorization: Bearer <accessToken>`；先由标准 JwtBearer 验证 JWT，再检查 Redis 当前会话及 `jti`。缺少、签名无效、Issuer / Audience 不匹配、过期或撤销返回 `401 / 600401`，身份有效但不满足权限返回 `403 / 600005`。除匿名认证动作外，新接口默认要求登录。
 
-用户、厂区及角色接口按功能权限授权，权限来自用户绑定的启用角色。`Users/updateDisplayName` 允许已登录用户修改自己的名称，修改他人需要 `identity.user.rename`。修改密码只通过 `Auth/changePassword` 本人验证旧密码。`Auth/me` 的 `roles` 是有效角色编码数组，`permissions` 是权限代码数组，内置管理员的数组包含全部当前权限。初始化、缓存与管理员保护见[角色与权限](authorization.md)。厂区数据范围授权仍待实现。
+用户、SBU及角色接口按功能权限授权，权限来自用户绑定的启用角色。`Users/updateDisplayName` 允许已登录用户修改自己的名称，修改他人需要 `identity.user.rename`。修改密码只通过 `Auth/changePassword` 本人验证旧密码。`Auth/me` 的 `roles` 是有效角色编码数组，`permissions` 是权限代码数组，内置管理员的数组包含全部当前权限；`sbus` 只含当前用户已关联、未删除且启用的 SBU，每项为 `{ id, code, name, isDefault }`，无关联时为 `[]`。管理员不会因此自动获得所有 SBU 的普通业务数据范围。初始化、缓存与管理员保护见[角色与权限](authorization.md)。业务接口的服务端 SBU 访问校验仍待实现。
 
 | 接口动作 | 所需权限 |
 | --- | --- |
@@ -54,16 +54,16 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 | Users/setUserEnable、setUserDisable | `identity.user.status` |
 | Users/logicDelete、batchDelete | `identity.user.delete` |
 | Users/restore | `identity.user.restore` |
-| Users/updateUserFactories | `identity.user.factories` |
+| Users/updateUserSbus | `identity.user.sbus` |
 | Users/forceLogout | `identity.user.forceLogout` |
-| Factories/getFactory、getFactoryList | `identity.factory.read` |
-| Factories/add | `identity.factory.create` |
-| Factories/updateName | `identity.factory.rename` |
-| Factories/setFactoryEnable、setFactoryDisable | `identity.factory.status` |
-| Factories/logicDelete | `identity.factory.delete` |
-| Factories/restore | `identity.factory.restore` |
+| Sbus/getSbu、getSbuList | `identity.sbu.read` |
+| Sbus/add | `identity.sbu.create` |
+| Sbus/updateName | `identity.sbu.rename` |
+| Sbus/setSbuEnable、setSbuDisable | `identity.sbu.status` |
+| Sbus/logicDelete | `identity.sbu.delete` |
+| Sbus/restore | `identity.sbu.restore` |
 
-`Factories/getAllEnabledFactories` 接受以下任一权限：`identity.factory.read`、`identity.user.read`、`identity.user.create`、`identity.user.factories`，用于用户查询及厂区选择器，无需额外授予厂区管理权限。
+`Sbus/getAllEnabledSbus` 接受以下任一权限：`identity.sbu.read`、`identity.user.read`、`identity.user.create`、`identity.user.sbus`，用于用户查询及SBU选择器，无需额外授予SBU管理权限。
 
 ## 用户接口
 
@@ -79,9 +79,9 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 | PUT  | `/api/Users/logicDelete`         | query `id`                    | 无                |
 | PUT  | `/api/Users/batchDelete`         | JSON Guid 数组                | 无                |
 | PUT  | `/api/Users/restore`             | query `id`                    | 无                |
-| PUT  | `/api/Users/updateUserFactories` | JSON `{ userId, factoryIds }` | 无                |
+| PUT  | `/api/Users/updateUserSbus` | JSON `{ userId, sbuIds }` | 无                |
 
-注意软删除接口实际使用 **PUT `logicDelete`**，不是 HTTP DELETE。修改显示名称和厂区关系是两个独立用例，并非一个整体用户更新接口。
+注意软删除接口实际使用 **PUT `logicDelete`**，不是 HTTP DELETE。修改显示名称和SBU关系是两个独立用例，并非一个整体用户更新接口。
 
 `forceLogout` 要求 `identity.user.forceLogout`，用户不存在返回 404；已有或已无会话均返回 200。只下线、不禁用，允许随后重新登录。禁用、删除会自动撤销会话，无需先调用下线接口。禁用及删除（含批量）不能包含操作者本人；操作其他内置管理员还要求操作者为内置管理员。并发竞争及 Redis 写入失败时数据库可能已提交的边界见[登录与会话](authentication.md#禁用删除和改密码)。
 
@@ -94,42 +94,42 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 | `CreateUserDto.account`     | 必填，最多 8 个字符；服务 Trim 后比较标准化账号   |
 | `CreateUserDto.displayName` | 必填，最多 100 个字符                             |
 | `CreateUserDto.password`    | 必填，至少 8 个字符且最多 72 个 UTF-8 字节        |
-| `CreateUserDto.factoryIds`  | 必填数组，至少 1 个；所有厂区必须存在且启用       |
+| `CreateUserDto.sbuIds`  | 可为空数组；提交的 SBU 必须存在且启用       |
 | `UpdateUserDisplayNameDto`  | `id` 为 Guid；`displayName` 必填且最多 100 个字符 |
-| `UpdateUserFactoryDto`      | `userId` 为 Guid；`factoryIds` 必填且至少 1 个    |
+| `UpdateUserSbuDto`      | `userId` 为 Guid；`sbuIds` 可为空数组，表示清空关联    |
 
 普通字符串长度约束按 .NET 字符计数；密码另用 `PasswordBytes` 统一限制最多 72 UTF-8 字节，中文等多字节字符按实际编码长度计算。密码交由 BCrypt 哈希，详情和分页都不返回密码或哈希。
 
-创建示例：厂区 Guid 要替换为数据库中实际存在并启用的厂区。
+创建示例：SBU Guid 要替换为数据库中实际存在并启用的SBU。
 
 ```json
 {
   "account": "ZX001",
   "displayName": "示例用户",
   "password": "Example123!",
-  "factoryIds": ["11111111-1111-1111-1111-111111111111"]
+  "sbuIds": ["11111111-1111-1111-1111-111111111111"]
 }
 ```
 
-`factoryIds` 应提交不重复的厂区 Guid。当前 Service 用查询返回数量与输入数量比较，重复或不可用的厂区都可能返回 `404 / 600002`，没有单独的重复数组元素错误码。Guid 类型能够绑定不代表已经验证 `Guid.Empty`；不要假定 `[Required]` 会拒绝空 Guid 值。
+`sbuIds` 应提交不重复的SBU Guid。当前 Service 用查询返回数量与输入数量比较，重复或不可用的SBU都可能返回 `404 / 600002`，没有单独的重复数组元素错误码。Guid 类型能够绑定不代表已经验证 `Guid.Empty`；不要假定 `[Required]` 会拒绝空 Guid 值。
 
-## 厂区接口
+## SBU接口
 
 | HTTP | Identity 路径                           | 输入                  | 成功 `data`          |
 | ---- | --------------------------------------- | --------------------- | -------------------- |
-| POST | `/api/Factories/add`                    | JSON `{ code, name }` | 新厂区 Guid          |
-| GET  | `/api/Factories/getFactory`             | query `id`            | `FactoryDetailDto`   |
-| GET  | `/api/Factories/getFactoryList`         | 无                    | `FactoryDetailDto[]` |
-| PUT  | `/api/Factories/updateName`             | JSON `{ id, name }`   | 无                   |
-| PUT  | `/api/Factories/setFactoryEnable`       | query `id`            | 无                   |
-| PUT  | `/api/Factories/setFactoryDisable`      | query `id`            | 无                   |
-| PUT  | `/api/Factories/logicDelete`            | query `id`            | 无                   |
-| PUT  | `/api/Factories/restore`                | query `id`            | 无                   |
-| GET  | `/api/Factories/getAllEnabledFactories` | 无                    | `FactoryDetailDto[]` |
+| POST | `/api/Sbus/add`                    | JSON `{ code, name }` | 新SBU Guid          |
+| GET  | `/api/Sbus/getSbu`             | query `id`            | `SbuDetailDto`   |
+| GET  | `/api/Sbus/getSbuList`         | 无                    | `SbuDetailDto[]` |
+| PUT  | `/api/Sbus/updateName`             | JSON `{ id, name }`   | 无                   |
+| PUT  | `/api/Sbus/setSbuEnable`       | query `id`            | 无                   |
+| PUT  | `/api/Sbus/setSbuDisable`      | query `id`            | 无                   |
+| PUT  | `/api/Sbus/logicDelete`            | query `id`            | 无                   |
+| PUT  | `/api/Sbus/restore`                | query `id`            | 无                   |
+| GET  | `/api/Sbus/getAllEnabledSbus` | 无                    | `SbuDetailDto[]` |
 
-创建时 `code` 必填、最多 50 个字符，Trim 后转大写；`name` 必填、最多 200 个字符。修改名称使用相同名称约束。厂区编码没有修改接口。
+创建时 `code` 必填、最多 50 个字符，Trim 后转大写；`name` 必填、最多 200 个字符。修改名称使用相同名称约束。SBU编码没有修改接口。
 
-源码：[FactoriesController.cs](../Services/Identity/ZX.Platform.Identity.Api/Controllers/FactoriesController.cs)、[厂区 DTO](../Services/Identity/ZX.Platform.Identity.Application/Factories/Dtos)。
+源码：[SbusController.cs](../Services/Identity/ZX.Platform.Identity.Api/Controllers/SbusController.cs)、[SBU DTO](../Services/Identity/ZX.Platform.Identity.Application/Sbus/Dtos)。
 
 ## 角色与权限接口
 
@@ -181,7 +181,7 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 
 操作节点不生成导航或页面，上述显示配置不参与授权。停用节点会从 Auth/me 的树中排除，页面路由也随之移除；这与 showInMenu=false 只隐藏导航不同。
 
-目录不能填路由、组件、权限；页面须填写绝对路径、登记组件及已声明权限；操作须挂在页面下且无路由、组件。目录/页面仅允许根或目录父级，不能自引用、产生循环或移动到过深层级。路径仅允许由字母/数字/下划线/连字符组成的绝对路径段，不能覆盖 `/login`、`/overview`、`/examples/users`（忽略大小写）；组件限 `SystemUser` / `SystemFactory` / `SystemRole` / `SystemMenu`。图标为空或 `svg:name` / `ep:Name`，名称同样只含字母/数字/下划线/连字符且以字母开头。
+目录不能填路由、组件、权限；页面须填写绝对路径、登记组件及已声明权限；操作须挂在页面下且无路由、组件。目录/页面仅允许根或目录父级，不能自引用、产生循环或移动到过深层级。路径仅允许由字母/数字/下划线/连字符组成的绝对路径段，不能覆盖 `/login`、`/overview`、`/examples/users`（忽略大小写）；组件限 `SystemUser` / `SystemSbu` / `SystemRole` / `SystemMenu`。图标为空或 `svg:name` / `ep:Name`，名称同样只含字母/数字/下划线/连字符且以字母开头。
 
 未知权限、非法层级/字段、带子节点删除返回 `400 / 600001`；编码/路径/操作权限重复返回 `409 / 600003`；不存在返回404；内置节点改结构、启停或删除返回 `409 / 600004`。内置节点仅允许维护 title、titleEn、icon、sort。页面路径、操作权限只在未删除的同类节点中唯一，页面与操作可关联相同查看权限。
 
@@ -189,7 +189,7 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 
 ## 分页与结果
 
-只有用户列表使用分页；厂区与角色列表不分页，分别直接返回全部未删除记录。
+只有用户列表使用分页；SBU与角色列表不分页，分别直接返回全部未删除记录。
 
 | 参数             | 默认值 / 范围                        | 用户列表                 |
 | ---------------- | ------------------------------------ | ------------------------ |
@@ -197,11 +197,11 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 | `pageSize`       | 默认 20，1～10000                    | 支持                     |
 | `keyword`        | 可选，Trim 后搜索                    | 账号或显示名称包含关键字 |
 | `isEnabled`      | 可选 bool；省略表示不筛状态          | 支持                     |
-| `factoryId`      | 可选 Guid                            | 按关系筛选               |
+| `sbuId`      | 可选 Guid                            | 按关系筛选               |
 | `createdFromUtc` | 可选 DateTimeOffset，ISO 8601 带偏移 | 创建时间下界，包含该时刻 |
 | `createdToUtc`   | 可选 DateTimeOffset，ISO 8601 带偏移 | 创建时间上界，不包含该时刻 |
 
-用户列表的页码 / 页大小越界、绑定失败和分页偏移量超过 `int.MaxValue` 返回 `400 / 600001`。用户列表和厂区列表都按创建时间倒序，再按 Id 排序。普通列表排除软删除数据。
+用户列表的页码 / 页大小越界、绑定失败和分页偏移量超过 `int.MaxValue` 返回 `400 / 600001`。用户列表和SBU列表都按创建时间倒序，再按 Id 排序。普通列表排除软删除数据。
 
 创建时间范围由调用方将当地时间换算成 UTC 后提交，例如北京时间 `2026-10-13` 全天传 `createdFromUtc=2026-10-12T16:00:00.000Z`、`createdToUtc=2026-10-13T16:00:00.000Z`。仓储将参数归一为 UTC，按 `CreatedAtUtc >= createdFromUtc` / `CreatedAtUtc < createdToUtc` 过滤，分页和 total 使用同一组条件；不转换数据库列。两个边界都可单独省略；同时提供时开始必须早于结束，否则返回 `400 / 600001` 和 `User.CreatedAtRangeInvalid` 多语言提示。日期选择器若要包含结束日全天，应提交该日期次日当地零点对应的 UTC 上界。
 
@@ -216,13 +216,13 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 }
 ```
 
-厂区列表的 `data` 直接是 `FactoryDetailDto` 数组，没有 `list` / `total` 包裹。
+SBU列表的 `data` 直接是 `SbuDetailDto` 数组，没有 `list` / `total` 包裹。
 
 `message` 是展示提示，以当前语言资源为准，不作为固定协议字符串。
 
-`UserDetailDto` 字段为 `id`、`account`、`displayName`、`isEnabled`、`createdAtUtc`、可空 `updatedAtUtc` 和 `factoryIds`。`FactoryDetailDto` 为 `id`、`code`、`name`、`isEnabled`、`createdAtUtc` 和可空 `updatedAtUtc`。空字段可被序列化省略；Guid 是字符串，时间字段数据库存 UTC，接口以带 `Z` / `+00:00` 偏移的 ISO 8601 输出，见[时间字段格式](http.md#时间字段格式)。
+`UserDetailDto` 字段为 `id`、`account`、`displayName`、`isEnabled`、`createdAtUtc`、可空 `updatedAtUtc` 和 `sbuIds`。`SbuDetailDto` 为 `id`、`code`、`name`、`isEnabled`、`createdAtUtc` 和可空 `updatedAtUtc`。空字段可被序列化省略；Guid 是字符串，时间字段数据库存 UTC，接口以带 `Z` / `+00:00` 偏移的 ISO 8601 输出，见[时间字段格式](http.md#时间字段格式)。
 
-启用厂区列表排除已删除和已停用厂区；`getFactoryList` 返回全部未删除厂区（含已停用），两者都不分页，后者按创建时间倒序、再按 Id 排序。用户详情的 `factoryIds` 表示保存的关系，不保证这些厂区现在仍启用。
+启用SBU列表排除已删除和已停用SBU；`getSbuList` 返回全部未删除SBU（含已停用），两者都不分页，后者按创建时间倒序、再按 Id 排序。用户详情的 `sbuIds` 表示保存的关系，不保证这些SBU现在仍启用。
 
 ## 批量软删除
 
@@ -246,15 +246,15 @@ PUT `/api/Users/batchDelete` 的请求体直接使用用户 Guid 数组，不包
 | 用户账号已删除           | `409 / 600003` | `{ reason: "AccountDeleted", userId }`        |
 | 用户账号已禁用           | `409 / 600003` | `{ reason: "AccountDisabled", userId }`       |
 | 用户账号正常存在         | `409 / 600003` | 无                                            |
-| 厂区编码已删除           | `409 / 600003` | `{ reason: "FactoryCodeDeleted", factoryId }` |
-| 厂区已禁用               | `409 / 600003` | `{ reason: "FactoryDisabled", factoryId }`    |
-| 厂区编码正常存在         | `409 / 600003` | 无                                            |
+| SBU编码已删除           | `409 / 600003` | `{ reason: "SbuCodeDeleted", sbuId }` |
+| SBU已禁用               | `409 / 600003` | `{ reason: "SbuDisabled", sbuId }`    |
+| SBU编码正常存在         | `409 / 600003` | 无                                            |
 | 保存时数据库唯一约束冲突 | `409 / 600003` | 无，通用重复提示                              |
 
-当前响应没有 `allowedAction`、`canRestore` 或 `canEnable`。正常存在时也没有 `AccountExists` / `FactoryCodeExists` 的 `data.reason`；这些曾出现在早期设计示例中，不能当成已经实现的字段。调用方依据真实 code 和可选的结构化数据处理。
+当前响应没有 `allowedAction`、`canRestore` 或 `canEnable`。正常存在时也没有 `AccountExists` / `SbuCodeExists` 的 `data.reason`；这些曾出现在早期设计示例中，不能当成已经实现的字段。调用方依据真实 code 和可选的结构化数据处理。
 
 ## 相关文档
 
-- [业务语义](identity.md)：状态变化、厂区关系与当前能力边界。
+- [业务语义](identity.md)：状态变化、SBU关系与当前能力边界。
 - [API 响应与错误](http.md)：响应结构、错误码、`traceId` 与取消信号。
 - [数据库与持久化](database.md)：唯一索引、软删除过滤与审计字段。

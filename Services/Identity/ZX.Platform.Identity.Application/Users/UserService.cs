@@ -12,21 +12,21 @@ namespace ZX.Platform.Identity.Application.Users
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
-        private readonly IUserFactoryRepository _userFactoryRepository;
-        private readonly IFactoryRepository _factoryRepository;
+        private readonly IUserSbuRepository _userSbuRepository;
+        private readonly ISbuRepository _sbuRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IAuthSessionStore _sessions;
         private readonly IPermissionCache _permissionCache;
 
         public UserService(IUserRepository userRepository, IUnitOfWork unitOfWork, IPasswordHasher passwordHasher,
-            IFactoryRepository factoryRepository, IUserFactoryRepository userFactoryRepository, IAuthSessionStore sessions, IPermissionCache permissionCache)
+            ISbuRepository sbuRepository, IUserSbuRepository userSbuRepository, IAuthSessionStore sessions, IPermissionCache permissionCache)
         {
             _userRepository = userRepository;
             _unitOfWork = unitOfWork;
             _passwordHasher = passwordHasher;
-            _factoryRepository = factoryRepository;
-            _userFactoryRepository = userFactoryRepository;
+            _sbuRepository = sbuRepository;
+            _userSbuRepository = userSbuRepository;
             _sessions = sessions;
             _permissionCache = permissionCache;
         }
@@ -63,13 +63,13 @@ namespace ZX.Platform.Identity.Application.Users
             }
             var passwordHash = _passwordHasher.Hash(createUser.Password);
             var user = User.Create(account, createUser.DisplayName, passwordHash);
-            await GetValidatedFactoriesAsync(createUser.FactoryIds, cancellationToken);
-            if (createUser.FactoryIds.Count > 0)
+            await GetValidatedSbusAsync(createUser.SbuIds, cancellationToken);
+            if (createUser.SbuIds.Count > 0)
             {
-                foreach (var item in createUser.FactoryIds)
+                foreach (var item in createUser.SbuIds)
                 {
-                    var userFactory = UserFactory.Create(user.Id, item, false);
-                    _userFactoryRepository.Add(userFactory);
+                    var userSbu = UserSbu.Create(user.Id, item, false);
+                    _userSbuRepository.Add(userSbu);
                 }
             }
 
@@ -83,7 +83,7 @@ namespace ZX.Platform.Identity.Application.Users
             var data = await _userRepository.GetByIdAsync(guid, cancellationToken);
 
             if (data == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
-            var userFactories = await _userFactoryRepository.GetByUserIdAsync(data.Id, cancellationToken);
+            var userSbus = await _userSbuRepository.GetByUserIdAsync(data.Id, cancellationToken);
             return new UserDetailDto
             {
                 Account = data.Account,
@@ -92,7 +92,7 @@ namespace ZX.Platform.Identity.Application.Users
                 IsEnabled = data.IsEnabled,
                 CreatedAtUtc = data.CreatedAtUtc,
                 UpdatedAtUtc = data.UpdatedAtUtc,
-                FactoryIds = userFactories.Select(f => f.FactoryId).ToList()
+                SbuIds = userSbus.Select(f => f.SbuId).ToList()
             };
         }
 
@@ -105,8 +105,8 @@ namespace ZX.Platform.Identity.Application.Users
             }
 
             var (list, count) = await _userRepository.GetPageListAsync(userQuery, cancellationToken);
-            var userFactories = await _userFactoryRepository.GetByUserIdsAsync(list.Select(user => user.Id).ToList(), cancellationToken);
-            var factoryIdsByUser = userFactories.ToLookup(relation => relation.UserId, relation => relation.FactoryId);
+            var userSbus = await _userSbuRepository.GetByUserIdsAsync(list.Select(user => user.Id).ToList(), cancellationToken);
+            var sbuIdsByUser = userSbus.ToLookup(relation => relation.UserId, relation => relation.SbuId);
             var users = new List<UserDetailDto>(list.Count);
             foreach (var user in list)
             {
@@ -118,7 +118,7 @@ namespace ZX.Platform.Identity.Application.Users
                     IsEnabled = user.IsEnabled,
                     CreatedAtUtc = user.CreatedAtUtc,
                     UpdatedAtUtc = user.UpdatedAtUtc,
-                    FactoryIds = factoryIdsByUser[user.Id].ToList()
+                    SbuIds = sbuIdsByUser[user.Id].ToList()
                 });
             }
             return (users, count);
@@ -188,32 +188,32 @@ namespace ZX.Platform.Identity.Application.Users
             finally { await _permissionCache.InvalidateAsync(CancellationToken.None); }
         }
 
-        public async Task UpdateUserFactoriesAsync(UpdateUserFactoryDto updateUserFactory, CancellationToken cancellationToken)
+        public async Task UpdateUserSbusAsync(UpdateUserSbuDto updateUserSbu, CancellationToken cancellationToken)
         {
-            var user = await _userRepository.GetByIdAsync(updateUserFactory.UserId, cancellationToken);
+            var user = await _userRepository.GetByIdAsync(updateUserSbu.UserId, cancellationToken);
             if (user == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
-            // 获取当前用户已授权的厂区列表
-            var userFactories = await _userFactoryRepository.GetByUserIdAsync(updateUserFactory.UserId, cancellationToken);
+            // 获取当前用户已授权的SBU列表
+            var userSbus = await _userSbuRepository.GetByUserIdAsync(updateUserSbu.UserId, cancellationToken);
 
-            // 校验传入的厂区数据是否有效，并获取新列表中的厂区信息
-            var factories = await GetValidatedFactoriesAsync(updateUserFactory.FactoryIds, cancellationToken);
+            // 校验传入的SBU数据是否有效，并获取新列表中的SBU信息
+            var sbus = await GetValidatedSbusAsync(updateUserSbu.SbuIds, cancellationToken);
 
-            // 新增厂区
-            foreach (var factory in factories)
+            // 新增SBU
+            foreach (var sbu in sbus)
             {
-                if (!userFactories.Select(e => e.FactoryId).Contains(factory.Id))
+                if (!userSbus.Select(e => e.SbuId).Contains(sbu.Id))
                 {
-                    var userFactory = UserFactory.Create(updateUserFactory.UserId, factory.Id, false);
-                    _userFactoryRepository.Add(userFactory);
+                    var userSbu = UserSbu.Create(updateUserSbu.UserId, sbu.Id, false);
+                    _userSbuRepository.Add(userSbu);
                 }
             }
 
-            // 删除厂区
-            foreach (var item in userFactories)
+            // 删除SBU
+            foreach (var item in userSbus)
             {
-                if (!factories.Select(e => e.Id).Contains(item.FactoryId))
+                if (!sbus.Select(e => e.Id).Contains(item.SbuId))
                 {
-                    _userFactoryRepository.Remove(item);
+                    _userSbuRepository.Remove(item);
                 }
             }
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -242,15 +242,15 @@ namespace ZX.Platform.Identity.Application.Users
             }
         }
 
-        #region 校验并获取传入的厂区数据
-        private async Task<List<Factory>> GetValidatedFactoriesAsync(List<Guid> factoryIds, CancellationToken cancellationToken)
+        #region 校验并获取传入的SBU数据
+        private async Task<List<Sbu>> GetValidatedSbusAsync(List<Guid> sbuIds, CancellationToken cancellationToken)
         {
-            var factories = await _factoryRepository.GetEnabledFactoriesByIdsAsync(factoryIds, cancellationToken);
-            if (factories.Count != factoryIds.Count)
+            var sbus = await _sbuRepository.GetEnabledSbusByIdsAsync(sbuIds, cancellationToken);
+            if (sbus.Count != sbuIds.Count)
             {
-                throw new BusinessException(ErrorCodes.NotFound, "User.FactoriesUnavailable");
+                throw new BusinessException(ErrorCodes.NotFound, "User.SbusUnavailable");
             }
-            return factories;
+            return sbus;
         }
 
         #endregion

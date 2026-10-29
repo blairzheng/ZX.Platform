@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../Services/Identity/ZX.Platform.Identity.Api/ZX.Platform.Identity.Api.csproj" />
+    <ProjectReference Include="../../ZX.Platform.Gateway/ZX.Platform.Gateway.csproj" />
   </ItemGroup>
 </Project>

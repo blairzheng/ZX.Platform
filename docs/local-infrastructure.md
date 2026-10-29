@@ -68,11 +68,11 @@ colima stop
 
 ## 后端 Oracle 配置
 
-Identity 已切换到 Oracle Provider，并应用 `20261022013212_InitialOracleIdentitySchema`。旧 SQL Server 迁移保留但不编译。
+Identity 使用单一 Oracle 19c 模型，迁移基线为 `20261027000000_InitialIdentitySchema`，当前目标为 `20261028084818_ReplaceFactoriesWithSbus`。本机 Oracle Free 引擎无需更换；已有库可执行增量迁移，旧厂区测试数据会丢弃。需要清空全部 MOM 数据时才按 [部署文档第 7 节](docker-deployment.md#7-oracle-19c-首次初始化或清空重建)重建。
 
 当前电脑的应用连接已写入 Identity API 的 Development User Secrets，VS Code 的 Identity API / Identity API + Gateway 启动配置会自动读取。schema 密码另存于仓库根目录 `.env.identity.local`（0600，Git 忽略），与 SYSTEM 管理员密码分别管理，不要将它提交到仓库。
 
-2026-10-22 已按用户要求受控创建首个管理员账号 `31377716`，分配内置 `ADMINISTRATOR` 角色，并通过真实 API 登录及管理权限验证。随机初始密码保存于本机 `.env.admin.local`（0600，Git 忽略），不记录在本文中。`Authentication:AdministratorAccounts` 继续默认为空，已有授权由数据库维护，不随重启重新分配。
+本机全新数据库的首个登录用户由本机保存、仓库外的一次性 SQL 创建；Identity 启动时只补齐权限目录与默认菜单。详见[首个管理员初始化](authorization.md#首个管理员)。
 
 换电脑时需重建 schema、注入自己的连接并应用 Oracle 迁移；本机 User Secrets 和密码文件不会随 Git 克隆。数据库配置示例及迁移命令见[开发环境](development.md#数据库配置)和[数据库专题](database.md#迁移命令)。
 

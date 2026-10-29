@@ -26,9 +26,9 @@ public static class AuthorizationExtensions
         {
             foreach (var code in IdentityPermissions.All)
                 options.AddPolicy(code, policy => policy.RequireAuthenticatedUser().AddRequirements(new PermissionRequirement(code)));
-            options.AddPolicy(PermissionPolicies.FactoryOptions, policy => policy.RequireAuthenticatedUser().AddRequirements(
-                new PermissionRequirement(IdentityPermissions.FactoryRead, IdentityPermissions.UserRead,
-                    IdentityPermissions.UserCreate, IdentityPermissions.UserAssignFactories)));
+            options.AddPolicy(PermissionPolicies.SbuOptions, policy => policy.RequireAuthenticatedUser().AddRequirements(
+                new PermissionRequirement(IdentityPermissions.SbuRead, IdentityPermissions.UserRead,
+                    IdentityPermissions.UserCreate, IdentityPermissions.UserAssignSbus)));
             options.AddPolicy(PermissionPolicies.MenuOptions, policy => policy.RequireAuthenticatedUser().AddRequirements(
                 new PermissionRequirement(IdentityPermissions.MenuCreate, IdentityPermissions.MenuUpdate)));
         });

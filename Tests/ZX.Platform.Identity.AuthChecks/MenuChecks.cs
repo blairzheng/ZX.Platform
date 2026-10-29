@@ -15,17 +15,15 @@ internal static class MenuChecks
 {
     public static async Task RunAsync()
     {
-        var options = new DbContextOptionsBuilder<PlatformIdentityDbContext>()
-            .UseOracle("User Id=unused;Password=unused;Data Source=localhost/FREEPDB1").Options;
-        await using (var db = new PlatformIdentityDbContext(options))
+        await using (var db = Oracle19Checks.CreateContext())
         {
             Check.That(!db.Database.HasPendingModelChanges(), "Menu mappings must match the migration snapshot.");
             var sql = db.GetService<IMigrator>().GenerateScript();
             Check.That(sql.Contains("CREATE TABLE") && sql.Contains("\"ZX_IDENTITY_MENU\" (") &&
-                sql.Contains("CASE WHEN \"KIND\" = N''page'' AND \"IS_DELETED\" IS FALSE") &&
-                sql.Contains("CASE WHEN \"KIND\" = N''action'' AND \"IS_DELETED\" IS FALSE") &&
-                sql.Contains("UNIQUE INDEX \"IX_ZX_IDENTITY_MENU_ACTIVE_PAGE_PATH\"") &&
-                sql.Contains("UNIQUE INDEX \"IX_ZX_IDENTITY_MENU_ACTIVE_ACTION_PERMISSION\""),
+                sql.Contains("CASE WHEN \"KIND\" = N''page'' AND \"IS_DELETED\" = 0") &&
+                sql.Contains("CASE WHEN \"KIND\" = N''action'' AND \"IS_DELETED\" = 0") &&
+                sql.Contains("UNIQUE INDEX \"ZX_IDENTITY\".\"IX_ZX_IDENTITY_MENU_ACTIVE_PAGE_PATH\"") &&
+                sql.Contains("UNIQUE INDEX \"ZX_IDENTITY\".\"IX_ZX_IDENTITY_MENU_ACTIVE_ACTION_PERMISSION\""),
                 "Oracle menu migration must enforce conditional uniqueness using virtual columns.");
         }
         var repository = new TestMenus();

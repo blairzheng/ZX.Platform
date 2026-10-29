@@ -18,7 +18,9 @@ public sealed class AuthService(
     AuthOptions options,
     TimeProvider timeProvider,
     IPermissionService permissions,
-    IMenuService menus) : IAuthService
+    IMenuService menus,
+    IUserSbuRepository userSbus,
+    ISbuRepository sbus) : IAuthService
 {
     public async Task<AuthTokens> LoginAsync(LoginDto input, CancellationToken cancellationToken)
     {
@@ -75,6 +77,11 @@ public sealed class AuthService(
             throw InvalidSession();
 
         var authorization = await permissions.GetAsync(userId, cancellationToken);
+        var relations = await userSbus.GetByUserIdAsync(userId, cancellationToken);
+        var enabledSbus = relations.Count == 0
+            ? []
+            : await sbus.GetEnabledSbusByIdsAsync(relations.Select(item => item.SbuId).ToList(), cancellationToken);
+        var defaultSbuIds = relations.Where(item => item.IsDefault).Select(item => item.SbuId).ToHashSet();
         return new CurrentUserDto
         {
             Id = user.Id,
@@ -83,6 +90,13 @@ public sealed class AuthService(
             IsAdministrator = authorization.IsAdministrator,
             Roles = authorization.Roles,
             Permissions = authorization.Permissions,
+            Sbus = enabledSbus.OrderBy(item => item.Code).Select(item => new CurrentUserSbuDto
+            {
+                Id = item.Id,
+                Code = item.Code,
+                Name = item.Name,
+                IsDefault = defaultSbuIds.Contains(item.Id)
+            }).ToList(),
             Menus = await menus.GetCurrentAsync(authorization, cancellationToken)
         };
     }

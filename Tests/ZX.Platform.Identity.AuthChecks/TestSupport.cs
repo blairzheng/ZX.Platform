@@ -111,16 +111,47 @@ internal sealed class TestMenus : IMenuRepository
     public Task<bool> CodeExistsAsync(string code, CancellationToken token) => Task.FromResult(Items.Any(menu => menu.Code == code));
 }
 
+internal sealed class TestSbus : ISbuRepository
+{
+    public List<Sbu> Items { get; } = [];
+    public Task<Sbu?> GetByIdAsync(Guid id, CancellationToken token) =>
+        Task.FromResult(Items.FirstOrDefault(item => item.Id == id && !item.IsDeleted));
+    public Task<Sbu?> GetByIdIncludeDeletedAsync(Guid id, CancellationToken token) =>
+        Task.FromResult(Items.FirstOrDefault(item => item.Id == id));
+    public Task<Sbu?> GetByCodeAsync(string code, CancellationToken token) =>
+        Task.FromResult(Items.FirstOrDefault(item => item.Code == code));
+    public Task<List<Sbu>> GetAllAsync(CancellationToken token) =>
+        Task.FromResult(Items.Where(item => !item.IsDeleted).ToList());
+    public Task<List<Sbu>> GetAllEnabledSbusAsync(CancellationToken token) =>
+        Task.FromResult(Items.Where(item => !item.IsDeleted && item.IsEnabled).ToList());
+    public Task<List<Sbu>> GetEnabledSbusByIdsAsync(List<Guid> ids, CancellationToken token) =>
+        Task.FromResult(Items.Where(item => ids.Contains(item.Id) && !item.IsDeleted && item.IsEnabled).ToList());
+    public void Add(Sbu sbu) => Items.Add(sbu);
+}
+
+internal sealed class TestUserSbus : IUserSbuRepository
+{
+    public List<UserSbu> Items { get; } = [];
+    public Task<List<UserSbu>> GetByUserIdAsync(Guid id, CancellationToken token) =>
+        Task.FromResult(Items.Where(item => item.UserId == id).ToList());
+    public Task<List<UserSbu>> GetByUserIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken token) =>
+        Task.FromResult(Items.Where(item => ids.Contains(item.UserId)).ToList());
+    public void Add(UserSbu relation) => Items.Add(relation);
+    public void Remove(UserSbu relation) => Items.Remove(relation);
+}
+
 internal sealed class Fixture : IDisposable
 {
     public TestClock Clock { get; } = new();
-    public AuthOptions Options { get; } = new() { AdministratorAccounts = ["ADMIN"] };
+    public AuthOptions Options { get; } = new();
     public JwtOptions Jwt { get; } = new() { SigningKey = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)) };
     public JwtAccessTokenIssuer AccessTokens { get; }
     public TestPasswords Passwords { get; } = new();
     public TestUsers Users { get; } = new();
     public TestRoles Roles { get; }
     public TestMenus Menus { get; } = new();
+    public TestSbus Sbus { get; } = new();
+    public TestUserSbus UserSbus { get; } = new();
     public RedisPermissionCache PermissionCache { get; }
     public TestUnitOfWork Unit { get; } = new();
     public RedisSessionOptions RedisOptions { get; } = new() { KeyPrefix = $"zx:identity:checks:{Guid.NewGuid():N}:" };
@@ -136,9 +167,9 @@ internal sealed class Fixture : IDisposable
         Roles = new(Users);
         PermissionCache = new(TestRedis.Connection, RedisOptions);
         DefaultMenus.AddMissing(Menus.Items, Menus.Add);
-        Auth = new(Users, Unit, Passwords, Sessions, Options, Clock, new PermissionService(Roles, PermissionCache), new MenuService(Menus, Unit));
-        // 这些检查仅调用用户状态/密码用例，不使用厂区仓储。
-        UserService = new(Users, Unit, Passwords, null!, null!, Sessions, PermissionCache);
+        Auth = new(Users, Unit, Passwords, Sessions, Options, Clock, new PermissionService(Roles, PermissionCache),
+            new MenuService(Menus, Unit), UserSbus, Sbus);
+        UserService = new(Users, Unit, Passwords, Sbus, UserSbus, Sessions, PermissionCache);
         User = User.Create("ADMIN", "Administrator", Passwords.Hash("Example123!"));
         Users.Add(User);
         var administrator = Role.CreateAdministrator();

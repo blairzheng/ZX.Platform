@@ -16,12 +16,10 @@ public static class AuthenticationExtensions
     {
         var options = configuration.GetSection("Authentication").Get<AuthOptions>() ?? new AuthOptions();
         Validator.ValidateObject(options, new ValidationContext(options), validateAllProperties: true);
-        if (options.AdministratorAccounts is null || options.AdministratorAccounts.Any(string.IsNullOrWhiteSpace))
-            throw new InvalidOperationException("Authentication:AdministratorAccounts 不能包含空账号。");
 
         var cookie = configuration.GetSection("AuthenticationCookie").Get<AuthCookieOptions>() ?? new AuthCookieOptions();
-        if (!environment.IsDevelopment() && !cookie.Secure)
-            throw new InvalidOperationException("非 Development 环境必须启用 Secure 刷新 Cookie。");
+        if (!environment.IsDevelopment() && !cookie.Secure && !cookie.AllowInsecureHttp)
+            throw new InvalidOperationException("HTTP 测试需显式配置 AuthenticationCookie:AllowInsecureHttp=true；默认必须启用 Secure 刷新 Cookie。");
 
         services.AddSingleton(options);
         services.AddSingleton(cookie);

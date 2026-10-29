@@ -1,14 +1,14 @@
 # ZX.Platform
 
-使用 .NET 10、ASP.NET Core、YARP、EF Core 和 Oracle 构建的后台基础平台。当前后端仓库包含 Gateway 与 Identity 微服务，供后续用户、厂区、权限和业务模块继续开发。
+使用 .NET 10、ASP.NET Core、YARP、EF Core 和 Oracle 构建的后台基础平台。当前后端仓库包含 Gateway 与 Identity 微服务，供后续用户、SBU、权限和业务模块继续开发。
 
 管理端在独立的 [ZX.front.vue 仓库](https://github.com/blairzheng/ZX.front.vue)维护。
 
 ## 当前能力
 
 - Gateway：按 `/api/identity` 前缀转发到 Identity，处理可信代理提供的客户端 IP。
-- 用户：新增、详情、分页筛选、修改显示名称、启停用、单条与批量软删除、恢复、调整厂区关系、管理员强制下线。
-- 厂区：新增、详情、列表查询（不分页，一次返回全部厂区）、修改名称、启停用、软删除、恢复、查询全部启用厂区。
+- 用户：新增、详情、分页筛选、修改显示名称、启停用、单条与批量软删除、恢复、调整SBU关系、管理员强制下线。
+- SBU：新增、详情、列表查询（不分页，一次返回全部SBU）、修改名称、启停用、软删除、恢复、查询全部启用SBU。
 - 数据访问：EF Core Migration、数据库唯一约束、审计时间、软删除过滤、一次保存提交业务变更。
 - API：统一 JSON 响应、参数校验、异常映射、中文 / English 提示和 `traceId`。
 - 运行日志：请求摘要、耗时与 TraceId，开发文本 / 生产 JSON 控制台输出，Linux 由 journald 收集。
@@ -16,15 +16,15 @@
 - 认证：JWT Access Token、随机 Refresh Token、Redis 单账号单会话、确认接管、刷新轮换、退出、当前用户、账号锁定、自助改密码及会话撤销。
 - 授权：用户多角色、角色功能权限、权限目录自动同步、Redis 权限缓存及版本失效、前端菜单/页面/按钮权限。
 
-管理接口按角色功能权限授权，首次管理员由配置引导，后续通过用户角色分配维护，见[角色与权限](docs/authorization.md)。动态菜单管理与角色菜单授权树已接入。厂区数据权限、当前用户审计和批量启停用尚未实现。Identity 实例共享 Redis 会话及权限缓存，不使用用户级分布式锁；并发登录与安全变更边界见[登录与会话](docs/authentication.md)。MOM 业务与文件服务属于后续规划，未设置固定总并发门槛或统一后端执行超时。
+管理接口按角色功能权限授权。首个管理员由运维单独执行本地 SQL 创建，后续通过用户角色分配维护，见[角色与权限](docs/authorization.md)。动态菜单管理与角色菜单授权树已接入。SBU数据权限、当前用户审计和批量启停用尚未实现。Identity 实例共享 Redis 会话及权限缓存，不使用用户级分布式锁；并发登录与安全变更边界见[登录与会话](docs/authentication.md)。MOM 业务与文件服务属于后续规划，未设置固定总并发门槛或统一后端执行超时。
 
-前端用户管理与厂区管理均已接入 Identity 的查询和写入接口，其中用户批量删除前后端都已接入。批量启停用接口仍未实现，批量操作入口不提供。前端接入方式见[统一请求层](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/http.md)，页面规范从[前端文档导航](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/README.md)查阅。
+前端用户管理与SBU管理均已接入 Identity 的查询和写入接口，其中用户批量删除前后端都已接入。批量启停用接口仍未实现，批量操作入口不提供。前端接入方式见[统一请求层](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/http.md)，页面规范从[前端文档导航](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/README.md)查阅。
 
 前端登录及角色权限已完成代码接入，Oracle 后端切换后，Gateway 与浏览器完整联调仍需执行，不能视为已通过端到端验证。
 
 ## 快速开始
 
-需要 .NET 10 SDK，以及可访问的 Oracle 23ai / 26ai 和 Redis。以下命令在仓库根目录执行。Apple Silicon Mac 可按[本机基础设施](docs/local-infrastructure.md)启动 Oracle 与 Redis；其他平台使用可访问的 Oracle 服务。有 Docker 时可先启动开发 Redis（默认 `127.0.0.1:6379`）：
+需要 .NET 10 SDK，以及可访问的 Oracle 19c 及以上和 Redis（模型统一使用 19c）。以下命令在仓库根目录执行。团队开发默认使用共享测试库和 Redis；选择本机 Redis 时，可用 Docker 启动默认监听 `127.0.0.1:6379` 的开发实例：
 
 ```powershell
 docker compose -f compose.redis.yml up -d
@@ -37,15 +37,9 @@ dotnet restore ZX.Platform.slnx
 dotnet dev-certs https --trust
 ```
 
-Identity 启动前必须设置 `ConnectionStrings:IdentityDatabase`，开发环境使用 User Secrets：
+Identity 启动前需要数据库连接。团队开发默认使用共享测试库和开发 Redis，首次拉取后按[开发环境配置](docs/development.md#数据库配置)将团队提供的连接信息写入本机 User Secrets。连接信息不提交到仓库；若需使用个人本机 Oracle，按[本机基础设施](docs/local-infrastructure.md)配置。
 
-```powershell
-dotnet user-secrets set "ConnectionStrings:IdentityDatabase" "User Id=ZX_IDENTITY;Password=<数据库密码>;Data Source=127.0.0.1:1521/FREEPDB1" --project Services/Identity/ZX.Platform.Identity.Api
-```
-
-替换示例中的账号和密码，并按[数据库迁移说明](docs/database.md#迁移命令)初始化或更新数据库。连接信息保存在本机，不提交到仓库。
-
-Development 已提供共享开发 JWT 密钥，已有 User Secrets 可继续覆盖；生产必须注入独立密钥。启动前先应用 Oracle 初始迁移，再按[首次管理员初始化](docs/authorization.md#首次管理员初始化)指定已有启用账号；默认不自动创建账号或密码，配置仅首次引导角色。登录后用 Access Token 调用管理接口，Swagger 提供 Authorize 入口。
+Development 已提供共享开发 JWT 密钥，已有 User Secrets 可继续覆盖；生产必须注入独立密钥。共享测试库的结构迁移和首个管理员 SQL 由团队指定人员初始化一次；其他开发者配置本机 User Secrets 后，使用分配的测试账号连接共享库。Identity 启动时仅同步权限目录和默认菜单。登录后用 Access Token 调用管理接口，Swagger 提供 Authorize 入口。
 
 在两个终端分别启动：
 
@@ -76,14 +70,14 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 | [开发者指南](docs/developer-guide.md)       | 项目范围、目录、分层、调用链与新增功能流程 |
 | [开发环境、命令与排错](docs/development.md) | SDK、配置、启动、Gateway、Git 与部署边界   |
 | [数据库与持久化](docs/database.md)          | 实体、审计、软删除、唯一约束与 Migration   |
-| [Identity 接口契约](docs/api.md)            | 用户和厂区路由、DTO、分页与错误负载        |
-| [Identity 业务语义](docs/identity.md)       | 状态、厂区关系与当前能力边界               |
+| [Identity 接口契约](docs/api.md)            | 用户和SBU路由、DTO、分页与错误负载        |
+| [Identity 业务语义](docs/identity.md)       | 状态、SBU关系与当前能力边界               |
 | [API 响应与错误](docs/http.md)              | HTTP / 业务码、异常、校验与取消信号        |
 | [运行与接口日志](docs/logging.md)          | 请求摘要、异步输出、TraceId 与 journald 部署查询 |
 | [API 多语言](docs/localization.md)          | 请求语言、资源分组、消息键与扩展步骤       |
 | [接口限流](docs/rate-limiting.md)           | 滑动窗口、客户端 IP、配置和验收            |
 | [登录与会话](docs/authentication.md)       | Redis、接管、刷新、下线及并发边界          |
-| [角色与权限](docs/authorization.md) | 模型、权限目录、管理员引导及缓存失效 |
+| [角色与权限](docs/authorization.md) | 模型、权限目录、本机 SQL 初始化及缓存失效 |
 | [后续规划与设计取舍](docs/roadmap.md)       | 认证授权、多租户、MES 幂等、日志与部署     |
 
 ## 文档维护

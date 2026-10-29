@@ -18,12 +18,12 @@ public static class DefaultMenus
             add(menu);
             return menu;
         }
-        var system = Ensure("system", Menu.Directory, null, "系统管理", "System", 10, "svg:setting");
-        var access = Ensure("access", Menu.Directory, system, "权限管理", "Access control", 30, "svg:lock");
-        var users = Ensure("users", Menu.Page, system, "用户管理", "Users", 10, "svg:user", "/system/users", "SystemUser", IdentityPermissions.UserRead);
-        var factories = Ensure("factories", Menu.Page, system, "厂区管理", "Factories", 20, "ep:OfficeBuilding", "/system/factories", "SystemFactory", IdentityPermissions.FactoryRead);
-        var roles = Ensure("roles", Menu.Page, access, "角色管理", "Roles", 10, "ep:Key", "/system/roles", "SystemRole", IdentityPermissions.RoleRead);
-        var menus = Ensure("menus", Menu.Page, access, "菜单管理", "Menus", 20, "ep:Menu", "/system/menus", "SystemMenu", IdentityPermissions.MenuRead);
+        var system = Ensure("system", Menu.Directory, null, "系统管理", "System", 10, "svg:lucide-settings");
+        var access = Ensure("access", Menu.Directory, system, "权限管理", "Access control", 30, "svg:lucide-key-round");
+        var users = Ensure("users", Menu.Page, system, "用户管理", "Users", 10, "svg:lucide-users", "/system/users", "SystemUser", IdentityPermissions.UserRead);
+        var sbus = Ensure("sbus", Menu.Page, system, "SBU管理", "SBU management", 20, "svg:lucide-factory", "/system/sbus", "SystemSbu", IdentityPermissions.SbuRead);
+        var roles = Ensure("roles", Menu.Page, access, "角色管理", "Roles", 10, "svg:lucide-shield-user", "/system/roles", "SystemRole", IdentityPermissions.RoleRead);
+        var menus = Ensure("menus", Menu.Page, access, "菜单管理", "Menus", 20, "svg:lucide-list-tree", "/system/menus", "SystemMenu", IdentityPermissions.MenuRead);
         var actions = new (Menu Parent, string Permission, string Title, string English)[]
         {
             (users, IdentityPermissions.UserRead, "查看用户", "View users"),
@@ -32,15 +32,15 @@ public static class DefaultMenus
             (users, IdentityPermissions.UserChangeStatus, "启用或禁用用户", "Enable or disable users"),
             (users, IdentityPermissions.UserDelete, "删除用户", "Delete users"),
             (users, IdentityPermissions.UserRestore, "恢复用户", "Restore users"),
-            (users, IdentityPermissions.UserAssignFactories, "分配用户厂区", "Assign user factories"),
+            (users, IdentityPermissions.UserAssignSbus, "分配用户SBU", "Assign user SBUs"),
             (users, IdentityPermissions.UserAssignRoles, "分配用户角色", "Assign user roles"),
             (users, IdentityPermissions.UserForceLogout, "强制用户下线", "Force users offline"),
-            (factories, IdentityPermissions.FactoryRead, "查看厂区", "View factories"),
-            (factories, IdentityPermissions.FactoryCreate, "新增厂区", "Create factories"),
-            (factories, IdentityPermissions.FactoryRename, "修改厂区名称", "Rename factories"),
-            (factories, IdentityPermissions.FactoryChangeStatus, "启用或禁用厂区", "Enable or disable factories"),
-            (factories, IdentityPermissions.FactoryDelete, "删除厂区", "Delete factories"),
-            (factories, IdentityPermissions.FactoryRestore, "恢复厂区", "Restore factories"),
+            (sbus, IdentityPermissions.SbuRead, "查看SBU", "View SBUs"),
+            (sbus, IdentityPermissions.SbuCreate, "新增SBU", "Create SBUs"),
+            (sbus, IdentityPermissions.SbuRename, "修改SBU名称", "Rename SBUs"),
+            (sbus, IdentityPermissions.SbuChangeStatus, "启用或禁用SBU", "Enable or disable SBUs"),
+            (sbus, IdentityPermissions.SbuDelete, "删除SBU", "Delete SBUs"),
+            (sbus, IdentityPermissions.SbuRestore, "恢复SBU", "Restore SBUs"),
             (roles, IdentityPermissions.RoleRead, "查看角色", "View roles"),
             (roles, IdentityPermissions.RoleCreate, "新增角色", "Create roles"),
             (roles, IdentityPermissions.RoleUpdate, "修改角色", "Edit roles"),

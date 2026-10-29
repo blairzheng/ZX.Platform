@@ -34,6 +34,10 @@ secrets.json
 .env
 .env.*
 !.env.example
+deploy/native/*.env
+deploy/docker/*.env
+output/mom-deploy/
+__pycache__/
 *.pfx
 *.p12
 *.key

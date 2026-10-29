@@ -24,7 +24,7 @@ JWT 包含 `sub`（用户 ID）、`name`（账号）、`sid`（会话 ID）、`j
 - 每次刷新原子消费旧 Refresh 并生成新的 Access / Refresh，原 Access 也立即失效。
 - 保留已消费 Refresh 的哈希到会话绝对过期；重放旧 Refresh 撤销该会话全部凭据。接管后旧 SessionId 的刷新、重放或退出不能撤销新会话。
 - 退出撤销当前会话并删除 Cookie。Access 过期仍可用 Refresh Cookie 退出，重复退出返回成功。无 Cookie 的接口工具也可用有效 Bearer 退出。
-- Refresh 响应丢失后不要自动重试旧凭据；旧凭据已被消费，重试会触发撤销，应重新登录。前端已合并单标签并发刷新，并用浏览器 Web Locks 协调同源标签页，不能绕过认证 store 各自用同一个 Cookie 同时刷新。前提是现代浏览器与 HTTPS 或本机安全上下文。
+- Refresh 响应丢失后不要自动重试旧凭据；旧凭据已被消费，重试会触发撤销，应重新登录。前端合并单标签并发刷新，并优先用浏览器 Web Locks 协调同源标签页；内网 HTTP 测试没有 Web Locks 时使用 IndexedDB 独占事务。不能绕过认证 store 各自用同一个 Cookie 同时刷新。
 
 ## 禁用、删除和改密码
 
@@ -54,7 +54,7 @@ Refresh 使用 `zx_identity_refresh` Cookie，`HttpOnly`、`SameSite=Strict`、`
 
 Auth 的 POST / PUT 均要求 `X-Identity-CSRF: 1`。这是非简单请求头，结合 SameSite 和当前不开放跨域凭据 CORS 的设置，防止其他站点借浏览器 Cookie 操作会话。HttpOnly 只防止脚本读取 Cookie，不能单独替代 CSRF 防护，也不能防止 XSS 代发请求。
 
-认证响应使用 `Cache-Control: no-store`，Refresh 不出现在 JSON。部署使用 HTTPS；开发建议通过 Identity HTTPS Swagger 或 HTTPS 入口验证。HTTP Vite 联调若浏览器拒收 Secure Cookie，可仅在 Development 用 User Secrets 设置 `AuthenticationCookie:Secure=false`。非 Development 配置为 false 会启动失败，不依赖浏览器对 localhost 的特殊行为。
+认证响应使用 `Cache-Control: no-store`，Refresh 不出现在 JSON。默认部署使用 HTTPS；HTTP Vite 联调可在 Development 用 User Secrets 设置 `AuthenticationCookie:Secure=false`。非 Development 的内网 HTTP 测试需同时显式设置 `AuthenticationCookie:Secure=false` 和 `AuthenticationCookie:AllowInsecureHttp=true`，否则启动失败。HTTP 不加密密码和会话流量，正式使用恢复 HTTPS 和 Secure=true。
 
 ## 配置与管理员
 
@@ -66,8 +66,8 @@ Auth 的 POST / PUT 均要求 `X-Identity-CSRF: 1`。这是非简单请求头，
 | `Authentication:RefreshTokenDays` | 7 | 1～30 天，绝对有效期 |
 | `Authentication:MaximumFailedAttempts` | 5 | 1～20 次 |
 | `Authentication:LockoutMinutes` | 15 | 1～1440 分钟 |
-| `Authentication:AdministratorAccounts` | `[]` | 仅首次引导内置管理员，指定已有账号、忽略大小写 |
-| `AuthenticationCookie:Secure` | true | 仅 Development 可设 false |
+| `AuthenticationCookie:Secure` | true | HTTP 测试设 false；非 Development 需同时显式允许 HTTP |
+| `AuthenticationCookie:AllowInsecureHttp` | false | 非 Development 的 HTTP 测试开关；正式保持 false |
 | `ConnectionStrings:IdentityRedis` | `127.0.0.1:6379,connectTimeout=3000,asyncTimeout=3000` | Redis 地址，生产凭据外部注入 |
 | `AuthenticationRedis:KeyPrefix` | `zx:identity:auth:` | 相同环境所有实例一致，不同环境必须隔离 |
 | `AuthenticationJwt:Issuer` | `ZX.Platform.Identity` | JWT 签发方，必须精确匹配 |
@@ -92,13 +92,7 @@ Remove-Variable identityJwtBytes, identityJwtRng, identityJwtKey
 
 角色与功能权限已接入，管理接口使用各自 Policy。普通用户仍可查看自己的当前用户信息、退出、自助改密码和修改自己的显示名称；修改他人名称需要相应权限。没有公开注册接口，不自动创建默认账号或密码。
 
-首次引导时，先应用角色迁移，再选择一个已存在、启用且知道密码的账号，例如实际账号是 `ZX001`：
-
-```powershell
-dotnet user-secrets set "Authentication:AdministratorAccounts:0" "ZX001" --project Services/Identity/ZX.Platform.Identity.Api
-```
-
-环境变量对应 `Authentication__AdministratorAccounts__0`。仅当数据库还没有 `ADMINISTRATOR` 角色时，启动使用名单创建该角色并绑定用户。角色存在后配置变更不再授予或撤销权限，后续在用户页分配角色；清空配置也不会删除已有管理员。空名单不自动授权；全新空库的首个账号仍需受控初始化。完整步骤见[首次管理员初始化](authorization.md#首次管理员初始化)。
+全新空库先应用迁移，再按[首个管理员初始化](authorization.md#首个管理员)手动执行本地 SQL，创建首个用户及管理员角色关联。应用启动时不创建用户、角色或授权；它只同步权限目录和默认菜单。之后通过后台用户、角色管理维护账号和授权。
 
 ## Redis 启动与故障
 
@@ -117,6 +111,32 @@ docker compose -f compose.redis.yml exec redis redis-cli ping
 dotnet user-secrets set "ConnectionStrings:IdentityRedis" "<host>:6379,password=<password>,connectTimeout=3000,asyncTimeout=3000" --project Services/Identity/ZX.Platform.Identity.Api
 ```
 
+### 开发环境使用共享 Sentinel
+
+团队开发可共用同一组测试 Redis Sentinel 地址和连接凭据；由团队通过安全渠道提供，不写入 Git。每位开发者将连接串保存到自己的 User Secrets，并为权限缓存和会话设置独立前缀：
+
+```text
+ConnectionStrings:IdentityRedis = <团队提供的 Redis Sentinel 连接串和凭据>
+AuthenticationRedis:KeyPrefix = mom:development:dev-alice:identity:auth:
+```
+
+示例中的 `dev-alice` 换成英文、数字、下划线或连字符组成的个人标识。同一位开发者的多个本地实例使用相同前缀；不同开发者使用不同前缀，避免共用测试账号时登录会话互相覆盖。生产使用独立凭据和 `mom:production:identity:auth:` 前缀，不能复用开发配置。
+
+`ConnectionMultiplexer.Connect` 与 StackExchange.Redis 支持通过 Sentinel `serviceName` 发现主节点；具体地址、服务名、用户名和密码以团队当前提供的连接信息为准。开发前缀只隔离 Redis 键，不提供账号或数据库层面的隔离，开发连接不得用于生产，也不要在共享测试库运行清库命令。
+
+本次已通过实际 Identity 服务注册发现主节点、带 TTL 的临时键读写和全部 AuthChecks（含会话、权限和临时 HTTP 检查）。测试键已清理，未连接 Oracle 执行业务写入。未再次触发服务器主节点切换，应用随切换重连仍需单独验证。
+
+修改后需重启本机 Identity 调试进程，因为 Redis 连接是单例；前端和 Gateway 无需因此重启。旧 Redis 前缀下的会话不会迁移，切换后需重新登录。若改用本机 Redis，在仓库根目录移除远端连接覆盖；前缀可保留个人开发值，也可在该 Redis 仅供自己使用时移除：
+
+```bash
+dotnet user-secrets remove "ConnectionStrings:IdentityRedis" --project Services/Identity/ZX.Platform.Identity.Api
+dotnet user-secrets remove "AuthenticationRedis:KeyPrefix" --project Services/Identity/ZX.Platform.Identity.Api
+```
+
+删除这两个覆盖项后使用 `appsettings.json` 中的默认地址 `127.0.0.1:6379` 和默认键前缀，前提是本机 Redis 已运行；这不会删除远端 Redis 数据。
+
+### 故障行为
+
 Redis 不可用时依赖会话的操作返回本地化 `503 / 600503`，不退回内存、不按未登录返回 401、不删除 Refresh Cookie。连接配置使用 `BacklogPolicy.FailFast`，避免恢复连接后补执行积压的旧认证操作。这里的 Redis 超时仅限制依赖调用，不是所有业务接口的统一执行时限。已发出的命令超时后可能已执行，不能无条件自动重试登录或刷新。
 
 应用重启而 Redis 会话还在时可以继续使用。Redis 数据全部丢失则所有用户需重新登录；AOF 每秒刷盘也可能丢失最近写入，包括会话撤销，恢复后不能承诺严格立即失效。生产还需监控、备份和高可用方案。各节点应同步系统时间。
@@ -132,6 +152,6 @@ dotnet run --project Tests/ZX.Platform.Identity.AuthChecks --no-launch-profile
 
 检查使用真实 Redis、两个独立 Redis 连接、真实 BCrypt、替代用户仓储和临时 HTTP 服务。覆盖 JSON String 存储、创建及刷新后的绝对过期时间、旧 Hash 会话迁移、JWT 签名篡改、错误 Issuer / Audience / 密钥 / 类型、无签名、有效期、会话 Claims、匿名刷新携带过期 Access、跨实例接管/下线、原子轮换与多次刷新后的重放、锁定、旧退出不影响新登录、503 故障、Cookie、CSRF、权限、多语言及接受的竞争边界。每组使用随机 `zx:identity:checks:` 前缀并只清理自己的键，不清库；仍建议使用独立测试 Redis。默认不连接业务数据库；显式设置 IDENTITY_TEST_ORACLE 后会额外执行可回滚的 Oracle 集成检查，见[数据库专题](database.md#可选-oracle-集成检查)。这些检查不替代 Gateway / 浏览器部署验收。新增角色授权检查还覆盖模型与迁移快照、权限并集、Redis 版本失效和内置管理员保护，HTTP 检查覆盖旧 JWT 在授权/撤权后分别通过/拒绝。手工示例见 Api `Authorization.http` 及认证 `.http` 文件。
 
-各业务服务仍需独立认证并检查自己的功能权限与厂区数据范围，不能只相信 Gateway，也不能将 `UserFactory` 或登录成功视为所有业务授权。Identity 的角色权限已接入，本次尚未执行新增授权的真实数据库和浏览器验收，清单见[角色与权限](authorization.md#验证与待验收)。新增业务服务时提取公共认证/授权组件，不逐请求 HTTP 调 Identity。跨服务组件、首账号初始化及审计用户上下文属于后续工作。
+各业务服务仍需独立认证并检查自己的功能权限与SBU数据范围，不能只相信 Gateway，也不能将 `UserSbu` 或登录成功视为所有业务授权。Identity 的角色权限已接入，本次尚未执行新增授权的真实数据库和浏览器验收，清单见[角色与权限](authorization.md#验证与待验收)。新增业务服务时提取公共认证/授权组件，不逐请求 HTTP 调 Identity。跨服务组件、首账号初始化及审计用户上下文属于后续工作。
 
 前端登录通过同源 Gateway 代理，Access 保存在 localStorage，Refresh 仅在 HttpOnly Cookie；HTTP 本机开发按上文调整 Development Cookie 配置。前端拼图插件目前只提供拖动交互，后端未验证挑战，不能将其当作服务端防机器人能力。前端认证说明及手工验收清单见 ZX.front.vue 的 `docs/authentication.md`。

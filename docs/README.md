@@ -10,7 +10,7 @@
 
 1. [开发环境](development.md#本地启动)：配置 SDK、数据库和开发证书，运行 Identity 与 Gateway。
 2. [开发者指南](developer-guide.md)：理解目录职责、依赖方向、请求链和当前能力边界。
-3. [数据库与持久化](database.md)：理解用户、厂区、关系表、审计与软删除。
+3. [数据库与持久化](database.md)：理解用户、SBU、关系表、审计与软删除。
 4. [新增一个业务功能](developer-guide.md#新增一个业务功能)：从 DTO、实体和服务到接口、资源与验收的流程。
 
 ## 按任务查阅
@@ -19,17 +19,22 @@
 | ------------------- | -------------------------------- | --------------------------------------------- |
 | 理解架构 / 新增业务 | [开发者指南](developer-guide.md) | 四层职责、Repository / Unit of Work、开发约定 |
 | 启动 / 配置 / 排错  | [开发环境](development.md)       | User Secrets、端口、HTTPS、Gateway 和 Git     |
+| 规划生产部署        | [MOM 一期部署架构草案](deployment-topology.md) | 双应用节点、Redis Sentinel、集团 Oracle 与待确认事项 |
+| 准备当前预发布 | [Docker 离线部署](docker-deployment.md) | 176 独立 HTTPS 端口、177/178 容器、配置与发布顺序；[原生方案](native-deployment.md)仅供参考 |
 | 查运行和接口日志 | [运行与接口日志](logging.md) | 请求摘要、TraceId、异步控制台输出、Linux journald |
 | 修改实体 / 数据库   | [数据库与持久化](database.md)    | 唯一索引、软删除、审计、关系和 Migration      |
+| 执行数据库迁移 | [迁移操作手册](migration-operations.md) | 本机、测试库直接更新与正式库交 DBA 的步骤 |
+| Docker 离线部署 / 数据库迁移 | [Docker 部署手册](docker-deployment.md) | 打包、load、配置、数据库初始化、管理员 SQL 和升级 |
+| 一键离线打包 / 并行远程部署 / 回滚 | [部署脚本说明](../deploy/docker/README.md) | 本机 package、remote 临时 SSH/SFTP，两台并行；服务器 init、deploy、status、rollback |
 | 运维按当地时间查数据 | [运维查询时间](database.md#运维查询时间) | Oracle UTC 时间类型、当地时间查询与换算 |
-| 联调用户 / 厂区     | [Identity 接口契约](api.md)      | 路由、HTTP 方法、请求字段、分页与错误负载     |
-| 理解用户 / 厂区规则 | [Identity 业务语义](identity.md) | 状态、厂区关系与当前能力边界                  |
+| 联调用户 / SBU     | [Identity 接口契约](api.md)      | 路由、HTTP 方法、请求字段、分页与错误负载     |
+| 理解用户 / SBU规则 | [Identity 业务语义](identity.md) | 状态、SBU关系与当前能力边界                  |
 | 处理接口成功 / 失败 | [API 响应与错误](http.md)        | ApiResponse、错误码、结构化原因与取消         |
 | 增加中英文提示      | [API 多语言](localization.md)    | Accept-Language、资源、DTO 校验与异常消息键   |
 | 调整请求频率        | [接口限流](rate-limiting.md)     | 配置、分段窗口、可信代理与计数边界            |
 | 联调登录与会话      | [登录与会话](authentication.md) | Redis、Cookie、接管、强制下线及并发边界 |
-| 管理角色与权限 | [角色与权限](authorization.md) | 管理员引导、权限目录、菜单树授权、动态菜单及缓存失效 |
-| 设计下一阶段        | [后续规划与设计取舍](roadmap.md) | 认证、厂区权限、幂等、日志和基础设施          |
+| 管理角色与权限 | [角色与权限](authorization.md) | 管理员 SQL、权限目录、菜单树授权、动态菜单及缓存失效 |
+| 设计下一阶段        | [后续规划与设计取舍](roadmap.md) | 认证、SBU权限、幂等、日志和基础设施          |
 | 查阅过去讨论        | [历史文档](history/README.md)    | 原交接记录与前端迁移方案                      |
 
 ## 前端仓库

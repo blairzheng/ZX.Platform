@@ -16,9 +16,7 @@ internal static class AuthorizationChecks
     public static async Task RunAsync()
     {
         // 只比较模型并生成 SQL，不打开连接、不执行数据库迁移。
-        var options = new DbContextOptionsBuilder<PlatformIdentityDbContext>()
-            .UseOracle("User Id=unused;Password=unused;Data Source=localhost/FREEPDB1").Options;
-        await using (var db = new PlatformIdentityDbContext(options))
+        await using (var db = Oracle19Checks.CreateContext())
         {
             Check.That(!db.Database.HasPendingModelChanges(), "Authorization mappings must match the committed model snapshot.");
             var sql = db.GetService<IMigrator>().GenerateScript();
@@ -34,6 +32,18 @@ internal static class AuthorizationChecks
             new PermissionService(fixture.Roles, fixture.PermissionCache), fixture.PermissionCache);
         var target = User.Create("VIEWER", "Viewer", fixture.Passwords.Hash("Example123!"));
         fixture.Users.Add(target);
+        var activeSbu = Sbu.Create("SBU1", "SBU 1");
+        var disabledSbu = Sbu.Create("SBU2", "SBU 2");
+        disabledSbu.Disable();
+        var unassignedSbu = Sbu.Create("SBU3", "SBU 3");
+        fixture.Sbus.Items.AddRange([activeSbu, disabledSbu, unassignedSbu]);
+        fixture.UserSbus.Add(UserSbu.Create(target.Id, activeSbu.Id, false));
+        fixture.UserSbus.Add(UserSbu.Create(target.Id, disabledSbu.Id, false));
+        Check.That((await fixture.Auth.GetCurrentUserAsync(fixture.User.Id, default)).Sbus.Count == 0,
+            "An administrator without SBU relations must not receive all SBUs.");
+        var current = await fixture.Auth.GetCurrentUserAsync(target.Id, default);
+        Check.That(current.Sbus.Count == 1 && current.Sbus[0].Id == activeSbu.Id,
+            "Current user SBUs must include only assigned and enabled records.");
         var readRole = await service.CreateAsync(new() { Code = "reader", Name = "Reader" }, default);
         var editRole = await service.CreateAsync(new() { Code = "editor", Name = "Editor" }, default);
         await service.UpdatePermissionsAsync(new() { RoleId = readRole, PermissionCodes = [IdentityPermissions.UserRead] }, default);

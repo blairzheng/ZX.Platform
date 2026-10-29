@@ -47,11 +47,11 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Repositories
                 users = users.Where(e => e.IsEnabled == userQuery.IsEnabled.Value);
             }
 
-            if (userQuery.FactoryId.HasValue)
+            if (userQuery.SbuId.HasValue)
             {
-                var factoryId = userQuery.FactoryId.Value;
-                users = users.Where(user => _dbContext.UserFactories.Any(
-                    relation => relation.UserId == user.Id && relation.FactoryId == factoryId));
+                var sbuId = userQuery.SbuId.Value;
+                users = users.Where(user => _dbContext.UserSbus.Any(
+                    relation => relation.UserId == user.Id && relation.SbuId == sbuId));
             }
 
             if (userQuery.CreatedFromUtc.HasValue)

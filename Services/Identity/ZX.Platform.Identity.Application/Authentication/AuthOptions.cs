@@ -16,6 +16,4 @@ public sealed class AuthOptions
     [Range(1, 1440)]
     public int LockoutMinutes { get; set; } = 15;
 
-    // 仅首次创建内置管理员角色时绑定已有账号；不再参与运行时授权。
-    public string[] AdministratorAccounts { get; set; } = [];
 }

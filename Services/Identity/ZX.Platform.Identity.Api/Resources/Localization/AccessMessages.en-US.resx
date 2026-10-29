@@ -21,7 +21,7 @@
   <data name="Access.CannotRemoveOwnAdministrator" xml:space="preserve"><value>You cannot remove your own administrator role.</value></data>
   <data name="Access.CannotDeactivateSelf" xml:space="preserve"><value>You cannot disable or delete the current user.</value></data>
   <data name="Access.Group.user" xml:space="preserve"><value>Users</value></data>
-  <data name="Access.Group.factory" xml:space="preserve"><value>Factories</value></data>
+  <data name="Access.Group.sbu" xml:space="preserve"><value>SBUs</value></data>
   <data name="Access.Group.role" xml:space="preserve"><value>Roles</value></data>
   <data name="Access.Permission.identity.user.read" xml:space="preserve"><value>View users</value></data>
   <data name="Access.Permission.identity.user.create" xml:space="preserve"><value>Create users</value></data>
@@ -29,15 +29,15 @@
   <data name="Access.Permission.identity.user.status" xml:space="preserve"><value>Enable or disable users</value></data>
   <data name="Access.Permission.identity.user.delete" xml:space="preserve"><value>Delete users</value></data>
   <data name="Access.Permission.identity.user.restore" xml:space="preserve"><value>Restore users</value></data>
-  <data name="Access.Permission.identity.user.factories" xml:space="preserve"><value>Assign user factories</value></data>
+  <data name="Access.Permission.identity.user.sbus" xml:space="preserve"><value>Assign user SBUs</value></data>
   <data name="Access.Permission.identity.user.roles" xml:space="preserve"><value>Assign user roles</value></data>
   <data name="Access.Permission.identity.user.forceLogout" xml:space="preserve"><value>Force users offline</value></data>
-  <data name="Access.Permission.identity.factory.read" xml:space="preserve"><value>View factories</value></data>
-  <data name="Access.Permission.identity.factory.create" xml:space="preserve"><value>Create factories</value></data>
-  <data name="Access.Permission.identity.factory.rename" xml:space="preserve"><value>Rename factories</value></data>
-  <data name="Access.Permission.identity.factory.status" xml:space="preserve"><value>Enable or disable factories</value></data>
-  <data name="Access.Permission.identity.factory.delete" xml:space="preserve"><value>Delete factories</value></data>
-  <data name="Access.Permission.identity.factory.restore" xml:space="preserve"><value>Restore factories</value></data>
+  <data name="Access.Permission.identity.sbu.read" xml:space="preserve"><value>View SBUs</value></data>
+  <data name="Access.Permission.identity.sbu.create" xml:space="preserve"><value>Create SBUs</value></data>
+  <data name="Access.Permission.identity.sbu.rename" xml:space="preserve"><value>Rename SBUs</value></data>
+  <data name="Access.Permission.identity.sbu.status" xml:space="preserve"><value>Enable or disable SBUs</value></data>
+  <data name="Access.Permission.identity.sbu.delete" xml:space="preserve"><value>Delete SBUs</value></data>
+  <data name="Access.Permission.identity.sbu.restore" xml:space="preserve"><value>Restore SBUs</value></data>
   <data name="Access.Permission.identity.role.read" xml:space="preserve"><value>View roles</value></data>
   <data name="Access.Permission.identity.role.create" xml:space="preserve"><value>Create roles</value></data>
   <data name="Access.Permission.identity.role.update" xml:space="preserve"><value>Edit role details</value></data>

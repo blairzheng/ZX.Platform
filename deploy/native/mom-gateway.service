@@ -1,0 +1,30 @@
+[Unit]
+Description=MOM Gateway
+Wants=network-online.target mom-identity.service
+After=network-online.target mom-identity.service
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=mom
+Group=mom
+WorkingDirectory=/opt/mom/current/gateway
+ExecStart=/usr/bin/dotnet /opt/mom/current/gateway/ZX.Platform.Gateway.dll
+EnvironmentFile=/etc/mom/gateway.env
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=60
+KillSignal=SIGINT
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mom-gateway
+LogNamespace=mom
+
+[Install]
+WantedBy=multi-user.target

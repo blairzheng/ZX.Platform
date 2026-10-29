@@ -1,5 +1,7 @@
 ﻿using Oracle.ManagedDataAccess.Client;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Oracle.EntityFrameworkCore.Infrastructure;
 using ZX.Platform.Identity.Application.Exceptions;
 using ZX.Platform.Identity.Application.Persistence;
 using ZX.Platform.Identity.Domain.Entities;
@@ -8,10 +10,38 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence
 {
     public sealed class PlatformIdentityDbContext : DbContext, IUnitOfWork
     {
+        public const string DefaultSchema = "ZX_IDENTITY";
+        public const string HistoryTable = "ZX_IDENTITY_MIGRATIONS";
+
+        public string Schema { get; }
+
         public PlatformIdentityDbContext(
-            DbContextOptions<PlatformIdentityDbContext> options)
+            DbContextOptions<PlatformIdentityDbContext> options,
+            IdentityDatabaseSchema schema)
             : base(options)
         {
+            ValidateSchema(schema.Name);
+            Schema = schema.Name;
+        }
+
+        public static void Configure(DbContextOptionsBuilder options, string connectionString, string schema)
+        {
+            ValidateSchema(schema);
+            options.ReplaceService<IModelCacheKeyFactory, IdentityDatabaseModelCacheKeyFactory>();
+            options.UseOracle(connectionString, oracle =>
+            {
+                oracle.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19);
+                oracle.MigrationsHistoryTable(HistoryTable, schema);
+            });
+        }
+
+        public static void ValidateSchema(string schema)
+        {
+            if (string.IsNullOrWhiteSpace(schema) || schema.Length > 128 ||
+                schema[0] is not (>= 'A' and <= 'Z') ||
+                !schema.All(character => character is >= 'A' and <= 'Z' or >= '0' and <= '9' or '_'))
+                throw new InvalidOperationException(
+                    "IdentityDatabase:Schema 必须是以大写字母开头、只包含大写字母、数字和下划线的 Oracle 标识符。");
         }
 
         /// <summary>
@@ -20,14 +50,14 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence
         public DbSet<User> Users => Set<User>();
 
         /// <summary>
-        /// 厂区数据集。
+        /// SBU数据集。
         /// </summary>
-        public DbSet<Factory> Factories => Set<Factory>();
+        public DbSet<Sbu> Sbus => Set<Sbu>();
 
         /// <summary>
-        /// 用户与厂区的关联数据集。
+        /// 用户与SBU的关联数据集。
         /// </summary>
-        public DbSet<UserFactory> UserFactories => Set<UserFactory>();
+        public DbSet<UserSbu> UserSbus => Set<UserSbu>();
 
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<Permission> Permissions => Set<Permission>();
@@ -42,6 +72,7 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence
             // 自动加载当前程序集中的所有 IEntityTypeConfiguration 配置。
             modelBuilder.ApplyConfigurationsFromAssembly(
                 typeof(PlatformIdentityDbContext).Assembly);
+            modelBuilder.HasDefaultSchema(Schema);
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

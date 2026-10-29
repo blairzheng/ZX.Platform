@@ -160,15 +160,15 @@ namespace ZX.Platform.Identity.Api.Controllers
             return StatusCode(StatusCodes.Status200OK, response);
         }
 
-        [HttpPut("updateUserFactories")]
-        [Authorize(Policy = IdentityPermissions.UserAssignFactories)]
-        public async Task<IActionResult> UpdateUserFactoriesAsync([FromBody] UpdateUserFactoryDto updateUserFactory, CancellationToken cancellationToken)
+        [HttpPut("updateUserSbus")]
+        [Authorize(Policy = IdentityPermissions.UserAssignSbus)]
+        public async Task<IActionResult> UpdateUserSbusAsync([FromBody] UpdateUserSbuDto updateUserSbu, CancellationToken cancellationToken)
         {
-            await _userService.UpdateUserFactoriesAsync(updateUserFactory, cancellationToken);
+            await _userService.UpdateUserSbusAsync(updateUserSbu, cancellationToken);
             var response = new ApiResponse
             {
                 Code = 0,
-                Message = _messages["User.FactoriesUpdated"].Value
+                Message = _messages["User.SbusUpdated"].Value
             };
             return StatusCode(StatusCodes.Status200OK, response);
         }

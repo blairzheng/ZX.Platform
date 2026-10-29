@@ -21,7 +21,7 @@
   <data name="Access.CannotRemoveOwnAdministrator" xml:space="preserve"><value>不能移除自己的管理员角色。</value></data>
   <data name="Access.CannotDeactivateSelf" xml:space="preserve"><value>不能禁用或删除当前登录用户。</value></data>
   <data name="Access.Group.user" xml:space="preserve"><value>用户管理</value></data>
-  <data name="Access.Group.factory" xml:space="preserve"><value>厂区管理</value></data>
+  <data name="Access.Group.sbu" xml:space="preserve"><value>SBU管理</value></data>
   <data name="Access.Group.role" xml:space="preserve"><value>角色管理</value></data>
   <data name="Access.Permission.identity.user.read" xml:space="preserve"><value>查看用户</value></data>
   <data name="Access.Permission.identity.user.create" xml:space="preserve"><value>新增用户</value></data>
@@ -29,15 +29,15 @@
   <data name="Access.Permission.identity.user.status" xml:space="preserve"><value>启用或禁用用户</value></data>
   <data name="Access.Permission.identity.user.delete" xml:space="preserve"><value>删除用户</value></data>
   <data name="Access.Permission.identity.user.restore" xml:space="preserve"><value>恢复用户</value></data>
-  <data name="Access.Permission.identity.user.factories" xml:space="preserve"><value>分配用户厂区</value></data>
+  <data name="Access.Permission.identity.user.sbus" xml:space="preserve"><value>分配用户SBU</value></data>
   <data name="Access.Permission.identity.user.roles" xml:space="preserve"><value>分配用户角色</value></data>
   <data name="Access.Permission.identity.user.forceLogout" xml:space="preserve"><value>强制用户下线</value></data>
-  <data name="Access.Permission.identity.factory.read" xml:space="preserve"><value>查看厂区</value></data>
-  <data name="Access.Permission.identity.factory.create" xml:space="preserve"><value>新增厂区</value></data>
-  <data name="Access.Permission.identity.factory.rename" xml:space="preserve"><value>修改厂区名称</value></data>
-  <data name="Access.Permission.identity.factory.status" xml:space="preserve"><value>启用或禁用厂区</value></data>
-  <data name="Access.Permission.identity.factory.delete" xml:space="preserve"><value>删除厂区</value></data>
-  <data name="Access.Permission.identity.factory.restore" xml:space="preserve"><value>恢复厂区</value></data>
+  <data name="Access.Permission.identity.sbu.read" xml:space="preserve"><value>查看SBU</value></data>
+  <data name="Access.Permission.identity.sbu.create" xml:space="preserve"><value>新增SBU</value></data>
+  <data name="Access.Permission.identity.sbu.rename" xml:space="preserve"><value>修改SBU名称</value></data>
+  <data name="Access.Permission.identity.sbu.status" xml:space="preserve"><value>启用或禁用SBU</value></data>
+  <data name="Access.Permission.identity.sbu.delete" xml:space="preserve"><value>删除SBU</value></data>
+  <data name="Access.Permission.identity.sbu.restore" xml:space="preserve"><value>恢复SBU</value></data>
   <data name="Access.Permission.identity.role.read" xml:space="preserve"><value>查看角色</value></data>
   <data name="Access.Permission.identity.role.create" xml:space="preserve"><value>新增角色</value></data>
   <data name="Access.Permission.identity.role.update" xml:space="preserve"><value>修改角色资料</value></data>

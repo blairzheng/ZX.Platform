@@ -15,12 +15,12 @@
   <data name="User.BatchDeleted" xml:space="preserve"><value>用户批量删除成功。</value></data>
   <data name="User.BatchDeleteNoIds" xml:space="preserve"><value>请选择要删除的用户。</value></data>
   <data name="User.Restored" xml:space="preserve"><value>用户恢复成功。</value></data>
-  <data name="User.FactoriesUpdated" xml:space="preserve"><value>用户厂区更新成功。</value></data>
+  <data name="User.SbusUpdated" xml:space="preserve"><value>用户SBU更新成功。</value></data>
   <data name="User.AccountDeleted" xml:space="preserve"><value>该账号曾被删除，不能重复创建，请联系管理员恢复原用户或使用其他账号。</value></data>
   <data name="User.AccountDisabled" xml:space="preserve"><value>该账号已被禁用，不能重复创建，请联系管理员。</value></data>
   <data name="User.AccountExists" xml:space="preserve"><value>该账号已存在。</value></data>
   <data name="User.NotFound" xml:space="preserve"><value>用户不存在。</value></data>
   <data name="User.NotDeleted" xml:space="preserve"><value>用户未被删除，无需恢复。</value></data>
-  <data name="User.FactoriesUnavailable" xml:space="preserve"><value>部分厂区不存在或已被禁用。</value></data>
+  <data name="User.SbusUnavailable" xml:space="preserve"><value>部分SBU不存在或已被禁用。</value></data>
   <data name="User.RestoreBeforeEnable" xml:space="preserve"><value>已删除的用户必须先恢复，不能直接启用。</value></data>
 </root>

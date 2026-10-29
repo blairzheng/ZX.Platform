@@ -2,52 +2,52 @@
 
 [文档导航](README.md) · [开发者指南](developer-guide.md)
 
-Identity 使用 EF Core 10 与 Oracle.EntityFrameworkCore 10.23.26400，目标为 Oracle 23ai / 26ai（使用原生 BOOLEAN）。数据库由本服务拥有；其他业务服务通过接口或集成事件协作，不直接读写 Identity 的表。
+Identity 使用 EF Core 10 与 Oracle.EntityFrameworkCore 10.23.26400，所有环境统一采用 Oracle 19c 模型。只有 `PlatformIdentityDbContext` 和一套迁移；表所属 schema 通过 `IdentityDatabase:Schema` 配置。业务表由本服务维护，其他业务服务通过接口或集成事件协作。
 
 ## 模型与表
 
 | 实体          | 表                         | 主键 / 唯一性                                 | 生命周期           |
 | ------------- | -------------------------- | --------------------------------------------- | ------------------ |
 | `User`        | `ZX_IDENTITY_USER`         | 应用生成 `Guid`；`NormalizedAccount` 全表唯一 | 软删除与恢复       |
-| `Factory`     | `ZX_IDENTITY_FACTORY`      | 应用生成 `Guid`；`Code` 全表唯一              | 软删除与恢复       |
-| `UserFactory` | `ZX_IDENTITY_USER_FACTORY` | `UserId + FactoryId` 联合主键                 | 新增或物理删除关系 |
+| `Sbu`     | `ZX_IDENTITY_SBU`      | 应用生成 `Guid`；`Code` 全表唯一              | 软删除与恢复       |
+| `UserSbu` | `ZX_IDENTITY_USER_SBU` | `UserId + SbuId` 联合主键                 | 新增或物理删除关系 |
 | `Role` | `ZX_IDENTITY_ROLE` | Guid；`Code` 全表唯一 | 软删除；内置角色只读 |
 | `Permission` | `ZX_IDENTITY_PERMISSION` | `Code` 主键 | 启动同步，移除定义后停用 |
 | `UserRole` | `ZX_IDENTITY_USER_ROLE` | `UserId + RoleId` 联合主键 | 新增或物理删除关系 |
 | `RolePermission` | `ZX_IDENTITY_ROLE_PERMISSION` | `RoleId + PermissionCode` 联合主键 | 新增或物理删除关系 |
 | `Menu` | `ZX_IDENTITY_MENU` | Guid；Code 全表唯一；未删除页面 Path、操作 PermissionCode 分别唯一 | 软删除；内置节点仅维护名称/图标/排序 |
 
-`UserFactory` 表示用户和厂区的多对多关系，包含 `IsDefault` 和审计字段，**没有 `IsEnabled` 或软删除字段**。默认厂区的实体方法已经存在，当前接口创建关系时均使用 `IsDefault=false`，尚未建立设置默认厂区的用例。
+`UserSbu` 表示用户和SBU的多对多关系，包含 `IsDefault` 和审计字段，**没有 `IsEnabled` 或软删除字段**。默认SBU的实体方法已经存在，当前接口创建关系时均使用 `IsDefault=false`，尚未建立设置默认SBU的用例。
 
 当前不用实体导航属性和数据库物理外键。主键 / 唯一索引仍由数据库保证；对象是否存在及关系是否允许建立，由 Application 校验。关联查询显式写出筛选、`Any` 或按用户批量取关系，避免隐式 Include。
 
 源码入口：[Entities](../Services/Identity/ZX.Platform.Identity.Domain/Entities)、[Configurations](../Services/Identity/ZX.Platform.Identity.Infrastructure/Persistence/Configurations)。
 
-## 账号与厂区编码
+## 账号与SBU编码
 
-用户创建时对账号 `Trim()`，`NormalizedAccount` 使用 `ToUpperInvariant()`；账号唯一性按标准化值判断。厂区编码 `Trim()` 后转为大写。
+用户创建时对账号 `Trim()`，`NormalizedAccount` 使用 `ToUpperInvariant()`；账号唯一性按标准化值判断。SBU编码 `Trim()` 后转为大写。
 
-两种唯一索引都没有按 `IsDeleted` 过滤：软删除后原账号和厂区编码仍被保留，不能用同一标识建立新的主数据。创建前的预查询使用 `IgnoreQueryFilters()`，因此能给出“已删除 / 已禁用”的友好冲突提示。
+两种唯一索引都没有按 `IsDeleted` 过滤：软删除后原账号和SBU编码仍被保留，不能用同一标识建立新的主数据。创建前的预查询使用 `IgnoreQueryFilters()`，因此能给出“已删除 / 已禁用”的友好冲突提示。
 
-数据库映射允许账号最长 100、厂区编码最长 50，但当前创建用户 DTO 将账号限制为最多 8 个字符；接口允许值以 DTO 为准，不能从列长推断 API 约束。请求字段详见[Identity 接口契约](api.md#用户请求字段)。
+数据库映射允许账号最长 100、SBU编码最长 50，但当前创建用户 DTO 将账号限制为最多 8 个字符；接口允许值以 DTO 为准，不能从列长推断 API 约束。请求字段详见[Identity 接口契约](api.md#用户请求字段)。
 
 ## Oracle 类型与空字符串
 
-Guid 映射为 `RAW(16)`，布尔值为 `BOOLEAN`，UTC 时间为 `TIMESTAMP(7) WITH TIME ZONE`，有长度限制的 Unicode 文本为 `NVARCHAR2(n)`。
+Guid 映射为 `RAW(16)`，布尔值为 `NUMBER(1)`，UTC 时间为 `TIMESTAMP(7) WITH TIME ZONE`，有长度限制的 Unicode 文本为 `NVARCHAR2(n)`。
 
 Oracle 将空字符串存为 NULL。菜单的英文标题、图标、路径、组件、权限以及角色说明允许数据库 NULL，实体通过后备字段将它们还原为空字符串，保持接口契约。账号、编码、中文标题等必填字段仍为 NOT NULL。
 
-Oracle 不支持 SQL Server 的筛选索引。菜单通过两个虚拟列及唯一索引实现条件唯一性：仅未删除页面产生 `ACTIVE_PAGE_PATH`，仅未删除操作产生 `ACTIVE_ACTION_PERMISSION`，其余行返回 NULL。条件使用 `IS_DELETED IS FALSE`；Oracle B-tree 索引不保存全 NULL 的键。停用但未删除的菜单仍占用索引值，删除后可复用路径或操作权限，编码始终保留。
+Oracle 不支持 SQL Server 的筛选索引。菜单通过两个虚拟列及唯一索引实现条件唯一性：仅未删除页面产生 `ACTIVE_PAGE_PATH`，仅未删除操作产生 `ACTIVE_ACTION_PERMISSION`，其余行返回 NULL。19c 数值布尔条件使用 `IS_DELETED = 0`；Oracle B-tree 索引不保存全 NULL 的键。停用但未删除的菜单仍占用索引值，删除后可复用路径或操作权限，编码始终保留。
 
 ## 软删除与状态
 
-`User`、`Factory`、`Role` 和 `Menu` 继承 `SoftDeletableEntity`。`MarkDeleted()` 设置 `IsDeleted=true`，各实体同时设 `IsEnabled=false`。用户和厂区提供恢复接口；角色和菜单当前不提供恢复。角色、菜单及授权关联也有审计字段；权限目录仅保存编码和活跃状态，不继承审计实体。角色关系与缓存失效见[角色与权限](authorization.md)。
+`User`、`Sbu`、`Role` 和 `Menu` 继承 `SoftDeletableEntity`。`MarkDeleted()` 设置 `IsDeleted=true`，各实体同时设 `IsEnabled=false`。用户和SBU提供恢复接口；角色和菜单当前不提供恢复。角色、菜单及授权关联也有审计字段；权限目录仅保存编码和活跃状态，不继承审计实体。角色关系与缓存失效见[角色与权限](authorization.md)。
 
-普通查询默认使用 `!IsDeleted` 的全局过滤器，包括详情、分页和启用厂区查询。恢复用例通过专用查询包含已删除数据；普通启用接口不会绕过过滤器取得已删除对象。
+普通查询默认使用 `!IsDeleted` 的全局过滤器，包括详情、分页和启用SBU查询。恢复用例通过专用查询包含已删除数据；普通启用接口不会绕过过滤器取得已删除对象。
 
-删除或停用主数据时，现有用户厂区关系不会自动删除。恢复主数据后这些关系仍在。关系列表本身不联查厂区状态，因此用户 DTO 的 `factoryIds` 可能包含后来停用或删除的厂区；读取关系不等于验证当前访问权限。
+删除或停用主数据时，现有用户SBU关系不会自动删除。恢复主数据后这些关系仍在。关系列表本身不联查SBU状态，因此用户 DTO 的 `sbuIds` 可能包含后来停用或删除的SBU；读取关系不等于验证当前访问权限。
 
-`IgnoreQueryFilters()` 只在恢复、唯一性判断等明确场景使用，避免普通列表意外显示删除数据。状态接口和恢复时的 HTTP 行为见[Identity 业务语义](identity.md#状态与厂区关系)。
+`IgnoreQueryFilters()` 只在恢复、唯一性判断等明确场景使用，避免普通列表意外显示删除数据。状态接口和恢复时的 HTTP 行为见[Identity 业务语义](identity.md#状态与SBU关系)。
 
 ## 审计字段
 
@@ -89,7 +89,7 @@ SELECT
         'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM'
     ) AS CREATED_AT_BEIJING
 FROM ZX_IDENTITY_USER
-WHERE IS_DELETED IS FALSE
+WHERE IS_DELETED = 0
   AND CREATED_AT_UTC >= TO_TIMESTAMP_TZ(
         '2026-10-13 00:00:00 +08:00',
         'YYYY-MM-DD HH24:MI:SS TZH:TZM'
@@ -125,62 +125,67 @@ Service 预查询只是友好提示，两个同时创建的请求仍可能都通
 
 ## 查询与分页
 
-只有用户列表分页，支持账号 / 显示名称关键字、启用状态、厂区关系和创建时间范围筛选；查询使用 `AsNoTracking()`，按 `CreatedAtUtc` 倒序、`Id` 次序，`total` 是同一筛选条件下未分页的总数。厂区列表不分页，直接返回全部未删除厂区，同样按 `CreatedAtUtc` 倒序、`Id` 次序。
+只有用户列表分页，支持账号 / 显示名称关键字、启用状态、SBU关系和创建时间范围筛选；查询使用 `AsNoTracking()`，按 `CreatedAtUtc` 倒序、`Id` 次序，`total` 是同一筛选条件下未分页的总数。SBU列表不分页，直接返回全部未删除SBU，同样按 `CreatedAtUtc` 倒序、`Id` 次序。
 
-用户列表获取当前页后，批量读取这些用户的关系并分组，避免每个用户单独查关系。启用厂区列表没有分页和明确排序，调用方不要依赖数据库返回顺序。
+用户列表获取当前页后，批量读取这些用户的关系并分组，避免每个用户单独查关系。启用SBU列表没有分页和明确排序，调用方不要依赖数据库返回顺序。
 
 当前未为列表与总数建立一致性快照，在其他请求同时修改数据时，两次查询可能看到不同的时点。筛选与参数边界见[分页与结果](api.md#分页与结果)。
 
 ## 迁移现状
 
-当前 Oracle Migration 和 `OracleIdentityDbContextModelSnapshot` 放在 Infrastructure 的 `Persistence/OracleMigrations/`。初始迁移 `20261022013212_InitialOracleIdentitySchema` 一次创建八张业务表和全部索引；它是新空库基线，不转换 SQL Server 数据。
+唯一迁移目录为 `Persistence/Migrations/`，快照为 `PlatformIdentityDbContextModelSnapshot`。基线 `20261027000000_InitialIdentitySchema` 创建旧厂区模型；`20261028084818_ReplaceFactoriesWithSbus` 删除旧厂区及用户厂区表，创建 SBU 及用户 SBU 表，并清理旧内置厂区菜单。旧厂区测试数据不会迁移；用户、角色等其他表保留。部署当前代码必须将目标库升级到第二条迁移。本地、测试、正式使用相同迁移链，仅连接和 schema 不同。
 
-旧 `Persistence/Migrations/` 保留 SQL Server 历史，已从编译项排除；原文件不改写，不会被 Oracle 执行。历史顺序为：
-
-1. `20260915065433_InitialIdentitySchema`。
-2. `20260916013615_AlignUserFactoryQueryFilter`。
-3. `20260916030633_RemoveIdentityNavigations`。
-4. `20260920085118_RemoveUserFactoryIsEnabled`。
-5. `20261016080000_AddRolesAndPermissions`：角色、权限目录、用户角色及角色权限四表。
-6. `20261016090000_AddMenus`：菜单表、父级索引和按类型/未删除状态过滤的唯一路径及操作权限索引；启动时补齐默认菜单。
-7. `20261017015833_AddMenuDisplayOptions`：菜单显示、标签显示、固定标签三列。已有行的 SHOW_IN_MENU / SHOW_IN_TAGS 设为 true，AFFIX 设为 false，保持升级前的导航、标签及缓存行为。
-
-历史迁移反映模型演进，最终模型以当前 Configuration 和快照为准。不要只取最后一份 Migration 建库，也不要改动已应用的迁移来掩盖后续模型变化。
+应用不会自动执行 DDL。空库先执行初始化 SQL；启动后自动补齐菜单和权限。首次使用前，由运维通过本地保存的单独 SQL 创建首个用户和内置管理员关联，应用不会从配置创建管理员。需要清空已有 MOM 数据时，使用部署文档中的定向重置脚本后重新初始化。
 
 ## 迁移命令
 
-在仓库根目录运行。macOS / Linux 先执行 `export ASPNETCORE_ENVIRONMENT=Development`；下面代码块中的 `$env:` 是 PowerShell 写法。`--project` 指向保存迁移的 Infrastructure，`--startup-project` 指向负责配置数据库与 DI 的 Api。
+日常按环境操作请先看[迁移操作手册](migration-operations.md)：本机和有 DDL 权限的测试库可自行更新，正式库只导出目标 SQL 交 DBA。
 
-如尚未安装 EF CLI，使用与当前 EF Core 匹配的版本；已经安装时按需更新：
+### 本机直接执行 EF 迁移
 
-```powershell
+本机 `ZX_IDENTITY / FREEPDB1` 首次建表或已有库增量升级，均可直接执行以下命令。先保持 Identity.Api 停止，将密码占位符换成本机 `ZX_IDENTITY` 的密码：
+
+```bash
+dotnet ef database update \
+  --project Services/Identity/ZX.Platform.Identity.Infrastructure \
+  --startup-project Services/Identity/ZX.Platform.Identity.Api \
+  --context PlatformIdentityDbContext \
+  --connection 'User Id=ZX_IDENTITY;Password=<本机ZX_IDENTITY密码>;Data Source=127.0.0.1:1521/FREEPDB1;'
+```
+
+设计时工厂默认使用占位连接，直接更新数据库必须显式提供 `--connection`。这条命令会连接实际数据库，按顺序执行全部尚未应用的迁移并记录版本。这里的固定源 schema 是 `ZX_IDENTITY`，此命令用于本机；其他 schema 的部署按下文导出目标 SQL。
+
+本机迁移可由有权限的管理账号执行，但表仍在 `ZX_IDENTITY`，应用运行账号与表 owner 的配置另行保持正确。迁移不会创建登录用户；清空后需用本机保存的管理员初始化 SQL 建立首个账号，再启动 Identity，详见[本机迁移与首个管理员](docker-deployment.md#74-本机清空后的-ef-迁移与首个管理员)。
+
+### 导出部署 SQL
+
+在仓库根目录执行；设计时工厂不读取真实数据库连接，生成 SQL 不会操作数据库：
+
+```bash
 dotnet tool install --global dotnet-ef --version 10.0.12
+
+dotnet ef migrations list --no-connect \
+  --project Services/Identity/ZX.Platform.Identity.Infrastructure \
+  --startup-project Services/Identity/ZX.Platform.Identity.Api \
+  --context PlatformIdentityDbContext
+
+dotnet ef migrations script 0 20261027000000_InitialIdentitySchema \
+  --project Services/Identity/ZX.Platform.Identity.Infrastructure \
+  --startup-project Services/Identity/ZX.Platform.Identity.Api \
+  --context PlatformIdentityDbContext \
+  --output output/mom-deploy/initialize.generated.sql
 ```
 
-先按[开发环境](development.md#数据库配置)设置连接字符串。CLI 设计时运行不使用 `launchSettings.json`，因此从 User Secrets 读取时显式设置环境：
+已安装工具时用 `dotnet tool update --global dotnet-ef --version 10.0.12`。模型变化后才执行 `dotnet ef migrations add <名称> --context PlatformIdentityDbContext --project Services/Identity/ZX.Platform.Identity.Infrastructure --startup-project Services/Identity/ZX.Platform.Identity.Api --output-dir Persistence/Migrations`。
 
-```powershell
-$env:ASPNETCORE_ENVIRONMENT = "Development"
-dotnet ef migrations list --project Services/Identity/ZX.Platform.Identity.Infrastructure --startup-project Services/Identity/ZX.Platform.Identity.Api --context PlatformIdentityDbContext
-dotnet ef database update --project Services/Identity/ZX.Platform.Identity.Infrastructure --startup-project Services/Identity/ZX.Platform.Identity.Api --context PlatformIdentityDbContext
-```
-
-`database update` 会修改所配置的数据库，执行前核对环境和目标。应用启动时没有自动调用 `Database.Migrate()`。角色权限版本启动会访问新增表，升级后必须先应用迁移；不要先启动旧数据库结构上的新程序。本机 ZX_IDENTITY 已应用 Oracle 初始迁移；其他环境部署前仍需先执行 Oracle 迁移，并核对目标数据库。
-
-模型或 Fluent API 发生变化时新增迁移，名称改为描述实际变更的名字：
-
-```powershell
-dotnet ef migrations add <描述本次模型变更的名称> --project Services/Identity/ZX.Platform.Identity.Infrastructure --startup-project Services/Identity/ZX.Platform.Identity.Api --context PlatformIdentityDbContext --output-dir Persistence/OracleMigrations
-```
-
-检查生成的 `Up/Down`、列类型、默认值、索引和可能的数据丢失，再决定应用方式。不要屏蔽 `PendingModelChangesWarning`，也不要通过删除迁移绕过真实变更。
+生成目标 schema 的 SQL、清空重建、增量迁移起止版本、DBA 执行与验收，统一按 [Docker 部署第 7、8 节](docker-deployment.md#7-oracle-19c-首次初始化或清空重建)操作。增量迁移必须明确起止 ID；不在生产容器自动执行 `database update`。创建迁移与生成 SQL 固定以 `ZX_IDENTITY` 为源 schema，导出工具负责替换成实际目标，避免每个环境重复创建迁移。
 
 ## 可选 Oracle 集成检查
 
-AuthChecks 默认仍只连接 Redis。显式设置 `IDENTITY_TEST_ORACLE` 为已应用迁移的测试 schema 连接字符串后，额外验证 Oracle 中文/Guid/BOOLEAN/UTC 往返、文本筛选和分页、集合查询、可选空文本、唯一异常、软删除及菜单路径/权限复用。检查仅在一个事务内写入随机测试记录，最终全部回滚，不执行 DDL、不创建管理员。应使用测试库，连接凭据不要提交到 Git。
+AuthChecks 默认仍只连接 Redis。显式设置 `IDENTITY_TEST_ORACLE` 为已应用迁移的测试 schema 连接字符串，并通过 `IDENTITY_TEST_ORACLE_SCHEMA` 指定表 owner（默认 `ZX_IDENTITY`）后，额外验证 Oracle 中文/Guid/数值布尔/UTC 往返、文本筛选和分页、集合查询、可选空文本、唯一异常、软删除及菜单路径/权限复用。检查仅在一个事务内写入随机测试记录，最终全部回滚，不执行 DDL、不创建管理员。应使用测试库，连接凭据不要提交到 Git。
 
 ## 验收重点
 
 在测试数据库验证创建用户与关系一次提交、重复账号 / 编码、软删除后标识仍不能复用、删除 / 恢复状态、关系差异更新和保存失败回滚。模型更新后检查数据库结构与快照一致。
 
-厂区关系尚未实现真正的授权检查或动态切库；无物理外键时的跨请求关系一致性也需在后续业务设计与验收中明确，不能仅凭创建时的查询认定所有并发场景已解决。
+SBU关系尚未实现真正的授权检查或动态切库；无物理外键时的跨请求关系一致性也需在后续业务设计与验收中明确，不能仅凭创建时的查询认定所有并发场景已解决。

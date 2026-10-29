@@ -6,6 +6,6 @@ public sealed record PermissionRequirement(params string[] Codes) : IAuthorizati
 
 public static class PermissionPolicies
 {
-    public const string FactoryOptions = "FactoryOptions";
+    public const string SbuOptions = "SbuOptions";
     public const string MenuOptions = "MenuOptions";
 }

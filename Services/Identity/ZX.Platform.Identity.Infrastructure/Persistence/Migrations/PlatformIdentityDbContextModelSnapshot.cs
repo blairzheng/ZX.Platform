@@ -2,8 +2,8 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Oracle.EntityFrameworkCore.Metadata;
 using ZX.Platform.Identity.Infrastructure.Persistence;
 
 #nullable disable
@@ -17,251 +17,208 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("ZX_IDENTITY")
                 .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.Factory", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("ID");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("CODE");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("CREATED_AT_UTC");
-
-                    b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("CREATED_BY_USER_ID");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit")
-                        .HasColumnName("IS_DELETED");
-
-                    b.Property<bool>("IsEnabled")
-                        .HasColumnType("bit")
-                        .HasColumnName("IS_ENABLED");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
-                        .HasColumnName("NAME");
-
-                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("UPDATED_AT_UTC");
-
-                    b.Property<Guid?>("UpdatedByUserId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("UPDATED_BY_USER_ID");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("ZX_IDENTITY_FACTORY", (string)null);
-                });
+            OracleModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.Menu", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("ID");
 
+                    b.Property<string>("ActiveActionPermission")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("ACTIVE_ACTION_PERMISSION")
+                        .HasComputedColumnSql("CASE WHEN \"KIND\" = N'action' AND \"IS_DELETED\" = 0 THEN \"PERMISSION_CODE\" END", false);
+
+                    b.Property<string>("ActivePagePath")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)")
+                        .HasColumnName("ACTIVE_PAGE_PATH")
+                        .HasComputedColumnSql("CASE WHEN \"KIND\" = N'page' AND \"IS_DELETED\" = 0 THEN \"PATH\" END", false);
+
                     b.Property<bool>("Affix")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("AFFIX");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("CODE");
 
                     b.Property<string>("Component")
-                        .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("COMPONENT");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("CREATED_AT_UTC");
 
                     b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
 
                     b.Property<string>("Icon")
-                        .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("ICON");
 
                     b.Property<bool>("IsBuiltIn")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_BUILT_IN");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_DELETED");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_ENABLED");
 
                     b.Property<bool>("KeepAlive")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("KEEP_ALIVE");
 
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)")
+                        .HasColumnType("NVARCHAR2(16)")
                         .HasColumnName("KIND");
 
                     b.Property<Guid?>("ParentId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("PARENT_ID");
 
                     b.Property<string>("Path")
-                        .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("NVARCHAR2(200)")
                         .HasColumnName("PATH");
 
                     b.Property<string>("PermissionCode")
-                        .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("PERMISSION_CODE");
 
                     b.Property<bool>("ShowInMenu")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("SHOW_IN_MENU");
 
                     b.Property<bool>("ShowInTags")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("SHOW_IN_TAGS");
 
                     b.Property<int>("Sort")
-                        .HasColumnType("int")
+                        .HasColumnType("NUMBER(10)")
                         .HasColumnName("SORT");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("NVARCHAR2(200)")
                         .HasColumnName("TITLE");
 
                     b.Property<string>("TitleEn")
-                        .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("NVARCHAR2(200)")
                         .HasColumnName("TITLE_EN");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("UPDATED_AT_UTC");
 
                     b.Property<Guid?>("UpdatedByUserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("UPDATED_BY_USER_ID");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ActiveActionPermission")
+                        .IsUnique();
+
+                    b.HasIndex("ActivePagePath")
+                        .IsUnique();
 
                     b.HasIndex("Code")
                         .IsUnique();
 
                     b.HasIndex("ParentId");
 
-                    b.HasIndex("Path")
-                        .IsUnique()
-                        .HasFilter("[KIND] = 'page' AND [IS_DELETED] = 0");
-
-                    b.HasIndex("PermissionCode")
-                        .IsUnique()
-                        .HasFilter("[KIND] = 'action' AND [IS_DELETED] = 0");
-
-                    b.ToTable("ZX_IDENTITY_MENU", (string)null);
+                    b.ToTable("ZX_IDENTITY_MENU", "ZX_IDENTITY");
                 });
 
             modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.Permission", b =>
                 {
                     b.Property<string>("Code")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("CODE");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_ACTIVE");
 
                     b.HasKey("Code");
 
-                    b.ToTable("ZX_IDENTITY_PERMISSION", (string)null);
+                    b.ToTable("ZX_IDENTITY_PERMISSION", "ZX_IDENTITY");
                 });
 
             modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.Role", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("ID");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("NVARCHAR2(50)")
                         .HasColumnName("CODE");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("CREATED_AT_UTC");
 
                     b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("NVARCHAR2(500)")
                         .HasColumnName("DESCRIPTION");
 
                     b.Property<bool>("IsBuiltIn")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_BUILT_IN");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_DELETED");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_ENABLED");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("NVARCHAR2(200)")
                         .HasColumnName("NAME");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("UPDATED_AT_UTC");
 
                     b.Property<Guid?>("UpdatedByUserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("UPDATED_BY_USER_ID");
 
                     b.HasKey("Id");
@@ -269,103 +226,153 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("ZX_IDENTITY_ROLE", (string)null);
+                    b.ToTable("ZX_IDENTITY_ROLE", "ZX_IDENTITY");
                 });
 
             modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.RolePermission", b =>
                 {
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("ROLE_ID");
 
                     b.Property<string>("PermissionCode")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("PERMISSION_CODE");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("CREATED_AT_UTC");
 
                     b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("UPDATED_AT_UTC");
 
                     b.Property<Guid?>("UpdatedByUserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("UPDATED_BY_USER_ID");
 
                     b.HasKey("RoleId", "PermissionCode");
 
                     b.HasIndex("PermissionCode");
 
-                    b.ToTable("ZX_IDENTITY_ROLE_PERMISSION", (string)null);
+                    b.ToTable("ZX_IDENTITY_ROLE_PERMISSION", "ZX_IDENTITY");
+                });
+
+            modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.Sbu", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("ID");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("NVARCHAR2(50)")
+                        .HasColumnName("CODE");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("CREATED_AT_UTC");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("CREATED_BY_USER_ID");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("IS_DELETED");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("IS_ENABLED");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)")
+                        .HasColumnName("NAME");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("UPDATED_AT_UTC");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("UPDATED_BY_USER_ID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("ZX_IDENTITY_SBU", "ZX_IDENTITY");
                 });
 
             modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("ID");
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int")
+                        .HasColumnType("NUMBER(10)")
                         .HasColumnName("ACCESS_FAILED_COUNT");
 
                     b.Property<string>("Account")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("ACCOUNT");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("CREATED_AT_UTC");
 
                     b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("DISPLAY_NAME");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_DELETED");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("bit")
+                        .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_ENABLED");
 
                     b.Property<DateTimeOffset?>("LockoutEndUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("LOCKOUT_END_UTC");
 
                     b.Property<string>("NormalizedAccount")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("NORMALIZED_ACCOUNT");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("NVARCHAR2(500)")
                         .HasColumnName("PASSWORD_HASH");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("UPDATED_AT_UTC");
 
                     b.Property<Guid?>("UpdatedByUserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("UPDATED_BY_USER_ID");
 
                     b.HasKey("Id");
@@ -373,77 +380,77 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                     b.HasIndex("NormalizedAccount")
                         .IsUnique();
 
-                    b.ToTable("ZX_IDENTITY_USER", (string)null);
-                });
-
-            modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.UserFactory", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("USER_ID");
-
-                    b.Property<Guid>("FactoryId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("FACTORY_ID");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("CREATED_AT_UTC");
-
-                    b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("CREATED_BY_USER_ID");
-
-                    b.Property<bool>("IsDefault")
-                        .HasColumnType("bit")
-                        .HasColumnName("IS_DEFAULT");
-
-                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("UPDATED_AT_UTC");
-
-                    b.Property<Guid?>("UpdatedByUserId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("UPDATED_BY_USER_ID");
-
-                    b.HasKey("UserId", "FactoryId");
-
-                    b.HasIndex("FactoryId");
-
-                    b.ToTable("ZX_IDENTITY_USER_FACTORY", (string)null);
+                    b.ToTable("ZX_IDENTITY_USER", "ZX_IDENTITY");
                 });
 
             modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.UserRole", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("USER_ID");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("ROLE_ID");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("CREATED_AT_UTC");
 
                     b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("UPDATED_AT_UTC");
 
                     b.Property<Guid?>("UpdatedByUserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("RAW(16)")
                         .HasColumnName("UPDATED_BY_USER_ID");
 
                     b.HasKey("UserId", "RoleId");
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("ZX_IDENTITY_USER_ROLE", (string)null);
+                    b.ToTable("ZX_IDENTITY_USER_ROLE", "ZX_IDENTITY");
+                });
+
+            modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.UserSbu", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("USER_ID");
+
+                    b.Property<Guid>("SbuId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("SBU_ID");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("CREATED_AT_UTC");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("CREATED_BY_USER_ID");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("NUMBER(1)")
+                        .HasColumnName("IS_DEFAULT");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("UPDATED_AT_UTC");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("UPDATED_BY_USER_ID");
+
+                    b.HasKey("UserId", "SbuId");
+
+                    b.HasIndex("SbuId");
+
+                    b.ToTable("ZX_IDENTITY_USER_SBU", "ZX_IDENTITY");
                 });
 #pragma warning restore 612, 618
         }
