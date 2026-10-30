@@ -182,7 +182,7 @@ BEGIN
         'violet', 'IT 服务与智能化应用。', 'IT services and intelligent applications.', v_it_id);
     ensure_directory('it_tickets', v_it_id, 'IT服务', 'IT services', 'svg:lucide-ticket', 10,
         'violet', '统一受理 IT 服务请求。', 'Receive IT service requests.', v_child_id);
-    ensure_directory('knowledge', v_it_id, 'AI知识', 'AI knowledge', 'svg:lucide-library-big', 20,
+    ensure_directory('knowledge', v_it_id, 'AI 知识', 'AI knowledge', 'svg:lucide-library-big', 20,
         'violet', '沉淀 SOP 与异常处理知识。', 'Capture SOP and troubleshooting knowledge.', v_child_id);
     ensure_directory('validation', v_it_id, '程序验证', 'Program validation', 'svg:lucide-shield-check', 30,
         'warning', 'MES 程序验证与测试。', 'MES program validation and testing.', v_child_id);
