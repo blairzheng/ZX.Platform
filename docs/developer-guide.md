@@ -150,7 +150,7 @@ UseForwardedHeaders
 
 先恢复客户端 IP 再限流；先设置语言再翻译响应；限流依赖匹配的接口元数据，因此在 `UseRouting()` 后执行。`UseRequestLocalization()` 还需要配套服务注册和资源，流程见[多语言专题](localization.md)。
 
-`UseHttpLogging()` 在异常处理器之前记录最终响应状态；Gateway 也记录入口摘要。开发文本与生产 JSON 都通过 Console Provider 的后台队列输出，Linux systemd 部署由 journald 收集。日志字段、队列满载取舍和部署命令见[运行与接口日志](logging.md)。
+`UseHttpLogging()` 在异常处理器之前记录最终响应状态；Gateway 也记录入口摘要。开发文本与生产 JSON 都通过 Console Provider 的后台队列输出，当前 Docker 部署由容器日志驱动收集。日志字段、队列满载取舍和部署命令见[运行与接口日志](logging.md)。
 
 ## 开发约定
 

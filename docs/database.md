@@ -135,7 +135,7 @@ Service 预查询只是友好提示，两个同时创建的请求仍可能都通
 
 唯一迁移目录为 `Persistence/Migrations/`，快照为 `PlatformIdentityDbContextModelSnapshot`。基线 `20261027000000_InitialIdentitySchema` 创建旧厂区模型；`20261028084818_ReplaceFactoriesWithSbus` 删除旧厂区及用户厂区表，创建 SBU 及用户 SBU 表，并清理旧内置厂区菜单。旧厂区测试数据不会迁移；用户、角色等其他表保留。部署当前代码必须将目标库升级到第二条迁移。本地、测试、正式使用相同迁移链，仅连接和 schema 不同。
 
-应用不会自动执行 DDL。空库先执行初始化 SQL；启动后自动补齐菜单和权限。首次使用前，由运维通过本地保存的单独 SQL 创建首个用户和内置管理员关联，应用不会从配置创建管理员。需要清空已有 MOM 数据时，使用部署文档中的定向重置脚本后重新初始化。
+应用不会自动执行 DDL。空库先执行初始化 SQL；启动后自动补齐菜单和权限。首次使用前，由运维通过本地保存的单独 SQL 创建首个用户和内置管理员关联，应用不会从配置创建管理员。需要清空已有 MOM 数据时，按[数据库初始化与重建](database-initialization.md)中的定向重置步骤重新初始化。
 
 ## 迁移命令
 
@@ -155,7 +155,7 @@ dotnet ef database update \
 
 设计时工厂默认使用占位连接，直接更新数据库必须显式提供 `--connection`。这条命令会连接实际数据库，按顺序执行全部尚未应用的迁移并记录版本。这里的固定源 schema 是 `ZX_IDENTITY`，此命令用于本机；其他 schema 的部署按下文导出目标 SQL。
 
-本机迁移可由有权限的管理账号执行，但表仍在 `ZX_IDENTITY`，应用运行账号与表 owner 的配置另行保持正确。迁移不会创建登录用户；清空后需用本机保存的管理员初始化 SQL 建立首个账号，再启动 Identity，详见[本机迁移与首个管理员](docker-deployment.md#74-本机清空后的-ef-迁移与首个管理员)。
+本机迁移可由有权限的管理账号执行，但表仍在 `ZX_IDENTITY`，应用运行账号与表 owner 的配置另行保持正确。迁移不会创建登录用户；清空后需用本机保存的管理员初始化 SQL 建立首个账号，再启动 Identity，详见[本机迁移与首个管理员](database-initialization.md#本机清空后的初始化)。
 
 ### 导出部署 SQL
 
@@ -178,7 +178,7 @@ dotnet ef migrations script 0 20261027000000_InitialIdentitySchema \
 
 已安装工具时用 `dotnet tool update --global dotnet-ef --version 10.0.12`。模型变化后才执行 `dotnet ef migrations add <名称> --context PlatformIdentityDbContext --project Services/Identity/ZX.Platform.Identity.Infrastructure --startup-project Services/Identity/ZX.Platform.Identity.Api --output-dir Persistence/Migrations`。
 
-生成目标 schema 的 SQL、清空重建、增量迁移起止版本、DBA 执行与验收，统一按 [Docker 部署第 7、8 节](docker-deployment.md#7-oracle-19c-首次初始化或清空重建)操作。增量迁移必须明确起止 ID；不在生产容器自动执行 `database update`。创建迁移与生成 SQL 固定以 `ZX_IDENTITY` 为源 schema，导出工具负责替换成实际目标，避免每个环境重复创建迁移。
+生成目标 schema 的 SQL、清空重建、增量迁移起止版本、DBA 执行与验收，统一按 [数据库初始化与重建](database-initialization.md)操作。增量迁移必须明确起止 ID；不在生产容器自动执行 `database update`。创建迁移与生成 SQL 固定以 `ZX_IDENTITY` 为源 schema，导出工具负责替换成实际目标，避免每个环境重复创建迁移。
 
 ## 可选 Oracle 集成检查
 

@@ -1,60 +1,56 @@
-# MOM 一期部署架构草案
+# MOM 当前部署拓扑
 
-> 2026-10-27：当前执行方案为 176 前端独立 HTTPS 端口、177/178 各运行 Gateway 与 Identity Docker 容器，详见 [Docker 离线部署](docker-deployment.md)。Redis/Sentinel 继续使用宿主机已有服务。本文以下保留早期 Docker/VIP 讨论，不作为本次执行方案；实际三台内存约 15.1 GiB，不能按下文 32 GB 假设分配。
+[文档导航](README.md) · [Runner 发布](deployment.md) · [登录与会话](authentication.md)
 
-[文档导航](README.md) · [开发环境](development.md) · [登录与会话](authentication.md)
-
-此图是目标部署方案，不表示当前仓库已经具备生产部署能力。集团提供 Oracle 集群与 TNS；本地五台服务器中先使用两台 32 GB 服务器承载应用与 Redis，第三台承载 Sentinel 仲裁，另外两台保留。
+截至 2026-10-29，当前环境为 176 静态前端与统一入口、177/178 双后端节点。服务器间内网互通，服务器不访问外网；镜像和前端包由开发机构建，GitLab Runner 下载成品发布。
 
 ```mermaid
 flowchart TB
-    U["用户浏览器"] --> LB["统一 HTTPS 入口<br/>企业负载均衡 / VIP（待确认）"]
-
-    subgraph A["服务器 A · 32 GB · Docker"]
-        direction TB
-        AWEB["Nginx + Vue 前端"] --> AGW["Gateway"] --> AID["Identity API"]
-        AR[("Redis 主节点")]
-        AS["Sentinel 1"]
+    U[用户浏览器] --> N["176 · Nginx<br/>HTTP :8088"]
+    N --> WEB["Vue 静态站点<br/>/var/www/mom"]
+    N -->|"/api/ 原样转发"| G1
+    N -->|"/api/ 原样转发"| G2
+    subgraph S1["177 · Docker mom-net"]
+        G1["Gateway<br/>宿主 :18080 → 容器 :8080"] --> I1["Identity 微服务<br/>容器 :8080"]
     end
-
-    subgraph B["服务器 B · 32 GB · Docker"]
-        direction TB
-        BWEB["Nginx + Vue 前端"] --> BGW["Gateway"] --> BID["Identity API"]
-        BR[("Redis 从节点<br/>主节点故障后升主")]
-        BS["Sentinel 2"]
+    subgraph S2["178 · Docker mom-net"]
+        G2["Gateway<br/>宿主 :18080 → 容器 :8080"] --> I2["Identity 微服务<br/>容器 :8080"]
     end
+    I1 --> DB[(共享业务数据库)]
+    I2 --> DB
+    I1 --> R[(共享 Redis 会话与权限缓存)]
+    I2 --> R
+    ST[Redis Sentinel] -. 发现当前主节点 .-> R
+    I1 -. 服务发现 .-> ST
+    I2 -. 服务发现 .-> ST
 
-    subgraph C["服务器 C · Docker"]
-        CS["Sentinel 3 · 仲裁节点"]
-    end
-
-    LB --> AWEB
-    LB --> BWEB
-    AR -. "异步复制" .-> BR
-    AID --> ORA[("集团 Oracle 集群<br/>TNS 服务")]
-    BID --> ORA
-    AID -. "发现当前 Redis 主节点" .-> AS
-    BID -. "发现当前 Redis 主节点" .-> BS
-    CS -. "参与 Redis 故障仲裁" .-> BR
-
-    DE["服务器 D / E · 暂时保留"]
+    LOCAL["开发机<br/>构建镜像 / 静态文件"] -->|Deploy Token 上传| PKG[GitLab Package Registry]
+    PKG -->|CI_JOB_TOKEN 下载| RUN["176 · Shell Runner<br/>zxnet_runner"]
+    RUN -->|更新站点与备份| WEB
+    RUN -->|"SSH · 先177"| S1
+    RUN -->|"SSH · 后178"| S2
 ```
 
-图中的主从是初始角色；切换后角色可能互换，不应假定 A 永远是主节点。Redis 连接线仅示意发现流程：两台 Identity 实例均须配置三个 Sentinel 地址与相同的服务名，从 Sentinel 查询当前主节点后直接连接主节点；三个 Sentinel 均监视两台 Redis。Redis A 故障时，B 和 C 上的两个 Sentinel 保持多数票，可将 B 提升为主节点。若 B 故障，A 继续提供 Redis 服务，但在 B 恢复前没有副本。
+## 节点与固定参数
 
-| 职责 | 部署方式 |
+| 位置 | 当前职责 / 参数 |
 | --- | --- |
-| 前端与网关 | A、B 部署相同版本镜像；统一入口对两台做健康检查并转发流量。 |
-| Identity 等应用服务 | A、B 部署相同版本；共享 Oracle、Redis、JWT 密钥和环境配置，容器本身不保存会话。 |
-| Redis | A 主、B 从，均使用持久化卷；密码及网络访问受控。主从复制为异步，切换时可能短暂重连或丢失最近写入。 |
-| Sentinel | A、B、C 各一个进程，部署在三个独立故障域；仅在 A、B 上运行两个 Sentinel 不能满足单机故障后的可靠仲裁。 |
-| Oracle | 使用集团集群提供的 TNS/服务名；应用账号、密码及可能需要的 Wallet 由部署配置安全注入，不放进镜像。 |
-| 服务器 D / E | 一期暂不投入，留作扩容、监控或预发环境。 |
+| `10.32.15.176` | Nginx 入口、前端站点、GitLab Shell Runner；入口 `http://10.32.15.176:8088/` |
+| `10.32.15.177`、`10.32.15.178` | 各运行 `mom-gateway`、`mom-identity`，版本和运行配置保持一致 |
+| 每台后端 `mom-net` | 独立 Docker bridge，网段 `172.30.176.0/24`；两台可以使用相同容器 IP |
+| `mom-gateway` | 固定 IP `172.30.176.10`，容器 `8080` 映射到宿主机 `0.0.0.0:18080` |
+| `mom-identity` | 固定 IP `172.30.176.11:8080`，不发布宿主机端口 |
+| 前端备份 | `/var/www/mom-backups/`，由 Runner 账号写入 |
+| 数据库与 Redis | 沿用已部署基础设施，连接信息通过 GitLab Variables 注入；不随应用包重建 |
 
-## 部署前确认
+Gateway 按 `/api/identity` 前缀转发到同机 Identity。Gateway 信任直接上游 Nginx，Identity 信任同机 Gateway；生产请求的协议和客户端 IP 由这条代理链传递。浏览器使用同源 `/api`，不直连后端节点。
 
-1. 确认企业负载均衡或 VIP、HTTPS 证书、健康检查方式，以及 A、B 是否处于不同物理宿主机。没有统一入口切换时，两套应用不构成完整对外高可用。
-2. 完成生产镜像与 Compose 配置；当前仓库的 Redis Compose 仅供开发使用，应用 Dockerfile 与网关目标、反向代理及健康检查仍需部署验收。
-3. 验证 Identity 使用的 Redis 客户端按 Sentinel 服务名发现主节点并在切换后重连；配置 AOF、备份、监控和故障演练。Redis 会话与权限缓存不能承诺零数据丢失。
-4. 确认两台应用服务器到集团 Oracle 集群、三台 Sentinel 之间及应用到 Redis 节点的网络连通，按实际地址与端口收紧防火墙。
-5. 生产密钥、TNS/Wallet 和数据库迁移独立于镜像管理；两台实例使用相同 JWT 签名密钥，先迁移数据库再发布应用。
+两台 Identity 共享数据库、Redis/Sentinel 服务名、生产缓存前缀及 JWT Key/Issuer/Audience；开发与生产使用不同缓存前缀和环境配置。Redis/Sentinel 的实际节点和主从角色以基础设施配置为准，不假定某台永远为主节点。
+
+## 当前发布与可用性边界
+
+发布逻辑集中在 [mom_img/.gitlab-ci.yml](https://bu17gitlab.luxshare.com.cn/awe/mom_img/-/blob/main/.gitlab-ci.yml)。后端先检查两台，再依次更新；前端独立更新静态文件。数据库结构由 DBA 在应用发布前执行 SQL，不由容器启动时迁移。
+
+当前仍是单个 Nginx/前端入口；双后端节点不代表整套入口已具备高可用。流水线不执行摘流、连接排空或入口切换，发布期间可能短暂请求失败。Redis 故障切换、数据库可用性和完整业务恢复需要单独验证。
+
+当前流水线面向已准备好的环境，不安装基础设施、不创建 Docker 网络或空库、不调整 Nginx 和防火墙。新增服务时需同步构建包、网关路由、流水线和验证步骤，不能仅添加镜像就视为已接入部署。

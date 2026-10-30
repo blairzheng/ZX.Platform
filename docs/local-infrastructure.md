@@ -68,7 +68,7 @@ colima stop
 
 ## 后端 Oracle 配置
 
-Identity 使用单一 Oracle 19c 模型，迁移基线为 `20261027000000_InitialIdentitySchema`，当前目标为 `20261028084818_ReplaceFactoriesWithSbus`。本机 Oracle Free 引擎无需更换；已有库可执行增量迁移，旧厂区测试数据会丢弃。需要清空全部 MOM 数据时才按 [部署文档第 7 节](docker-deployment.md#7-oracle-19c-首次初始化或清空重建)重建。
+Identity 使用单一 Oracle 19c 模型，迁移基线为 `20261027000000_InitialIdentitySchema`，当前目标为 `20261028084818_ReplaceFactoriesWithSbus`。本机 Oracle Free 引擎无需更换；已有库可执行增量迁移，旧厂区测试数据会丢弃。需要清空全部 MOM 数据时才按 [数据库初始化与重建](database-initialization.md)重建。
 
 当前电脑的应用连接已写入 Identity API 的 Development User Secrets，VS Code 的 Identity API / Identity API + Gateway 启动配置会自动读取。schema 密码另存于仓库根目录 `.env.identity.local`（0600，Git 忽略），与 SYSTEM 管理员密码分别管理，不要将它提交到仓库。
 

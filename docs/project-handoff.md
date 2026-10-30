@@ -1,6 +1,6 @@
 # 项目交接
 
-[文档导航](README.md) · [开发环境](development.md) · [Docker 部署](docker-deployment.md)
+[文档导航](README.md) · [开发环境](development.md) · [Runner 发布](deployment.md)
 
 ## 当前数据库方案
 
@@ -8,17 +8,18 @@
 
 本地默认 schema 为 `ZX_IDENTITY`，测试库使用 `SAJET`，正式库按 DBA 提供的信息配置。连接账号与表 owner 分开配置，同一套镜像和迁移用于所有环境。设计时工厂离线生成 SQL，导出工具替换目标 schema 并检查执行服务和账号。
 
-首次部署先执行数据库结构初始化，再由运维执行仓库外保存的一次性 SQL 创建首个管理员，之后启动服务同步权限目录和默认菜单。应用不从启动配置创建账号或管理员。后续账号和角色通过后台管理；数据库数据允许清空重建时，使用只处理九张 MOM 表的定向重置脚本。
+首次部署先执行数据库结构初始化，再由运维执行仓库外保存的一次性 SQL 创建首个管理员，之后启动服务同步权限目录和默认菜单。应用不从启动配置创建账号或管理员。后续账号和角色通过后台管理；数据库数据允许清空重建时，使用只处理明确列出的 MOM 表的定向重置脚本。
 
 ## 部署和开发入口
 
-- [Docker 部署手册](docker-deployment.md)：本地构建 linux/amd64 镜像、save、上传、load、配置、Oracle 初始化及增量迁移、回滚。
+- [Runner 发布](deployment.md)：本地构建 linux/amd64 镜像并上传 GitLab Package Registry，校验后手动发布、回滚。
+- [数据库首次初始化](database-initialization.md)与[增量迁移](migration-operations.md)：独立生成 SQL，由 DBA 执行。
 - [开发环境](development.md)：SDK、User Secrets、Identity / Gateway 启动。
 - [本机基础设施](local-infrastructure.md)：Colima、Oracle Free、Redis。
 - [数据库](database.md)：实体、唯一索引、软删除、UTC、事务及迁移。
 - [角色权限](authorization.md)：本机管理员 SQL、权限缓存和后台维护。
 
-176 承载 Nginx 入口，177、178 部署相同的 Identity 和 Gateway；Oracle、Redis Sentinel、JWT 密钥及环境配置应一致。后端不在启动时执行数据库 DDL，SQL 由操作者或 DBA 执行一次。修改源码后需重新打包镜像，不能复用之前的离线包。
+176 承载 Nginx HTTP 8088 入口、前端站点和 Shell Runner，177、178 部署相同的 Identity 和 Gateway；数据库、Redis Sentinel、JWT 密钥及环境配置应一致。前后端分别使用 `mom_img` 流水线，后端先更新 177 再更新 178；运行凭据由 GitLab Variables 注入，旧 `/etc/mom` 文件不参与当前发布。后端不在启动时执行数据库 DDL，SQL 由操作者或 DBA 执行一次。修改源码后需重新打包镜像，不能复用之前的离线包。
 
 ## 验证边界
 

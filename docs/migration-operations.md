@@ -1,6 +1,6 @@
 # Identity 数据库迁移操作手册
 
-[文档导航](README.md) · [数据库模型](database.md) · [正式部署细节](docker-deployment.md#8-后续数据库迁移命令)
+[文档导航](README.md) · [数据库模型](database.md) · [Runner 发布](deployment.md)
 
 适用于当前 `PlatformIdentityDbContext` 的 Oracle 迁移。在 `ZX.Platform` 仓库根目录执行命令。三个环境使用同一套迁移文件，但分别维护自己的 `ZX_IDENTITY_MIGRATIONS` 版本记录；本机更新成功不代表测试库或正式库已更新。
 
@@ -70,7 +70,7 @@ ORDER BY "MigrationId";
 
 ## 正式库交 DBA
 
-当前 `SAJET` 正式库已确认存在 `ZX_IDENTITY_FACTORY`、`ZX_IDENTITY_USER_FACTORY` 等九张旧表，迁移历史最后一条是 `20261026114558_InitialSajet19IdentitySchema`。这个 ID 不在当前代码迁移链中。用户已确认正式库尚未发布，现有 Identity 数据可全部丢弃；本次按[SAJET 定向重建](sajet-rebuild-runbook.md)执行三份 SQL。**下方从 `20261027000000_InitialIdentitySchema` 到 SBU 的普通增量示例不能直接用于该库**，也不能手工改写迁移历史。
+若查询到旧迁移 `20261026114558_InitialSajet19IdentitySchema`，该 ID 不在当前迁移链中，不能直接套用下方增量命令或手工改写历史。仅在旧九表状态与数据可丢弃条件均得到确认时，参考[SAJET 定向重建](sajet-rebuild-runbook.md)；已投入使用的数据应先由 DBA 评估保留与转换方案。
 
 先让 DBA 查询正式库当前版本。下面的 `SAJET` 改成实际表 owner：
 
@@ -80,9 +80,18 @@ FROM SAJET.ZX_IDENTITY_MIGRATIONS
 ORDER BY "MigrationId";
 ```
 
-最后一条是 `FROM_MIGRATION`；本次已在测试库验证的目标版本是 `TO_MIGRATION`。两者相同则无需升级。历史表不存在、版本不在当前代码迁移链里时，先核实库和 schema，不要猜起点或手工填写迁移历史。
+开发者有正式库查询权限时可自行查询；执行变更仍交 DBA。再在本次发布对应的代码中列出迁移：
 
-以下示例是从旧基线升级到 SBU。替换为正式库的真实 schema、DBA 执行账号、服务名和实际起止版本；命令**只生成文件，不连接正式库**。
+```bash
+dotnet ef migrations list --no-connect \
+  --context PlatformIdentityDbContext \
+  --project Services/Identity/ZX.Platform.Identity.Infrastructure \
+  --startup-project Services/Identity/ZX.Platform.Identity.Api
+```
+
+此列表代表代码迁移，不代表任何库已执行。目标库查询到的最后一条是 `FROM_MIGRATION`；本次发布代码中已在测试库验证的目标版本是 `TO_MIGRATION`。两者相同则无需升级。历史表不存在、版本不在当前代码迁移链里时，先核实库和 schema，不要猜起点或手工填写迁移历史。
+
+应用版本 v1.1/v1.2 不等于 Migration ID。测试库用于确认目标版本及业务已验证，不能把测试库当前 ID 当作正式库的起点。以下示例是从旧基线升级到 SBU。替换为正式库的真实 schema、DBA 执行账号、服务名和实际起止版本；命令**只生成文件，不连接正式库**。
 
 ```bash
 cd /Users/luxshare-ict/Desktop/project/ZX.Platform
@@ -107,9 +116,11 @@ python3 deploy/docker/export-oracle19-sql.py \
   --to-migration "$TO_MIGRATION"
 ```
 
+同时向 DBA 提供目标服务、schema、执行账号、起止 Migration ID、应用版本及预期变更。最终 SQL 已包含迁移历史更新，成功后无需手工补版本记录。
+
 审核 `output/mom-deploy/upgrade.sql` 的目标 schema、起止版本、删表/删列、索引和数据影响。**交给 DBA 的是 `upgrade.sql`，不是 `upgrade.generated.sql`。**本次 SBU 迁移会删除旧厂区及用户厂区测试数据；用户和角色表保留。DBA 执行后，重新查询迁移历史，确认最后一条为 `TO_MIGRATION`，并核对新表及应用账号权限。Oracle DDL 会隐式提交；失败后先检查已执行到哪一步，不要直接重跑。
 
-全新正式库没有迁移历史时，不使用上述增量命令；首次初始化和首个管理员创建按[部署手册第 7 节](docker-deployment.md#7-oracle-19c-首次初始化或清空重建)执行。
+全新正式库没有迁移历史时，不使用上述增量命令；首次初始化和首个管理员创建按[数据库初始化与重建](database-initialization.md)执行。
 
 ## 常见错误
 

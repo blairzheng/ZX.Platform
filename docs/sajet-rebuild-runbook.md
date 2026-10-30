@@ -1,6 +1,6 @@
 # SAJET Identity 定向重建交接
 
-[迁移操作手册](migration-operations.md) · [部署手册](docker-deployment.md)
+[迁移操作手册](migration-operations.md) · [数据库初始化](database-initialization.md)
 
 适用范围：`SAJET` 下截图确认的九张 `ZX_IDENTITY%` 表，当前迁移历史仅有 `20261026114558_InitialSajet19IdentitySchema`。用户已确认这些 Identity 数据均可丢弃，正式库尚未发布。**这不是保留数据的增量迁移**；现有用户、角色、菜单、权限和厂区关系都会删除。`SAJET` 下其他业务表不在脚本清单内。
 

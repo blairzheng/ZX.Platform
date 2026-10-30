@@ -53,7 +53,7 @@ Development 已在 `appsettings.Development.json` 提供共享开发 JWT 密钥�
 
 ## 本地启动
 
-Apple Silicon Mac 上的 Colima、Oracle Free 和 Redis 容器配置见[macOS 本机基础设施](local-infrastructure.md)。Identity 统一按 Oracle 19c 运行，唯一迁移目录为 `Persistence/Migrations/`。首次建表或清空重建按 [部署文档](docker-deployment.md#7-oracle-19c-首次初始化或清空重建)操作。
+Apple Silicon Mac 上的 Colima、Oracle Free 和 Redis 容器配置见[macOS 本机基础设施](local-infrastructure.md)。Identity 统一按 Oracle 19c 运行，唯一迁移目录为 `Persistence/Migrations/`。首次建表或清空重建按 [部署文档](database-initialization.md)操作。
 
 有 Docker 时先启动开发 Redis；没有 Docker 可使用已部署的 Redis 并修改连接配置，见[Redis 启动与故障](authentication.md#redis-启动与故障)。
 
@@ -112,7 +112,7 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 
 前端用同源 `/api`，本机覆盖配置在前端 `.env.development.local`。完整说明由[前端统一请求层](https://github.com/blairzheng/ZX.front.vue/blob/main/docs/http.md#环境与-gateway)维护。
 
-Vite、Gateway 和 Identity 共同传递客户端 IP。每层只信任已配置的直接上游代理；当前程序同时处理 `X-Forwarded-For` 与 `X-Forwarded-Proto`，且在 HTTPS 重定向前恢复可信代理传来的协议。部署时要调整 `ForwardedHeaders:KnownProxies` 和 YARP 目标地址，见[代理配置](rate-limiting.md#客户端-ip-与代理)。前端普通 `pnpm run dev` 继续使用 HTTP 本机地址；Vite 向 Gateway 发出 HTTPS 请求时移除浏览器的 `X-Forwarded-Proto`，避免触发跳出开发代理的 307 重定向。生产由 176 的 HTTPS Nginx 正常传递协议头，不能照搬这个开发代理处理。
+Vite、Gateway 和 Identity 共同传递客户端 IP。每层只信任已配置的直接上游代理；当前程序同时处理 `X-Forwarded-For` 与 `X-Forwarded-Proto`，且在 HTTPS 重定向前恢复可信代理传来的协议。部署时要调整 `ForwardedHeaders:KnownProxies` 和 YARP 目标地址，见[代理配置](rate-limiting.md#客户端-ip-与代理)。前端普通 `pnpm run dev` 继续使用 HTTP 本机地址；Vite 向 Gateway 发出 HTTPS 请求时移除浏览器的 `X-Forwarded-Proto`，避免触发跳出开发代理的 307 重定向。当前部署由 176 的 HTTP 8088 Nginx 按实际协议传递头，不能照搬这个开发代理处理。
 
 ## 开发与检查命令
 
@@ -160,7 +160,7 @@ git config --local http.https://github.com.proxy http://127.0.0.1:<代理端口>
 
 ## 常见问题
 
-运行和接口排错日志见[运行与接口日志](logging.md)：本机查看控制台，Linux systemd 部署后用 journald 查询。生产输出单行 JSON，包含请求摘要与 TraceId；持久化、容量及网页查看方式由部署环境配置。
+运行和接口排错日志见[运行与接口日志](logging.md)：本机查看控制台，当前容器部署用 `docker logs` 查询。生产输出单行 JSON，包含请求摘要与 TraceId；持久化、容量及网页查看方式由部署环境配置。
 
 | 现象                              | 检查方向                                                                         |
 | --------------------------------- | -------------------------------------------------------------------------------- |
@@ -178,6 +178,8 @@ git config --local http.https://github.com.proxy http://127.0.0.1:<代理端口>
 
 ## 部署边界
 
-两个 Web 项目均有 Dockerfile，另有仅供开发的 Redis Compose 及 Redis 健康检查；尚未建立完整平台 Compose、CI/CD、应用健康检查或生产部署流程。当前 Identity Dockerfile 在首次 restore 前只复制 Api 的项目文件，没有复制其引用项目，因此容器构建需要进一步调整，不能将现有文件当作已验收的部署方案。
+当前采用本地构建、GitLab Package Registry 托管成品、Shell Runner 手动发布。在后端根目录执行 `bash scripts/publish-images.sh <新版本号>` 即可构建并上传，脚本随后输出流水线参数。服务器不安装 .NET SDK、NuGet 或前端构建环境，也不执行旧 Python 发布脚本。后端更新 177、178 的 Docker 容器，前端更新 176 的静态站点；步骤、GitLab 变量、验证和回滚见[Runner 发布](deployment.md)，节点关系见[当前部署拓扑](deployment-topology.md)。
 
-上线前需要按实际环境确定连接信息、HTTPS、代理地址、服务发现 / 目标地址，并落实[journald 日志配置与验收](logging.md)。后续工作见[规划](roadmap.md)。
+数据库结构仍由操作者或 DBA 单独执行 SQL，不在容器启动或 Runner 发布时自动迁移。首个管理员通过仓库外保存的 SQL 初始化；本机 User Secrets 只用于开发，运行环境配置由 GitLab Variables 注入。
+
+当前流水线不处理流量摘除或全新服务器初始化，发布可能短暂中断。已有环境的应用发布成功，不代表入口高可用、Redis 故障切换及全部业务场景已验收。后续工作见[规划](roadmap.md)。

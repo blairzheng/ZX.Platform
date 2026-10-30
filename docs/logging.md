@@ -2,9 +2,9 @@
 
 [项目首页](../README.md) · [文档导航](README.md)
 
-当前使用 .NET 自带的 `ILogger`、Console Provider 和 HTTP Logging 中间件。应用向标准输出写日志；在 Linux 上由 systemd 启动时，交给 journald 收集。无需引入 Serilog、日志文件组件或 MQ。
+当前使用 .NET 自带的 `ILogger`、Console Provider 和 HTTP Logging 中间件。应用向标准输出写日志，当前 177、178 的 Docker 容器由 `json-file` 日志驱动收集。无需引入 Serilog、日志文件组件或 MQ。
 
-本专题仅覆盖排错和接口调用摘要。登录历史、操作审计、字段变更历史、MQ、集中日志平台及 Prometheus 监控留待后续设计。本机 Windows 开发仍看终端或 Visual Studio 输出；journald 配置需要到 Linux 部署环境实施。
+本专题仅覆盖排错和接口调用摘要。登录历史、操作审计、字段变更历史、MQ、集中日志平台及 Prometheus 监控留待后续设计。本机开发查看终端或 IDE 输出；线上通过 `docker logs` 查询，发布任务日志在 GitLab 查看。
 
 ## 应用记录什么
 
@@ -41,83 +41,37 @@ Console Provider 自带后台输出队列，当前配置：
 }
 ```
 
-请求线程仍需构造日志并入队，但不等待每条日志写入 journald。队列满时丢弃新日志，避免等待队列空位；运行时会尝试输出丢弃提示。该队列不区分错误与普通日志，满载时错误日志也可能丢失。进程异常退出、journald 限频或磁盘问题也可能造成日志丢失，因此这不是可靠审计存储，也不保证零开销。
+请求线程仍需构造日志并入队，但不等待每条日志写到标准输出。队列满时丢弃新日志，避免等待队列空位；运行时会尝试输出丢弃提示。该队列不区分错误与普通日志，满载时错误日志也可能丢失。进程异常退出、日志轮转或磁盘问题也可能造成日志丢失，因此这不是可靠审计存储，也不保证零开销。
 
-## systemd 接收标准输出
+## 当前 Docker 日志配置
 
-假设已有部署可用的 `zx-identity.service` 和 `zx-gateway.service`。以下仅为日志配置，不能代替完整的服务部署、连接字符串、JWT 密钥、证书和反向代理配置。
+Runner 创建 `mom-identity`、`mom-gateway` 时设置 `--log-driver json-file --log-opt max-size=50m --log-opt max-file=5`，单个容器最多约 250 MB，达到限制后轮转。旧备份容器也可能占用日志空间，日志保留时长取决于写入量，不保证保留固定天数。
 
-在 Linux 执行 `sudo systemctl edit zx-identity.service`，补充 drop-in：
-
-```ini
-[Service]
-Environment=ASPNETCORE_ENVIRONMENT=Production
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=zx-identity
-```
-
-Gateway 同样配置，将服务名和 `SyslogIdentifier` 改为 `zx-gateway`。确认现有配置没有用 `DOTNET_ENVIRONMENT` 覆盖成其他环境；更新后：
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart zx-identity.service zx-gateway.service
-```
-
-应用日志中的 UTC 时间戳与 journal 显示时间可能使用不同的时区。查询时加 `--utc` 可统一查看；不加时通常按服务器当地时区展示。
-
-## journald 持久化和容量
-
-在 `/etc/systemd/journald.conf.d/zx-platform.conf` 配置，例如：
-
-```ini
-[Journal]
-Storage=persistent
-SystemMaxUse=1G
-SystemKeepFree=1G
-RuntimeMaxUse=128M
-MaxRetentionSec=14day
-```
-
-这些是**整台服务器共享 journal 的限制**，不只是本平台：容量上限和最长保留时间共同约束，不能保证一定保留满 14 天。根据磁盘、请求量和其他服务调整；持久化目录通常为 `/var/log/journal`。
-
-保存配置后执行：
-
-```bash
-sudo systemctl restart systemd-journald
-sudo journalctl --flush
-sudo journalctl --disk-usage
-```
-
-`Storage=persistent` 加持久化目录可保留正常重启前的历史；这不等于断电零丢失，也不能替代备份。journald 本身有日志限频，突发高日志量时可能看到 suppressed messages，需要结合流量评估，不建议直接关闭保护。
+容器内应用输出 Production 单行 JSON，Docker 保存其标准输出；不要假定应用日志会出现在宿主机 journald 中。运行版本、发布和回滚见[Runner 发布](deployment.md)。当前没有集中日志平台或 MOM 网页日志查询页面。
 
 ## 常用查询
 
+在需要排查的后端节点执行，177、178 分别查询：
+
 ```bash
-# 最近 100 条及实时跟踪
-sudo journalctl -u zx-identity.service -n 100 -o cat --no-pager
-sudo journalctl -u zx-identity.service -f -o cat
+# 最近 100 条及实时跟踪。
+sudo docker logs --tail 100 mom-identity
+sudo docker logs --tail 100 mom-gateway
+sudo docker logs --follow --tail 100 mom-identity
 
-# 同时查看两个服务，按 UTC 限定时间
-sudo journalctl -u zx-identity.service -u zx-gateway.service --utc \
-  --since '2026-10-17 08:00:00 UTC' --until '2026-10-17 09:00:00 UTC' -o cat
+# 用带时区的时间限定范围，替换为实际查询窗口。
+sudo docker logs --since '2026-10-29T08:00:00+08:00' \
+  --until '2026-10-29T09:00:00+08:00' mom-identity
 
-# 替换为实际 TraceId，跨两个服务查询
-sudo journalctl -u zx-identity.service -u zx-gateway.service \
-  --since today --grep='替换为32位TraceId' -o cat
+# 按实际 TraceId 检索；Docker 日志可能同时写 stdout/stderr。
+sudo docker logs --since 30m mom-identity 2>&1 | rg '替换为32位TraceId'
+sudo docker logs --since 30m mom-gateway 2>&1 | rg '替换为32位TraceId'
 
-# Production JSON 中筛选 Error / Critical
-sudo journalctl -u zx-identity.service --since today \
-  --grep='"LogLevel":"(Error|Critical)"' -o cat
-
-# 检查历史启动记录和占用
-sudo journalctl --list-boots
-sudo journalctl --disk-usage
+# 查看当前日志驱动，不输出容器环境变量。
+sudo docker inspect --format '{{.Name}} {{json .HostConfig.LogConfig}}' mom-identity mom-gateway
 ```
 
-Console Provider 将 JSON 文本写到标准输出，JSON 的 `LogLevel` 不会自动变成 journal 的 `PRIORITY` 字段。不要只依赖 `journalctl -p err` 筛选 .NET 应用错误；按消息中的 `LogLevel` 或 TraceId 查。`-o cat` 只显示应用消息，去掉后可同时看到 journal 的时间、主机及进程信息。
-
-需要网页查看时，可由运维安装 Cockpit 等支持 journal 浏览的工具，使用服务器授权账号查看；当前没有在平台管理端新增日志页面、Linux 命令执行接口或远程 journal 读取接口。
+`rg` 仅为查询示例，服务器未安装时可用 `grep`。应用 JSON 时间戳是 UTC；查询窗口带明确时区，避免把服务器当地时间与 UTC 混淆。发布后先区分当前容器与保留的旧容器，旧版本日志需按确切容器名查询。不要通过输出完整 `docker inspect` 排查日志，以免泄露运行配置。
 
 ## 部署检查
 
@@ -125,8 +79,8 @@ Console Provider 将 JSON 文本写到标准输出，JSON 的 `LogLevel` 不会�
 2. 通过 Gateway 调用接口，确认两个服务均输出摘要；同一链路的 TraceId 一致，路径与耗时分别对应各自服务。
 3. 覆盖成功、未登录、无权限、限流和系统异常，核对请求摘要状态；异常日志应能按同一 TraceId 找到。
 4. 使用无敏感信息的测试标记放入查询参数、请求头、Cookie 和 JSON 请求体，确认 HTTP 摘要没有记录这些值。
-5. 检查 journal 容量、文件权限和持久化；在允许的维护窗口验证重启后可查历史。
+5. 检查 Docker 日志驱动、轮转上限和磁盘容量；需要长期留存时另行归档。
 
-上述 Linux / systemd 步骤是部署说明，本机 Windows 修改代码并不代表已完成服务器验收。若改为 Docker 部署，标准输出通常由 Docker 日志驱动接收；使用 `docker logs` 并配置轮转，不能假定应用日志自动出现在宿主机 journald。
+上述检查需在目标环境确认，本机代码验证不代表已完成服务器日志验收。发布流水线的启动检查也不覆盖日志留存和轮转。
 
 2026-10-17 本机验证：解决方案使用独立输出目录编译通过，仍有既有依赖告警；隔离 HTTP 程序加载两个项目的真实日志扩展和配置，分别验证 Development / Production 输出、200 / 201 / 400 / 401 / 403 / 429 / 500 摘要状态、异常处理后的 500、UTC 和 TraceId，以及测试查询参数、头、Cookie、请求 / 响应体标记未进入 HTTP 日志。该检查仅验证日志管道，没有重新验收认证业务、真实 Gateway 转发或 Linux journald。

@@ -11,7 +11,7 @@
 - SBU：新增、详情、列表查询（不分页，一次返回全部SBU）、修改名称、启停用、软删除、恢复、查询全部启用SBU。
 - 数据访问：EF Core Migration、数据库唯一约束、审计时间、软删除过滤、一次保存提交业务变更。
 - API：统一 JSON 响应、参数校验、异常映射、中文 / English 提示和 `traceId`。
-- 运行日志：请求摘要、耗时与 TraceId，开发文本 / 生产 JSON 控制台输出，Linux 由 journald 收集。
+- 运行日志：请求摘要、耗时与 TraceId，开发文本 / 生产 JSON 控制台输出，当前部署由 Docker 日志驱动收集。
 - 接口限频：同一 IP + HTTP 方法 + 路由模板，默认 3 秒分段滑动窗口最多 5 次，超限立即返回 `429 / 600429`。
 - 认证：JWT Access Token、随机 Refresh Token、Redis 单账号单会话、确认接管、刷新轮换、退出、当前用户、账号锁定、自助改密码及会话撤销。
 - 授权：用户多角色、角色功能权限、权限目录自动同步、Redis 权限缓存及版本失效、前端菜单/页面/按钮权限。
@@ -59,6 +59,8 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 
 端口以各项目的 `Properties/launchSettings.json` 为准。Gateway 目标配置和前端代理地址需要同步；完整步骤见[开发环境](docs/development.md)。
 
+日常发布在仓库根目录执行 `bash scripts/publish-images.sh <新版本号>`，本地构建并上传后，再在 GitLab 手动发布。只打包、重传及流水线参数见[Runner 发布说明](docs/deployment.md)。
+
 ## 开发文档
 
 换电脑或新助手接续开发时，先读[项目交接说明](docs/project-handoff.md)。
@@ -73,7 +75,10 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 | [Identity 接口契约](docs/api.md)            | 用户和SBU路由、DTO、分页与错误负载        |
 | [Identity 业务语义](docs/identity.md)       | 状态、SBU关系与当前能力边界               |
 | [API 响应与错误](docs/http.md)              | HTTP / 业务码、异常、校验与取消信号        |
-| [运行与接口日志](docs/logging.md)          | 请求摘要、异步输出、TraceId 与 journald 部署查询 |
+| [运行与接口日志](docs/logging.md)          | 请求摘要、TraceId、异步输出与 Docker 日志查询 |
+| [GitLab Runner 发布](docs/deployment.md) | 本地镜像打包上传、运行变量、手动发布与回滚 |
+| [当前部署拓扑](docs/deployment-topology.md) | 176 入口和 Runner、177/178 后端、共享数据库与 Redis |
+| [数据库初始化](docs/database-initialization.md) / [迁移操作](docs/migration-operations.md) | 首次建表、管理员 SQL、增量 SQL 交 DBA |
 | [API 多语言](docs/localization.md)          | 请求语言、资源分组、消息键与扩展步骤       |
 | [接口限流](docs/rate-limiting.md)           | 滑动窗口、客户端 IP、配置和验收            |
 | [登录与会话](docs/authentication.md)       | Redis、接管、刷新、下线及并发边界          |

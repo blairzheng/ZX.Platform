@@ -19,13 +19,12 @@
 | ------------------- | -------------------------------- | --------------------------------------------- |
 | 理解架构 / 新增业务 | [开发者指南](developer-guide.md) | 四层职责、Repository / Unit of Work、开发约定 |
 | 启动 / 配置 / 排错  | [开发环境](development.md)       | User Secrets、端口、HTTPS、Gateway 和 Git     |
-| 规划生产部署        | [MOM 一期部署架构草案](deployment-topology.md) | 双应用节点、Redis Sentinel、集团 Oracle 与待确认事项 |
-| 准备当前预发布 | [Docker 离线部署](docker-deployment.md) | 176 独立 HTTPS 端口、177/178 容器、配置与发布顺序；[原生方案](native-deployment.md)仅供参考 |
-| 查运行和接口日志 | [运行与接口日志](logging.md) | 请求摘要、TraceId、异步控制台输出、Linux journald |
+| 查看部署拓扑 | [当前部署拓扑](deployment-topology.md) | 176 入口和 Runner、177/178 后端、共享数据库与 Redis |
+| 发布 / 回滚应用 | [GitLab Runner 发布](deployment.md) | 本地镜像打包、Registry 上传、变量、校验与手动发布 |
+| 查运行和接口日志 | [运行与接口日志](logging.md) | 请求摘要、TraceId、异步控制台输出、Docker 日志 |
 | 修改实体 / 数据库   | [数据库与持久化](database.md)    | 唯一索引、软删除、审计、关系和 Migration      |
 | 执行数据库迁移 | [迁移操作手册](migration-operations.md) | 本机、测试库直接更新与正式库交 DBA 的步骤 |
-| Docker 离线部署 / 数据库迁移 | [Docker 部署手册](docker-deployment.md) | 打包、load、配置、数据库初始化、管理员 SQL 和升级 |
-| 一键离线打包 / 并行远程部署 / 回滚 | [部署脚本说明](../deploy/docker/README.md) | 本机 package、remote 临时 SSH/SFTP，两台并行；服务器 init、deploy、status、rollback |
+| 首次建库 / 管理员 / 重建 | [数据库初始化](database-initialization.md) | 首次 SQL、独立管理员初始化与定向重建 |
 | 运维按当地时间查数据 | [运维查询时间](database.md#运维查询时间) | Oracle UTC 时间类型、当地时间查询与换算 |
 | 联调用户 / SBU     | [Identity 接口契约](api.md)      | 路由、HTTP 方法、请求字段、分页与错误负载     |
 | 理解用户 / SBU规则 | [Identity 业务语义](identity.md) | 状态、SBU关系与当前能力边界                  |
@@ -35,6 +34,9 @@
 | 联调登录与会话      | [登录与会话](authentication.md) | Redis、Cookie、接管、强制下线及并发边界 |
 | 管理角色与权限 | [角色与权限](authorization.md) | 管理员 SQL、权限目录、菜单树授权、动态菜单及缓存失效 |
 | 设计下一阶段        | [后续规划与设计取舍](roadmap.md) | 认证、SBU权限、幂等、日志和基础设施          |
+| 并行推进 SBU / MES 与低代码 | [两条工作线交接](sbu-mes-lowcode-handoff.md) | 当前契约、实施顺序、分工、验收和待提供资料 |
+| 设计低代码平台 | [低代码平台方案讨论](low-code-design.md) | 本系统与外部数据集、权限、菜单、全局 / SBU 范围和试点边界 |
+| 接入外部 MES Oracle 库 | [外部 Oracle 数据源](external-oracle-data-sources.md) | 别名配置、连接复用、读写边界与下一步 |
 | 查阅过去讨论        | [历史文档](history/README.md)    | 原交接记录与前端迁移方案                      |
 
 ## 前端仓库
@@ -52,4 +54,4 @@
 
 一个契约优先在一个专题维护，其他文档链接过去。修改接口时更新 Identity 接口契约、业务语义与 HTTP 专题；修改实体时更新数据库专题；修改提示或限流时更新对应专题。调整架构边界时更新开发者指南，完成新能力后更新首页和规划。
 
-本文档在 2026-10-12 按当前源码整理。历史记录中的阶段状态和示意代码可能已经过时，以当前专题和实际源码为准。
+部署入口于 2026-10-29 更新为 GitLab Runner 流程。历史记录中的阶段状态和示意代码可能已经过时，以当前专题和实际源码为准。
