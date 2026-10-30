@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ZX.Platform.Identity.Api.Authorization;
 using ZX.Platform.Identity.Api.ErrorHandling;
 using ZX.Platform.Identity.Api.Extensions;
 using ZX.Platform.Identity.Api.Localization;
@@ -42,6 +43,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddIdentityDatabase(builder.Configuration);
+builder.Services.AddExternalOracleDataSources(builder.Configuration);
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISbuRepository, SbuRepository>();
@@ -50,6 +52,7 @@ builder.Services.AddScoped<IUnitOfWork>(serviceProvider =>
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISbuService, SbuService>();
 builder.Services.AddScoped<IUserSbuRepository, UserSbuRepository>();
+builder.Services.AddScoped<CurrentSbuContext>();
 
 var app = builder.Build();
 

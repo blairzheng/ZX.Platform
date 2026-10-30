@@ -12,6 +12,14 @@ namespace ZX.Platform.Identity.Application.Persistence
             CancellationToken cancellationToken);
 
         /// <summary>
+        /// 查询用户关联的指定 SBU；不存在、已删除或停用时返回 null。
+        /// </summary>
+        Task<Sbu?> GetEnabledSbuForUserAsync(
+            Guid userId,
+            Guid sbuId,
+            CancellationToken cancellationToken);
+
+        /// <summary>
         /// 一次查询多个用户的SBU关联，用于分页列表展示。
         /// </summary>
         Task<List<UserSbu>> GetByUserIdsAsync(

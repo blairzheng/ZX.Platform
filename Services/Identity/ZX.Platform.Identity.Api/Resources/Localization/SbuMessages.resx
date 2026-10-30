@@ -18,4 +18,7 @@
   <data name="Sbu.NotFound" xml:space="preserve"><value>SBU不存在。</value></data>
   <data name="Sbu.NotDeleted" xml:space="preserve"><value>SBU未被删除，无需恢复。</value></data>
   <data name="Sbu.RestoreBeforeEnable" xml:space="preserve"><value>已删除的SBU必须先恢复，不能直接启用。</value></data>
+  <data name="Sbu.AuthenticationRequired" xml:space="preserve"><value>请先登录后再选择SBU。</value></data>
+  <data name="Sbu.SelectionRequired" xml:space="preserve"><value>请提供有效的SBU。</value></data>
+  <data name="Sbu.AccessDenied" xml:space="preserve"><value>无权访问所选SBU，或该SBU已停用。</value></data>
 </root>

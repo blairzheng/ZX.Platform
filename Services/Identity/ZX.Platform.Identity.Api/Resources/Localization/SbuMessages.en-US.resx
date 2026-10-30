@@ -18,4 +18,7 @@
   <data name="Sbu.NotFound" xml:space="preserve"><value>Sbu not found.</value></data>
   <data name="Sbu.NotDeleted" xml:space="preserve"><value>This sbu has not been deleted and does not need to be restored.</value></data>
   <data name="Sbu.RestoreBeforeEnable" xml:space="preserve"><value>Restore the deleted sbu before enabling it.</value></data>
+  <data name="Sbu.AuthenticationRequired" xml:space="preserve"><value>Sign in before selecting an SBU.</value></data>
+  <data name="Sbu.SelectionRequired" xml:space="preserve"><value>Provide a valid SBU.</value></data>
+  <data name="Sbu.AccessDenied" xml:space="preserve"><value>You cannot access the selected SBU, or it is disabled.</value></data>
 </root>

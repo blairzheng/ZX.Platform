@@ -132,8 +132,12 @@ internal sealed class TestSbus : ISbuRepository
 internal sealed class TestUserSbus : IUserSbuRepository
 {
     public List<UserSbu> Items { get; } = [];
+    public List<Sbu> Sbus { get; } = [];
     public Task<List<UserSbu>> GetByUserIdAsync(Guid id, CancellationToken token) =>
         Task.FromResult(Items.Where(item => item.UserId == id).ToList());
+    public Task<Sbu?> GetEnabledSbuForUserAsync(Guid userId, Guid sbuId, CancellationToken token) =>
+        Task.FromResult(Sbus.FirstOrDefault(sbu => sbu.Id == sbuId && !sbu.IsDeleted && sbu.IsEnabled &&
+            Items.Any(item => item.UserId == userId && item.SbuId == sbu.Id)));
     public Task<List<UserSbu>> GetByUserIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken token) =>
         Task.FromResult(Items.Where(item => ids.Contains(item.UserId)).ToList());
     public void Add(UserSbu relation) => Items.Add(relation);

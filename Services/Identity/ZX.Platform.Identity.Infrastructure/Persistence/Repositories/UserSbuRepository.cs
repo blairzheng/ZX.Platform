@@ -23,6 +23,14 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Repositories
             return _dbContext.UserSbus.Where(uf => uf.UserId == userId).ToListAsync(cancellationToken);
         }
 
+        public Task<Sbu?> GetEnabledSbuForUserAsync(Guid userId, Guid sbuId, CancellationToken cancellationToken)
+        {
+            return _dbContext.Sbus.AsNoTracking()
+                .Where(sbu => sbu.Id == sbuId && sbu.IsEnabled && !sbu.IsDeleted &&
+                    _dbContext.UserSbus.Any(link => link.UserId == userId && link.SbuId == sbu.Id))
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         public Task<List<UserSbu>> GetByUserIdsAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
         {
             if (userIds.Count == 0) return Task.FromResult(new List<UserSbu>());
