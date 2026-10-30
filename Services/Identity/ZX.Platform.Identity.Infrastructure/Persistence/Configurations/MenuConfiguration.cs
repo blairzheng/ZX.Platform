@@ -21,6 +21,9 @@ public sealed class MenuConfiguration : IEntityTypeConfiguration<Menu>
         builder.Property(menu => menu.Path).HasColumnName("PATH").HasMaxLength(200).IsRequired(false);
         builder.Property(menu => menu.Component).HasColumnName("COMPONENT").HasMaxLength(100).IsRequired(false);
         builder.Property(menu => menu.PermissionCode).HasColumnName("PERMISSION_CODE").HasMaxLength(100).IsRequired(false);
+        builder.Property(menu => menu.LauncherTone).HasColumnName("LAUNCHER_TONE").HasMaxLength(16).IsRequired(false);
+        builder.Property(menu => menu.LauncherDescription).HasColumnName("LAUNCHER_DESCRIPTION").HasMaxLength(500).IsRequired(false);
+        builder.Property(menu => menu.LauncherDescriptionEn).HasColumnName("LAUNCHER_DESCRIPTION_EN").HasMaxLength(500).IsRequired(false);
         builder.Property(menu => menu.Sort).HasColumnName("SORT");
         builder.Property(menu => menu.KeepAlive).HasColumnName("KEEP_ALIVE");
         builder.Property(menu => menu.ShowInMenu).HasColumnName("SHOW_IN_MENU");

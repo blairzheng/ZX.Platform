@@ -21,6 +21,12 @@ public class MenuInputDto
     public string Component { get; set; } = string.Empty;
     [StringLength(100, ErrorMessage = "Validation.StringLength")]
     public string PermissionCode { get; set; } = string.Empty;
+    [RegularExpression("primary|warning|success|violet", ErrorMessage = "Validation.MenuLauncherTone")]
+    public string LauncherTone { get; set; } = "primary";
+    [StringLength(500, ErrorMessage = "Validation.StringLength")]
+    public string LauncherDescription { get; set; } = string.Empty;
+    [StringLength(500, ErrorMessage = "Validation.StringLength")]
+    public string LauncherDescriptionEn { get; set; } = string.Empty;
     [Range(0, 10000, ErrorMessage = "Validation.MenuSort")]
     public int Sort { get; set; }
     public bool KeepAlive { get; set; } = true;
@@ -31,10 +37,8 @@ public class MenuInputDto
 
 public sealed class CreateMenuDto : MenuInputDto
 {
-    [Required(ErrorMessage = "Validation.Required")]
-    [StringLength(100, ErrorMessage = "Validation.StringLength")]
-    [RegularExpression("[a-zA-Z][a-zA-Z0-9_-]*", ErrorMessage = "Validation.MenuCode")]
-    public string Code { get; set; } = string.Empty;
+    // 保留属性以兼容旧客户端；新菜单编码由服务端生成，客户端传入值不会被使用。
+    public string? Code { get; set; }
 }
 
 public sealed class UpdateMenuDto : MenuInputDto

@@ -133,7 +133,7 @@ Service 预查询只是友好提示，两个同时创建的请求仍可能都通
 
 ## 迁移现状
 
-唯一迁移目录为 `Persistence/Migrations/`，快照为 `PlatformIdentityDbContextModelSnapshot`。基线 `20261027000000_InitialIdentitySchema` 创建旧厂区模型；`20261028084818_ReplaceFactoriesWithSbus` 删除旧厂区及用户厂区表，创建 SBU 及用户 SBU 表，并清理旧内置厂区菜单。旧厂区测试数据不会迁移；用户、角色等其他表保留。部署当前代码必须将目标库升级到第二条迁移。本地、测试、正式使用相同迁移链，仅连接和 schema 不同。
+唯一迁移目录为 `Persistence/Migrations/`，快照为 `PlatformIdentityDbContextModelSnapshot`。基线 `20261027000000_InitialIdentitySchema` 创建旧厂区模型；`20261028084818_ReplaceFactoriesWithSbus` 删除旧厂区及用户厂区表，创建 SBU 及用户 SBU 表，并清理旧内置厂区菜单；`20261030100000_AddMenuLauncherMetadata` 增加菜单宫格颜色和中英文描述字段。旧厂区测试数据不会迁移；用户、角色等其他表保留。部署当前代码必须将目标库升级到第三条迁移。本地、测试、正式使用相同迁移链，仅连接和 schema 不同。
 
 应用不会自动执行 DDL。空库先执行初始化 SQL；启动后自动补齐菜单和权限。首次使用前，由运维通过本地保存的单独 SQL 创建首个用户和内置管理员关联，应用不会从配置创建管理员。需要清空已有 MOM 数据时，按[数据库初始化与重建](database-initialization.md)中的定向重置步骤重新初始化。
 

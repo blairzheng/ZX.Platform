@@ -168,9 +168,9 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 | PUT | `/api/Menus/setEnabled` | query `id, enabled` | 无 | `identity.menu.status` |
 | PUT | `/api/Menus/logicDelete` | query `id` | 无 | `identity.menu.delete` |
 
-`MenuDto` 字段：`id`、可空 `parentId`、`code`、`kind`、`title`、`titleEn`、`icon`、`path`、`component`、`permissionCode`、`sort`、`keepAlive`、`showInMenu`、`showInTags`、`affix`、`isEnabled`、`isBuiltIn`、`children`。父级优先，再按 sort、code 排序。`Auth/me.menus` 使用相同结构，但只含启用且有查看权限的目录/页面，不含操作节点；隐藏导航的页面仍返回以注册路由，不是管理全量树。
+`MenuDto` 字段：`id`、可空 `parentId`、`code`、`kind`、`title`、`titleEn`、`icon`、`path`、`component`、`permissionCode`、`permissionActive`、`launcherTone`、`launcherDescription`、`launcherDescriptionEn`、`sort`、`keepAlive`、`showInMenu`、`showInTags`、`affix`、`isEnabled`、`isBuiltIn`、`children`。`permissionActive` 表示页面或按钮引用的权限是否仍由当前版本代码声明；目录没有权限时为 true。父级优先，再按 sort、code 排序。`Auth/me.menus` 使用相同结构，包含启用的自定义目录（空目录作为建设中节点）和有查看权限的页面，不含操作节点；没有可见页面的内置空目录不返回；前端为空目录注册统一的待建设预览路由；隐藏导航的页面仍返回以注册路由，不是管理全量树。
 
-创建输入为 `code` 加上述可维护字段；修改为 `id` 加可维护字段，不修改 code。编码必填，最多100字符，以字母开头，其余字母/数字/下划线/连字符；删除后也不能复用。kind 必须是 `directory` / `page` / `action`，title 必填且最多200字符，titleEn 最多200字符；icon/component/permissionCode 最多100，path 最多200；sort 为0～10000；keepAlive、showInMenu、showInTags 为 bool，省略时默认 true；affix 为 bool，默认 false。
+创建输入为上述可维护字段，菜单编码由服务端自动生成并保持稳定；兼容旧客户端传入的 `code` 会被忽略。修改为 `id` 加可维护字段，不修改 code。编码删除后也不能复用。kind 必须是 `directory` / `page` / `action`，title 必填且最多200字符，titleEn 最多200字符；icon/component/permissionCode 最多100，path 最多200；sort 为0～10000；keepAlive、showInMenu、showInTags 为 bool，省略时默认 true；affix 为 bool，默认 false。
 
 | 显示字段 | 作用 |
 | --- | --- |

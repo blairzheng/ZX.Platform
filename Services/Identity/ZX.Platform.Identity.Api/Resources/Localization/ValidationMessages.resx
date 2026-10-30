@@ -34,5 +34,6 @@
   <data name="Validation.RoleCode" xml:space="preserve"><value>角色编码须以字母开头，只能包含字母、数字和下划线。</value></data>
   <data name="Validation.MenuKind" xml:space="preserve"><value>菜单类型不正确。</value></data>
   <data name="Validation.MenuSort" xml:space="preserve"><value>排序必须介于 0 到 10000 之间。</value></data>
+  <data name="Validation.MenuLauncherTone" xml:space="preserve"><value>宫格颜色不正确。</value></data>
   <data name="Validation.MenuCode" xml:space="preserve"><value>菜单编码须以字母开头，只能包含字母、数字、下划线和连字符。</value></data>
 </root>

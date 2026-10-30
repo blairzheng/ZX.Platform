@@ -34,5 +34,6 @@
   <data name="Validation.RoleCode" xml:space="preserve"><value>Role codes must start with a letter and contain only letters, numbers and underscores.</value></data>
   <data name="Validation.MenuKind" xml:space="preserve"><value>Invalid menu kind.</value></data>
   <data name="Validation.MenuSort" xml:space="preserve"><value>Sort order must be between 0 and 10000.</value></data>
+  <data name="Validation.MenuLauncherTone" xml:space="preserve"><value>Invalid menu grid color.</value></data>
   <data name="Validation.MenuCode" xml:space="preserve"><value>Menu codes must start with a letter and contain only letters, numbers, underscores and hyphens.</value></data>
 </root>

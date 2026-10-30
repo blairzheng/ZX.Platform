@@ -93,6 +93,21 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("NVARCHAR2(16)")
                         .HasColumnName("KIND");
 
+                    b.Property<string>("LauncherDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("LAUNCHER_DESCRIPTION");
+
+                    b.Property<string>("LauncherDescriptionEn")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("LAUNCHER_DESCRIPTION_EN");
+
+                    b.Property<string>("LauncherTone")
+                        .HasMaxLength(16)
+                        .HasColumnType("NVARCHAR2(16)")
+                        .HasColumnName("LAUNCHER_TONE");
+
                     b.Property<Guid?>("ParentId")
                         .HasColumnType("RAW(16)")
                         .HasColumnName("PARENT_ID");

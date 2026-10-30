@@ -4,7 +4,7 @@
 
 ## 当前数据库方案
 
-2026-10-28：所有环境统一采用 Oracle 19c 模型。只维护 `PlatformIdentityDbContext` 和 `Persistence/Migrations/`。基线为 `20261027000000_InitialIdentitySchema`，当前目标版本为 `20261028084818_ReplaceFactoriesWithSbus`；后者以 SBU 表替换旧厂区表，旧厂区测试数据不迁移。布尔字段为 `NUMBER(1)`，迁移历史表为目标 schema 下的 `ZX_IDENTITY_MIGRATIONS`。
+2026-10-30：所有环境统一采用 Oracle 19c 模型。只维护 `PlatformIdentityDbContext` 和 `Persistence/Migrations/`。基线为 `20261027000000_InitialIdentitySchema`，当前目标版本为 `20261030100000_AddMenuLauncherMetadata`；中间迁移以 SBU 表替换旧厂区表，最新迁移增加菜单宫格颜色和中英文描述字段。布尔字段为 `NUMBER(1)`，迁移历史表为目标 schema 下的 `ZX_IDENTITY_MIGRATIONS`。
 
 本地默认 schema 为 `ZX_IDENTITY`，测试库使用 `SAJET`，正式库按 DBA 提供的信息配置。连接账号与表 owner 分开配置，同一套镜像和迁移用于所有环境。设计时工厂离线生成 SQL，导出工具替换目标 schema 并检查执行服务和账号。
 

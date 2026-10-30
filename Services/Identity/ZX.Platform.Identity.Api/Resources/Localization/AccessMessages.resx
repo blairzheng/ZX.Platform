@@ -49,7 +49,7 @@
   <data name="Access.MenuUpdated" xml:space="preserve"><value>菜单已修改。</value></data>
   <data name="Access.MenuStatusUpdated" xml:space="preserve"><value>菜单状态已更新。</value></data>
   <data name="Access.MenuDeleted" xml:space="preserve"><value>菜单已删除。</value></data>
-  <data name="Access.BuiltInMenuStructureReadOnly" xml:space="preserve"><value>内置菜单仅允许修改名称、图标与排序。</value></data>
+  <data name="Access.BuiltInMenuStructureReadOnly" xml:space="preserve"><value>内置菜单仅允许调整父级，不能修改其他字段、删除或禁用。</value></data>
   <data name="Access.MenuCodeExists" xml:space="preserve"><value>菜单编码已存在或被保留，删除后也不能重复使用。</value></data>
   <data name="Access.MenuNotFound" xml:space="preserve"><value>菜单不存在。</value></data>
   <data name="Access.InvalidMenu" xml:space="preserve"><value>菜单类型或字段组合不正确。</value></data>

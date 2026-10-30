@@ -49,7 +49,7 @@
   <data name="Access.MenuUpdated" xml:space="preserve"><value>Menu updated.</value></data>
   <data name="Access.MenuStatusUpdated" xml:space="preserve"><value>Menu status updated.</value></data>
   <data name="Access.MenuDeleted" xml:space="preserve"><value>Menu deleted.</value></data>
-  <data name="Access.BuiltInMenuStructureReadOnly" xml:space="preserve"><value>Only titles, icons and sort order can be changed for built-in menus.</value></data>
+  <data name="Access.BuiltInMenuStructureReadOnly" xml:space="preserve"><value>Only the parent menu can be changed for built-in menus; other fields, deletion, and disabling are not allowed.</value></data>
   <data name="Access.MenuCodeExists" xml:space="preserve"><value>The menu code already exists or is reserved, including deleted menus.</value></data>
   <data name="Access.MenuNotFound" xml:space="preserve"><value>Menu not found.</value></data>
   <data name="Access.InvalidMenu" xml:space="preserve"><value>Invalid menu kind or field combination.</value></data>

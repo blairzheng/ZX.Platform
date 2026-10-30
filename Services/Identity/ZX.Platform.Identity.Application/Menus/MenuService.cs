@@ -51,12 +51,20 @@ public sealed class MenuService(IMenuRepository menus, IUnitOfWork unitOfWork) :
         {
             if (authorization is not null && (!menu.IsEnabled || menu.Kind == Menu.Action)) continue;
             var children = Tree(all, menu.Id, authorization, depth + 1);
-            if (authorization is not null && (menu.Kind == Menu.Directory ? children.Count == 0 :
-                !IdentityPermissions.All.Contains(menu.PermissionCode, StringComparer.Ordinal) ||
-                !authorization.IsAdministrator && !authorization.Permissions.Contains(menu.PermissionCode, StringComparer.Ordinal))) continue;
+            if (authorization is not null &&
+                ((menu.Kind == Menu.Directory && menu.IsBuiltIn && children.Count == 0) ||
+                 menu.Kind != Menu.Directory &&
+                 (!IdentityPermissions.All.Contains(menu.PermissionCode, StringComparer.Ordinal) ||
+                  !authorization.IsAdministrator && !authorization.Permissions.Contains(menu.PermissionCode, StringComparer.Ordinal))))
+                continue;
             result.Add(new MenuDto { Id = menu.Id, ParentId = menu.ParentId, Code = menu.Code, Kind = menu.Kind,
                 Title = menu.Title, TitleEn = menu.TitleEn, Icon = menu.Icon, Path = menu.Path, Component = menu.Component,
-                PermissionCode = menu.PermissionCode, Sort = menu.Sort, KeepAlive = menu.KeepAlive,
+                PermissionCode = menu.PermissionCode,
+                PermissionActive = string.IsNullOrWhiteSpace(menu.PermissionCode) ||
+                    IdentityPermissions.All.Contains(menu.PermissionCode, StringComparer.Ordinal),
+                LauncherTone = menu.LauncherTone,
+                LauncherDescription = menu.LauncherDescription, LauncherDescriptionEn = menu.LauncherDescriptionEn,
+                Sort = menu.Sort, KeepAlive = menu.KeepAlive,
                 ShowInMenu = menu.ShowInMenu, ShowInTags = menu.ShowInTags, Affix = menu.Affix,
                 IsEnabled = menu.IsEnabled, IsBuiltIn = menu.IsBuiltIn, Children = children });
         }
@@ -65,15 +73,26 @@ public sealed class MenuService(IMenuRepository menus, IUnitOfWork unitOfWork) :
 
     public async Task<Guid> CreateAsync(CreateMenuDto input, CancellationToken cancellationToken)
     {
-        if (await menus.CodeExistsAsync(input.Code.Trim(), cancellationToken)) throw Error("Access.MenuCodeExists", ErrorCodes.Conflict);
         var all = await menus.GetAllAsync(cancellationToken);
         Validate(input, null, all);
-        var menu = Menu.Create(input.Code, input.Kind, input.ParentId, input.Title, input.TitleEn,
+        var code = await GenerateCodeAsync(cancellationToken);
+        var menu = Menu.Create(code, input.Kind, input.ParentId, input.Title, input.TitleEn,
             input.Icon, input.Path, input.Component, input.PermissionCode, input.Sort, input.KeepAlive,
-            showInMenu: input.ShowInMenu, showInTags: input.ShowInTags, affix: input.Affix);
+            showInMenu: input.ShowInMenu, showInTags: input.ShowInTags, affix: input.Affix,
+            launcherTone: input.LauncherTone, launcherDescription: input.LauncherDescription,
+            launcherDescriptionEn: input.LauncherDescriptionEn);
         menus.Add(menu);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return menu.Id;
+    }
+
+    private async Task<string> GenerateCodeAsync(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var code = $"menu_{Guid.NewGuid():N}";
+            if (!await menus.CodeExistsAsync(code, cancellationToken)) return code;
+        }
     }
 
     public async Task UpdateAsync(UpdateMenuDto input, CancellationToken cancellationToken)
@@ -82,7 +101,8 @@ public sealed class MenuService(IMenuRepository menus, IUnitOfWork unitOfWork) :
         Validate(input, menu.Id, await menus.GetAllAsync(cancellationToken));
         menu.Update(input.Kind, input.ParentId, input.Title, input.TitleEn, input.Icon,
             input.Path, input.Component, input.PermissionCode, input.Sort, input.KeepAlive,
-            input.ShowInMenu, input.ShowInTags, input.Affix);
+            input.ShowInMenu, input.ShowInTags, input.Affix, input.LauncherTone,
+            input.LauncherDescription, input.LauncherDescriptionEn);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 

@@ -13,6 +13,9 @@ public sealed class Menu : SoftDeletableEntity
     private string? _path;
     private string? _component;
     private string? _permissionCode;
+    private string? _launcherTone;
+    private string? _launcherDescription;
+    private string? _launcherDescriptionEn;
     private Menu() { }
     public Guid Id { get; private set; }
     public Guid? ParentId { get; private set; }
@@ -25,6 +28,9 @@ public sealed class Menu : SoftDeletableEntity
     public string Path { get => _path ?? string.Empty; private set => _path = value; }
     public string Component { get => _component ?? string.Empty; private set => _component = value; }
     public string PermissionCode { get => _permissionCode ?? string.Empty; private set => _permissionCode = value; }
+    public string LauncherTone { get => _launcherTone ?? "primary"; private set => _launcherTone = value; }
+    public string LauncherDescription { get => _launcherDescription ?? string.Empty; private set => _launcherDescription = value; }
+    public string LauncherDescriptionEn { get => _launcherDescriptionEn ?? string.Empty; private set => _launcherDescriptionEn = value; }
     public int Sort { get; private set; }
     public bool KeepAlive { get; private set; }
     public bool ShowInMenu { get; private set; } = true;
@@ -35,27 +41,36 @@ public sealed class Menu : SoftDeletableEntity
 
     public static Menu Create(string code, string kind, Guid? parentId, string title, string titleEn,
         string icon, string path, string component, string permissionCode, int sort, bool keepAlive, bool builtIn = false,
-        bool showInMenu = true, bool showInTags = true, bool affix = false) => new()
+        bool showInMenu = true, bool showInTags = true, bool affix = false, string launcherTone = "primary",
+        string launcherDescription = "", string launcherDescriptionEn = "") => new()
     {
         Id = Guid.NewGuid(), Code = code.Trim(), Kind = kind, ParentId = parentId,
         Title = title.Trim(), TitleEn = titleEn.Trim(), Icon = icon.Trim(), Path = path.Trim(),
         Component = component.Trim(), PermissionCode = permissionCode.Trim(), Sort = sort,
+        LauncherTone = launcherTone.Trim(), LauncherDescription = launcherDescription.Trim(),
+        LauncherDescriptionEn = launcherDescriptionEn.Trim(),
         KeepAlive = keepAlive, ShowInMenu = showInMenu, ShowInTags = showInTags, Affix = affix,
         IsBuiltIn = builtIn
     };
 
     public void Update(string kind, Guid? parentId, string title, string titleEn, string icon,
         string path, string component, string permissionCode, int sort, bool keepAlive,
-        bool showInMenu, bool showInTags, bool affix)
+        bool showInMenu, bool showInTags, bool affix, string launcherTone = "primary",
+        string launcherDescription = "", string launcherDescriptionEn = "")
     {
-        // 内置菜单保留入口和授权关联，名称、图标与排序仍可维护。
-        if (IsBuiltIn && (Kind != kind || ParentId != parentId || Path != path ||
-            Component != component || PermissionCode != permissionCode || KeepAlive != keepAlive ||
+        // 内置菜单只允许调整父级；编码、展示内容、路由、组件和授权关联保持稳定。
+        if (IsBuiltIn && (Kind != kind || Title != title.Trim() || TitleEn != titleEn.Trim() ||
+            Icon != icon.Trim() || Path != path || Component != component ||
+            PermissionCode != permissionCode || LauncherTone != launcherTone.Trim() ||
+            LauncherDescription != launcherDescription.Trim() ||
+            LauncherDescriptionEn != launcherDescriptionEn.Trim() || Sort != sort || KeepAlive != keepAlive ||
             ShowInMenu != showInMenu || ShowInTags != showInTags || Affix != affix))
             throw new DomainException("Access.BuiltInMenuStructureReadOnly");
         Kind = kind; ParentId = parentId; Title = title.Trim(); TitleEn = titleEn.Trim();
         Icon = icon.Trim(); Path = path.Trim(); Component = component.Trim();
-        PermissionCode = permissionCode.Trim(); Sort = sort; KeepAlive = keepAlive;
+        PermissionCode = permissionCode.Trim(); LauncherTone = launcherTone.Trim();
+        LauncherDescription = launcherDescription.Trim(); LauncherDescriptionEn = launcherDescriptionEn.Trim();
+        Sort = sort; KeepAlive = keepAlive;
         ShowInMenu = showInMenu; ShowInTags = showInTags; Affix = affix;
     }
 
