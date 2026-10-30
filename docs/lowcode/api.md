@@ -67,7 +67,7 @@ POST /api/lowcode/records/station
 X-SBU-ID: 3f2a...
 Content-Type: application/json
 
-{ "code": "ST001", "name": "一站", "lineCode": "L1", "isEnabled": true }
+{ "code": "ST001", "name": "一站", "line_code": "L1", "is_enabled": true }
 ```
 
 ```json
@@ -133,21 +133,27 @@ public interface IPermissionRegistrar { Task RegisterAsync(IReadOnlyList<Permiss
 
 ## 6. M1 垂直切片
 
-目标：**不写一行 Vue、不写一行 C# 业务代码，就能加出一个能增删改查的页面。**
+目标：**不写一行 Vue、不写一行 C# 业务代码，就能配出 [MES 机种用料盘点](pilot-material-usage.md) 这个页面。**
+
+M1 的范围由这个场景倒推，不是按功能清单铺：
 
 | # | 交付 | 验收方式 |
 | --- | --- | --- |
 | 1 | Domain 模型 + 13 种字段类型枚举 | 单测：类型 → Oracle 列型全覆盖 |
-| 2 | `ZX_LOWCODE` 元数据表 + 独立迁移 | 建库后能读出空目录 |
+| 2 | `LowCode` 元数据表 + 独立迁移历史 | 建库后能读出空目录 |
 | 3 | MetadataService（草稿 / 发布 / 版本） | 注册一个实体，能查回来；重复发布版本号递增 |
 | 4 | SqlBuilder（建表 / 加列 / 查询 / 写入） | 渲染结果与手写 SQL 一致；标识符全部带引号 |
 | 5 | SchemaChangeService | 测试执行成功；生产只导出不执行；重复执行幂等 |
 | 6 | QueryEngine | 分页、排序、筛选、字段裁剪；越界字段被拒 |
 | 7 | RecordEngine | 增改删、乐观锁、审计、软删 |
-| 8 | PermissionGuard + SBU 范围 | 6 类越权用例全过 |
-| 9 | Controller + 网关路由 | Swagger 调通全链路 |
-| 10 | 前端 `ListPage` + `FormDialog` | 配置驱动，不新增业务 `.vue` |
-| 11 | 站点实体跑通 | 截图验收，真实数据 100 行以上 |
+| 8 | 外部只读数据集（连接 + 视图 + 字段白名单 + SBU 参数） | 4 个 MES 数据集能取数；只生成 SELECT |
+| 9 | PermissionGuard + SBU 范围 | 越权用例全过 |
+| 10 | Controller + 网关路由 | Swagger 调通全链路 |
+| 11 | 前端 `ListPage` + `FormDialog` + 行内编辑 | 配置驱动，不新增业务 `.vue` |
+| 12 | 服务端导出（MiniExcel） | 按筛选条件全量导出，受权限与 SBU 约束 |
+| 13 | 盘点单 + 明细（松主从）跑通 | 真实数据 100 行以上，截图验收 |
+
+**M1 不做**：紧主从（嵌入式子表格）、公式字段、自动化、审批流、自由画布、前端导出。
 
 ### M1 的验收用例（必须全过）
 
@@ -172,9 +178,21 @@ public interface IPermissionRegistrar { Task RegisterAsync(IReadOnlyList<Permiss
 - `pageSize=1000` → 截断为 200
 - 深翻页超限 → `610004`
 
+**外部数据集**
+- 只读：任何写操作入口不存在
+- 结果超 5000 行 → 明确报错，不静默截断
+- 数据集 SQL 含 `:sbuId` 绑定变量
+- 页面配置无法关闭数据集的 SBU 过滤
+
+**导出**
+- 导出内容与列表筛选一致
+- 无 `export` 权限 → `403`，前端隐藏按钮不算数
+- 导出只含本 SBU 数据
+- 超过 50000 行 → 报错
+
 **结构变更**
 - 加字段 → 生成 change → 执行 → 校验 → 激活，四步都成功
 - 重复执行同一 change → 幂等，不报错
 - DDL 未完成时激活元数据 → `409 / 600004`
 
-这 18 条过完，M1 才算完成。少一条都会在第二期以 bug 的形式回来。
+这些用例全过，M1 才算完成。少一条都会在第二期以 bug 的形式回来。

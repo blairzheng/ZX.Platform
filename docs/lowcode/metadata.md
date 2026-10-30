@@ -4,7 +4,7 @@
 
 ## 1. 存储策略
 
-元数据表放 `ZX_LOWCODE` schema，由平台自己的 EF Core DbContext 管理（静态模型，走 `ZX_LOWCODE_MIGRATIONS`）。业务表不归 EF 管，见 [lifecycle.md](lifecycle.md)。
+元数据表由平台自己的 EF Core DbContext 管理（静态模型，走独立迁移历史表 `LC_MIGRATIONS`）。**schema 不写进模型**：表名不带前缀，落在连接账号自己的 schema 里，所以同一份迁移既能装进开发库也能装进 `ZX_LOWCODE`。业务表不归 EF 管，见 [lifecycle.md](lifecycle.md)。
 
 | 表 | 作用 |
 | --- | --- |
@@ -45,6 +45,10 @@ PUBLISHED_VERSION NUMBER(10)
 
 `schemaVersion` 必填，用于结构演进。当前为 `1`。
 
+**命名规则**：`code` / `appCode` / 字段 `key` / 视图 `code` 一律**小写蛇形**（`^[a-z][a-z0-9_]{0,29}$`），字段 `key` 大写后直接就是物理列名，中间没有转换。
+
+> 为什么不允许 camelCase：`isEnabled` 和 `is_enabled` 会转成同一个列名 `IS_ENABLED`，一旦允许混写就必须做撞名检测，而这类错误在发布后才会暴露。统一蛇形，零歧义。
+
 ```json
 {
   "schemaVersion": 1,
@@ -77,7 +81,7 @@ PUBLISHED_VERSION NUMBER(10)
       "sort": 20
     },
     {
-      "key": "lineCode",
+      "key": "line_code",
       "type": "select",
       "name": "产线",
       "nameEn": "Production line",
@@ -88,7 +92,7 @@ PUBLISHED_VERSION NUMBER(10)
       "sort": 30
     },
     {
-      "key": "isEnabled",
+      "key": "is_enabled",
       "type": "boolean",
       "name": "启用",
       "nameEn": "Enabled",
@@ -113,14 +117,14 @@ PUBLISHED_VERSION NUMBER(10)
       "columns": [
         { "field": "code", "width": 160, "visible": true, "sort": 10 },
         { "field": "name", "width": 220, "visible": true, "sort": 20 },
-        { "field": "lineCode", "width": 120, "visible": true, "sort": 30 },
-        { "field": "isEnabled", "width": 100, "visible": true, "sort": 40 },
+        { "field": "line_code", "width": 120, "visible": true, "sort": 30 },
+        { "field": "is_enabled", "width": 100, "visible": true, "sort": 40 },
         { "field": "remark", "width": 240, "visible": false, "sort": 50 }
       ],
       "filters": [
         { "field": "code", "operator": "like", "required": false },
-        { "field": "lineCode", "operator": "eq", "required": false },
-        { "field": "isEnabled", "operator": "eq", "required": false }
+        { "field": "line_code", "operator": "eq", "required": false },
+        { "field": "is_enabled", "operator": "eq", "required": false }
       ],
       "sorts": [{ "field": "code", "direction": "asc" }],
       "quickSearch": ["code", "name"]
