@@ -37,7 +37,12 @@ secrets.json
 deploy/native/*.env
 deploy/docker/*.env
 output/mom-deploy/
+output/mom-images-*
+output/.mom-images.*
 __pycache__/
 *.pfx
 *.p12
 *.key
+
+# OS files
+.DS_Store
