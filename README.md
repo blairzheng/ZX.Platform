@@ -84,6 +84,7 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 | [登录与会话](docs/authentication.md)       | Redis、接管、刷新、下线及并发边界          |
 | [角色与权限](docs/authorization.md) | 模型、权限目录、本机 SQL 初始化及缓存失效 |
 | [后续规划与设计取舍](docs/roadmap.md)       | 认证授权、多租户、MES 幂等、日志与部署     |
+| [低代码平台契约](docs/lowcode/README.md)    | 元数据、字段类型、运行时、权限与 SBU 范围、发布与退役 |
 
 ## 文档维护
 
