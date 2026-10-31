@@ -61,8 +61,8 @@ SELECT username, default_tablespace FROM dba_users WHERE username = 'ZX_LOWCODE'
 
 1. 配连接串（见第 2 节），指向新账号；
 2. 跑 `dotnet ef database update`，6 张元数据表会建在 `ZX_LOWCODE` 下；
-3. 本机 `ZX_IDENTITY` 里那 7 张 `LC_*` 是之前回退路径留下的，确认不再需要后可以删掉——
-   不删也不影响，两套表互不干扰，只是容易看错。
+3. 本机已经在 2026-10-31 完成这一步：`ZX_LOWCODE` 下 7 张表（6 张元数据 + `LC_MIGRATIONS`），
+   `ZX_IDENTITY` 下早先回退路径留下的同名表已删除，两个 schema 不再有重复对象。
 
 ### 为什么迁移里没有 schema 前缀
 
@@ -71,8 +71,8 @@ EF 迁移会把 schema 名烤进 SQL。如果模型里写死 `ZX_LOWCODE`，同�
 所以最终做法是：**模型里不设默认 schema，表名不带前缀，落在连接账号自己的 schema 里。**
 
 ```
-连 ZX_LOWCODE  → 表建在 ZX_LOWCODE（生产）
-连 ZX_IDENTITY → 表建在 ZX_IDENTITY（临时验证）
+连 ZX_LOWCODE  → 表建在 ZX_LOWCODE（当前本机即此状态）
+连 ZX_IDENTITY → 表建在 ZX_IDENTITY（早期临时验证用过）
 同一份迁移，两个环境都能用
 ```
 
