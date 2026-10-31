@@ -223,7 +223,86 @@ POST /api/Sbus/add
 - 菜单刷新后动态路由、标签和缓存是否正确清理。
 - 中文、英文、三种主题和小屏布局是否正常。
 
-## 六、开发环境和交付
+## 六、完整接入示例：设备点检记录
+
+下面用“设备点检记录”演示一次新业务接入。它是培训练习案例，当前代码中并没有这个业务功能；重点是看清每一层应该做什么。
+
+### 1. 先定业务规则
+
+假设每条点检记录属于一个 SBU，包含设备编号、点检时间、结果和备注。需求先确定为：
+
+- 用户必须拥有设备点检查看或维护权限。
+- 请求必须带当前 SBU，用户只能读取和修改自己有权限的 SBU 数据。
+- 点检时间统一保存 UTC。
+- 业务表归设备服务管理，不直接写 Identity 的表。
+
+### 2. 后端接入
+
+如果设备点检是独立业务服务，目录可以这样组织：
+
+```text
+Services/Equipment/
+├── ZX.Platform.Equipment.Api/
+├── ZX.Platform.Equipment.Application/
+├── ZX.Platform.Equipment.Domain/
+└── ZX.Platform.Equipment.Infrastructure/
+```
+
+按以下顺序实现：
+
+1. Domain 定义 `InspectionRecord`，提供创建、修改和状态变化方法。
+2. Application 定义 `CreateInspectionRecordDto`、查询 DTO 和 `IInspectionRecordService`。
+3. Infrastructure 配置 `EQUIPMENT_INSPECTION_RECORD` 表、Repository 和 Migration。
+4. 权限目录增加 `equipment.inspection.read`、`equipment.inspection.create`、`equipment.inspection.update`。
+5. Controller 增加查询、新增和修改接口，分别使用功能权限 Policy。
+6. 需要 SBU 范围的接口增加 `[RequireSbu]`，Service 查询时增加 `SbuId` 条件，写入时校验记录所属 SBU。
+7. 通过 Gateway 增加设备服务路由，返回统一的 `ApiResponse<T>`。
+
+一次查询的调用链是：
+
+```text
+GET /api/equipment/inspection-records
+  → InspectionRecordsController
+  → RequireSbu 校验 X-SBU-ID
+  → InspectionRecordService
+  → Repository.Where(record.SbuId == currentSbuId)
+  → Equipment Oracle
+```
+
+### 3. 前端接入
+
+前端对应代码可以这样安排：
+
+```text
+src/api/equipment/inspection.ts
+src/views/equipment/inspection/index.vue
+src/views/equipment/inspection/components/InspectionEditor.vue
+```
+
+页面实现步骤：
+
+1. 在 API 文件定义列表、创建和修改方法，以及请求和响应类型。
+2. 页面使用 `DataTable` 展示记录，筛选、分页和弹窗状态留在页面内。
+3. 新增或修改按钮根据 `auth.hasPermission(...)` 控制显示。
+4. 在 `router/dynamic.ts` 增加明确的 `EquipmentInspection` 组件映射。
+5. 在后端菜单中创建 `page` 节点，配置路径、组件标识和查看权限。
+6. 在菜单的操作节点下配置新增、修改等按钮权限。
+7. 补充中英文词条、图标、主题样式和页面文档。
+
+### 4. 验收这个案例
+
+用两个不同 SBU 的普通账号验证：
+
+- 有查看权限的账号能看到页面，没有权限的账号看不到菜单。
+- 直接访问页面地址时，前端路由和后端接口都继续校验权限。
+- 用户切换 SBU 后，列表只返回新 SBU 的记录。
+- 用户手工修改请求中的 `X-SBU-ID`，后端拒绝未授权的 SBU。
+- 没有新增或修改权限时，按钮隐藏且接口返回拒绝。
+- 管理员和普通账号分别验证新增、修改、空列表和错误提示。
+
+这个案例讲完后，开发者可以把“设备点检”替换成实际的生产、质量或设备需求，接入步骤不变。
+
+## 七、开发环境和交付
 
 后端需要 .NET 10、Oracle 19c 及以上和 Redis；前端需要 Node.js 和 pnpm。连接信息使用 User Secrets 或部署环境变量，不写进代码。
 
@@ -255,7 +334,7 @@ pnpm build-only
 
 正式发布前确认：数据库 Migration 已审核并执行、Redis 可用、Gateway 路由和前端 API 代理正确、首个管理员和角色授权已由受控流程完成。发布过程见[部署文档](deployment.md)，数据库流程见[迁移操作手册](migration-operations.md)。
 
-## 七、培训建议
+## 八、培训建议
 
 建议按以下顺序培训：
 
