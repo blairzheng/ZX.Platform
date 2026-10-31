@@ -15,17 +15,54 @@
 
 ### 建用户（需要 DBA 账号）
 
-```sql
-CREATE USER ZX_LOWCODE IDENTIFIED BY "LowcodeDev2026"
-  DEFAULT TABLESPACE USERS
-  QUOTA UNLIMITED ON USERS;
+本机 `FREEPDB1` 里**没有 `USERS` 表空间**（只有 `SYSTEM` / `SYSAUX` / `UNDOTBS1` / `ZX_IDENTITY_DATA`），
+所以照抄网上常见的 `DEFAULT TABLESPACE USERS` 会直接报 ORA-00959。按下面三步来：
 
+```sql
+-- 1) 独立表空间，命名跟 ZX_IDENTITY_DATA 保持一致
+CREATE TABLESPACE ZX_LOWCODE_DATA
+  DATAFILE '/opt/oracle/oradata/FREE/FREEPDB1/zx_lowcode_data01.dbf'
+  SIZE 100M AUTOEXTEND ON NEXT 50M MAXSIZE 1024M;
+
+-- 2) 建用户，默认表空间指向它
+CREATE USER ZX_LOWCODE IDENTIFIED BY "LowcodeDev2026"
+  DEFAULT TABLESPACE ZX_LOWCODE_DATA
+  QUOTA UNLIMITED ON ZX_LOWCODE_DATA;
+
+-- 3) 只给应用真正需要的。CREATE VIEW 是留给外部只读数据集用的
 GRANT CREATE SESSION, CREATE TABLE, CREATE SEQUENCE, CREATE VIEW TO ZX_LOWCODE;
 ```
 
 `ZX_IDENTITY` 账号只有 `CREATE SESSION / CREATE TABLE / CREATE SEQUENCE`，**没有 `CREATE USER` 也没有 `CREATE ANY TABLE`**，所以这一步必须用 DBA 账号做。
 
 密码按你们的规范改，改完只需要更新本地环境变量，不进仓库。
+
+#### 本机怎么执行
+
+主机上没装 sqlplus，直接用容器里的（`/ as sysdba` 走 OS 认证，不用输密码）：
+
+```bash
+docker exec -it zxplatform-oracle-1 bash -lc "sqlplus -s / as sysdba"
+```
+
+进去之后先切到 PDB，再执行上面三段 SQL：
+
+```sql
+ALTER SESSION SET CONTAINER=FREEPDB1;
+```
+
+建完核对一下：
+
+```sql
+SELECT username, default_tablespace FROM dba_users WHERE username = 'ZX_LOWCODE';
+```
+
+#### 建完之后
+
+1. 配连接串（见第 2 节），指向新账号；
+2. 跑 `dotnet ef database update`，6 张元数据表会建在 `ZX_LOWCODE` 下；
+3. 本机 `ZX_IDENTITY` 里那 7 张 `LC_*` 是之前回退路径留下的，确认不再需要后可以删掉——
+   不删也不影响，两套表互不干扰，只是容易看错。
 
 ### 为什么迁移里没有 schema 前缀
 
