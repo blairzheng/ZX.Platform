@@ -28,6 +28,31 @@
         public const int Forbidden = 600005;
 
         /// <summary>
+        /// 低代码：实体按 SBU 隔离，但请求没带 X-SBU-ID。
+        /// </summary>
+        public const int SbuRequired = 610001;
+
+        /// <summary>
+        /// 低代码：当前用户无权访问请求的 SBU。
+        /// </summary>
+        public const int SbuDenied = 610002;
+
+        /// <summary>
+        /// 低代码：字段类型不支持该算子，或字段不存在 / 已停用。
+        /// </summary>
+        public const int OperatorNotAllowed = 610003;
+
+        /// <summary>
+        /// 低代码：翻页过深或结果集超过上限。
+        /// </summary>
+        public const int ResultTooLarge = 610004;
+
+        /// <summary>
+        /// 低代码：外部数据集只读。
+        /// </summary>
+        public const int ReadOnlyDataset = 610005;
+
+        /// <summary>
         /// 未登录、凭据无效或会话已失效。
         /// </summary>
         public const int Unauthorized = 600401;

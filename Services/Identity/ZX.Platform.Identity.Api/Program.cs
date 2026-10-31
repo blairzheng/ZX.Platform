@@ -53,6 +53,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISbuService, SbuService>();
 builder.Services.AddScoped<IUserSbuRepository, UserSbuRepository>();
 builder.Services.AddScoped<CurrentSbuContext>();
+builder.Services.AddLowCodeModule(builder.Configuration);
 
 var app = builder.Build();
 

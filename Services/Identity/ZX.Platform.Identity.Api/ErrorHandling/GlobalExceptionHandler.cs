@@ -7,6 +7,7 @@ using ZX.Platform.Identity.Application.Exceptions;
 using ZX.Platform.Identity.Domain.Exceptions;
 using ZX.Platform.Identity.Application.Authentication;
 using ZX.Platform.Identity.Application.Authorization;
+using ZX.Platform.LowCode.Domain;
 
 namespace ZX.Platform.Identity.Api.ErrorHandling
 {
@@ -46,6 +47,20 @@ namespace ZX.Platform.Identity.Api.ErrorHandling
 
                 _logger.LogWarning(
                     "业务异常。Code={Code}, Message={Message}, TraceId={TraceId}",
+                    code,
+                    message,
+                    traceId);
+            }
+            else if (exception is LowCodeException lowCodeException)
+            {
+                // 低代码的错误码是字符串（600xxx / 610xxx），消息是动态中文（带字段名、值），
+                // 不走资源键——硬塞进 MessageKey 会变成几百个只有一处的资源项。
+                code = int.TryParse(lowCodeException.Code, out var numeric) ? numeric : ErrorCodes.SystemError;
+                statusCode = GetStatusCode(code);
+                message = lowCodeException.Message;
+
+                _logger.LogWarning(
+                    "低代码业务异常。Code={Code}, Message={Message}, TraceId={TraceId}",
                     code,
                     message,
                     traceId);
@@ -134,6 +149,21 @@ namespace ZX.Platform.Identity.Api.ErrorHandling
                     StatusCodes.Status409Conflict,
 
                 ErrorCodes.Forbidden =>
+                    StatusCodes.Status403Forbidden,
+
+                ErrorCodes.SbuRequired =>
+                    StatusCodes.Status400BadRequest,
+
+                ErrorCodes.SbuDenied =>
+                    StatusCodes.Status403Forbidden,
+
+                ErrorCodes.OperatorNotAllowed =>
+                    StatusCodes.Status400BadRequest,
+
+                ErrorCodes.ResultTooLarge =>
+                    StatusCodes.Status400BadRequest,
+
+                ErrorCodes.ReadOnlyDataset =>
                     StatusCodes.Status403Forbidden,
 
                 ErrorCodes.Unauthorized =>

@@ -33,6 +33,14 @@ public static class IdentityPermissions
     public const string MenuChangeStatus = "identity.menu.status";
     public const string MenuDelete = "identity.menu.delete";
 
+    // 低代码设计器。实体自身的读写权限是动态生成的（形如 mes.stocktake.read），
+    // 不在这个目录里——它们随实体发布写入权限表，见 docs/lowcode/api.md。
+    public const string LowCodeMetaRead = "lowcode.meta.read";
+    public const string LowCodeMetaWrite = "lowcode.meta.write";
+    public const string LowCodeMetaPublish = "lowcode.meta.publish";
+    public const string LowCodeSchemaRead = "lowcode.schema.read";
+    public const string LowCodeSchemaExecute = "lowcode.schema.execute";
+
     public static IReadOnlyList<string> All { get; } = typeof(IdentityPermissions)
         .GetFields(BindingFlags.Public | BindingFlags.Static)
         .Where(field => field.IsLiteral && field.FieldType == typeof(string))

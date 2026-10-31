@@ -23,6 +23,8 @@
   <ItemGroup>
     <ProjectReference Include="..\ZX.Platform.Identity.Application\ZX.Platform.Identity.Application.csproj" />
     <ProjectReference Include="..\ZX.Platform.Identity.Infrastructure\ZX.Platform.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\LowCode\ZX.Platform.LowCode.Application\ZX.Platform.LowCode.Application.csproj" />
+    <ProjectReference Include="..\..\LowCode\ZX.Platform.LowCode.Infrastructure\ZX.Platform.LowCode.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
