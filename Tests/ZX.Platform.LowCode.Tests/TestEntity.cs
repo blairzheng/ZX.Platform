@@ -42,6 +42,37 @@ internal static class TestEntity
         ]
     };
 
+    /// <summary>在站点定义上追加字段，用于"发布后再加列"的场景。</summary>
+    public static EntityDefinition StationWith(params FieldDefinition[] extraFields) => new()
+    {
+        AppCode = "mes",
+        Code = "station",
+        Name = "站点",
+        Fields = [.. Station().Fields, .. extraFields]
+    };
+
+    /// <summary>把 name 字段换成另一种类型，用于验证"类型不可修改"。</summary>
+    public static EntityDefinition StationWithNameType(FieldType type) => new()
+    {
+        AppCode = "mes",
+        Code = "station",
+        Name = "站点",
+        Fields =
+        [
+            Station().Fields[0],
+            new FieldDefinition
+            {
+                Key = "name",
+                Type = type,
+                Name = "站点名称",
+                Required = true,
+                Sort = 20
+            },
+            Station().Fields[2]
+        ]
+    };
+
+
     /// <summary>盘点单：主表，带 SBU 范围与关联字段。</summary>
     public static EntityDefinition Stocktake() => new()
     {

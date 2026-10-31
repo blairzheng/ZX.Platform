@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/Services/" />
   <Folder Name="/Services/LowCode/">
+    <Project Path="Services/LowCode/ZX.Platform.LowCode.Application/ZX.Platform.LowCode.Application.csproj" />
     <Project Path="Services/LowCode/ZX.Platform.LowCode.Domain/ZX.Platform.LowCode.Domain.csproj" />
     <Project Path="Services/LowCode/ZX.Platform.LowCode.Infrastructure/ZX.Platform.LowCode.Infrastructure.csproj" />
   </Folder>

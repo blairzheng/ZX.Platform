@@ -23,8 +23,9 @@ public static class OracleIdentifier
         return $"\"{identifier.ToUpperInvariant()}\"";
     }
 
-    /// <summary>schema.table 形式。</summary>
-    public static string QuoteQualified(string schema, string table) => $"{Quote(schema)}.{Quote(table)}";
+    /// <summary>schema.table 形式。schema 为空时只输出表名，由连接账号决定落在哪个 schema。</summary>
+    public static string QuoteQualified(string? schema, string table) =>
+        string.IsNullOrWhiteSpace(schema) ? Quote(table) : $"{Quote(schema)}.{Quote(table)}";
 
     /// <summary>
     /// 超长时截断并追加确定性哈希后缀。同一输入永远得到同一结果，

@@ -9,7 +9,6 @@ public sealed record WriteContext(Guid? UserId, Guid? SbuId, DateTimeOffset Now)
 public sealed class InsertRequest
 {
     public required EntityDefinition Entity { get; init; }
-    public required string Schema { get; init; }
     public required Guid Id { get; init; }
     public required WriteContext Context { get; init; }
     public IReadOnlyDictionary<string, object?> Values { get; init; } =
@@ -19,7 +18,6 @@ public sealed class InsertRequest
 public sealed class UpdateRequest
 {
     public required EntityDefinition Entity { get; init; }
-    public required string Schema { get; init; }
     public required Guid Id { get; init; }
     public required int Revision { get; init; }
     public required WriteContext Context { get; init; }
@@ -73,7 +71,7 @@ public static class WriteSqlBuilder
         Add(ReservedColumns.IsDeleted, 0);
         Add(ReservedColumns.Revision, 1);
 
-        var table = OracleIdentifier.QuoteQualified(request.Schema, entity.TableName);
+        var table = OracleIdentifier.Quote(entity.TableName);
         var sql = $"INSERT INTO {table} ({string.Join(",", columns)}) VALUES ({string.Join(",", values)})";
 
         return new SqlQuery(sql, parameters);
@@ -129,7 +127,7 @@ public static class WriteSqlBuilder
         var revisionName = $"p{parameters.Count}";
         parameters.Add(new SqlParameter(revisionName, request.Revision));
 
-        var table = OracleIdentifier.QuoteQualified(request.Schema, entity.TableName);
+        var table = OracleIdentifier.Quote(entity.TableName);
         var sql = $"UPDATE {table} SET {string.Join(",", assignments)} "
                   + $"WHERE {OracleIdentifier.Quote(ReservedColumns.Id)} = :{idName} "
                   + $"AND {OracleIdentifier.Quote(ReservedColumns.Revision)} = :{revisionName} "
@@ -138,22 +136,22 @@ public static class WriteSqlBuilder
         return new SqlQuery(sql, parameters);
     }
 
-    public static SqlQuery BuildSoftDelete(EntityDefinition entity, string schema, Guid id, int revision, WriteContext context)
+    public static SqlQuery BuildSoftDelete(EntityDefinition entity, Guid id, int revision, WriteContext context)
     {
-        var table = OracleIdentifier.QuoteQualified(schema, entity.TableName);
+        var table = OracleIdentifier.Quote(entity.TableName);
         var sql = $"UPDATE {table} SET "
                   + $"{OracleIdentifier.Quote(ReservedColumns.IsDeleted)} = 1, "
                   + $"{OracleIdentifier.Quote(ReservedColumns.Revision)} = {OracleIdentifier.Quote(ReservedColumns.Revision)} + 1, "
-                  + $"{OracleIdentifier.Quote(ReservedColumns.UpdatedAtUtc)} = :now, "
-                  + $"{OracleIdentifier.Quote(ReservedColumns.UpdatedByUserId)} = :user "
+                  + $"{OracleIdentifier.Quote(ReservedColumns.UpdatedAtUtc)} = :nowUtc, "
+                  + $"{OracleIdentifier.Quote(ReservedColumns.UpdatedByUserId)} = :userId "
                   + $"WHERE {OracleIdentifier.Quote(ReservedColumns.Id)} = :id "
                   + $"AND {OracleIdentifier.Quote(ReservedColumns.Revision)} = :rev "
                   + $"AND {OracleIdentifier.Quote(ReservedColumns.IsDeleted)} = 0";
 
         return new SqlQuery(sql,
         [
-            new SqlParameter("now", context.Now),
-            new SqlParameter("user", context.UserId),
+            new SqlParameter("nowUtc", context.Now),
+            new SqlParameter("userId", context.UserId),
             new SqlParameter("id", id),
             new SqlParameter("rev", revision)
         ]);
@@ -167,7 +165,7 @@ public static class WriteSqlBuilder
         if (TryGet(values, field.Key, out var value) && value is not null)
             return Coerce(field, value);
 
-        if (field.HasDefault) return ResolveDefault(field, context);
+        if (field.HasDefault) return Coerce(field, ResolveDefault(field, context));
 
         return null;
     }
@@ -184,7 +182,14 @@ public static class WriteSqlBuilder
             : null;
     }
 
-    /// <summary>boolean 在 Oracle 里是 NUMBER(1)，Dapper 绑 bool 会走错类型。</summary>
+    /// <summary>
+    /// 绑定前的类型归一。三类必须在这里处理，否则 Oracle 会按绑定变量的类型做隐式转换，
+    /// 结果要么 ORA-00932（类型不一致），要么 ORA-01861（日期字面量格式不匹配）。
+    ///
+    /// - boolean 在 Oracle 里是 NUMBER(1)，绑 bool 会走错类型；
+    /// - date 列是 DATE，绑 <see cref="DateTimeOffset"/> 会变成 TIMESTAMP WITH TIME ZONE；
+    /// - 前端传来的日期是字符串，直接绑 VARCHAR2 要靠会话的 NLS_DATE_FORMAT 才能转，不可靠。
+    /// </summary>
     private static object? Coerce(FieldDefinition field, object? value)
     {
         if (value is null) return null;
@@ -201,6 +206,23 @@ public static class WriteSqlBuilder
             {
                 decimal number => number,
                 string text when decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed) => parsed,
+                _ => value
+            },
+            FieldType.Date => value switch
+            {
+                DateTimeOffset offset => offset.UtcDateTime.Date,
+                DateTime time => time.Date,
+                string text when DateTime.TryParse(
+                    text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) => parsed.Date,
+                _ => value
+            },
+            FieldType.DateTime => value switch
+            {
+                DateTimeOffset offset => offset.ToUniversalTime(),
+                DateTime time => DateTime.SpecifyKind(time, DateTimeKind.Utc),
+                string text when DateTimeOffset.TryParse(
+                    text, CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed) => parsed,
                 _ => value
             },
             _ => value

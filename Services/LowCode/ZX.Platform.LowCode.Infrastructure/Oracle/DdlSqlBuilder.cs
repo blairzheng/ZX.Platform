@@ -9,7 +9,7 @@ namespace ZX.Platform.LowCode.Infrastructure.Oracle;
 /// </summary>
 public static class DdlSqlBuilder
 {
-    public static IReadOnlyList<string> CreateTable(EntityDefinition entity, string schema)
+    public static IReadOnlyList<string> CreateTable(EntityDefinition entity, string? schema)
     {
         EnsureTableName(entity);
         var statements = new List<string> { CreateTableStatement(entity, schema) };
@@ -27,7 +27,7 @@ public static class DdlSqlBuilder
         return statements;
     }
 
-    private static string CreateTableStatement(EntityDefinition entity, string schema)
+    private static string CreateTableStatement(EntityDefinition entity, string? schema)
     {
         var lines = new List<string>
         {
@@ -56,7 +56,7 @@ public static class DdlSqlBuilder
     /// <summary>
     /// 加列。新增字段必须可空，或同时给默认值——否则已有行无法满足 NOT NULL。
     /// </summary>
-    public static IReadOnlyList<string> AddColumn(EntityDefinition entity, string schema, FieldDefinition field)
+    public static IReadOnlyList<string> AddColumn(EntityDefinition entity, string? schema, FieldDefinition field)
     {
         EnsureTableName(entity);
 
@@ -78,7 +78,7 @@ public static class DdlSqlBuilder
     }
 
     /// <summary>退役时的物理清理。永远带 PURGE，不给"删一半留在回收站"的机会。</summary>
-    public static string DropTable(EntityDefinition entity, string schema)
+    public static string DropTable(EntityDefinition entity, string? schema)
     {
         EnsureTableName(entity);
         return $"DROP TABLE {OracleIdentifier.QuoteQualified(schema, entity.TableName)} PURGE";
@@ -103,7 +103,7 @@ public static class DdlSqlBuilder
         return $"{Q(field.ColumnName)} {type}{defaultSql} {nullability}";
     }
 
-    private static string CreateIndex(EntityDefinition entity, string schema, string column, bool unique)
+    private static string CreateIndex(EntityDefinition entity, string? schema, string column, bool unique)
     {
         var indexName = OracleIdentifier.Shorten(
             unique
@@ -118,7 +118,7 @@ public static class DdlSqlBuilder
     /// Oracle 不支持部分索引，用虚拟列 + 唯一索引模拟"删了还能同名"。
     /// 与 Identity 的 MENU 表做法一致。
     /// </summary>
-    private static IReadOnlyList<string> CreateUniqueIndex(EntityDefinition entity, string schema, FieldDefinition field)
+    private static IReadOnlyList<string> CreateUniqueIndex(EntityDefinition entity, string? schema, FieldDefinition field)
     {
         if (OracleTypeMapper.IsClob(field.Type))
             throw new InvalidOperationException($"字段「{field.Key}」是 CLOB，不能建唯一索引。");

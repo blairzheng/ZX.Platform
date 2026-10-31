@@ -5,7 +5,6 @@ namespace ZX.Platform.LowCode.Tests;
 
 public class WriteSqlBuilderTests
 {
-    private const string Schema = "ZX_LOWCODE";
     private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly DateTimeOffset Now = new(2026, 10, 30, 8, 0, 0, TimeSpan.Zero);
 
@@ -16,7 +15,6 @@ public class WriteSqlBuilderTests
         var query = WriteSqlBuilder.BuildInsert(new InsertRequest
         {
             Entity = TestEntity.Station(),
-            Schema = Schema,
             Id = id,
             Context = new WriteContext(UserId, null, Now),
             Values = new Dictionary<string, object?>
@@ -27,7 +25,7 @@ public class WriteSqlBuilderTests
         });
 
         Assert.Equal(
-            "INSERT INTO \"ZX_LOWCODE\".\"LC_MES_STATION\" "
+            "INSERT INTO \"LC_MES_STATION\" "
             + "(\"ID\",\"CODE\",\"NAME\",\"IS_ENABLED\",\"CREATED_AT_UTC\",\"CREATED_BY_USER_ID\","
             + "\"UPDATED_AT_UTC\",\"UPDATED_BY_USER_ID\",\"IS_DELETED\",\"REVISION\") "
             + "VALUES (:p0,:p1,:p2,:p3,:p4,:p5,:p6,:p7,:p8,:p9)",
@@ -35,7 +33,7 @@ public class WriteSqlBuilderTests
 
         Assert.Equal(id, query.Parameters[0].Value);
         Assert.Equal("ST001", query.Parameters[1].Value);
-        Assert.Equal(1, query.Parameters[3].Value);   // isEnabled 默认 true
+        Assert.Equal(1, query.Parameters[3].Value);   // is_enabled 默认 true
         Assert.Equal(Now, query.Parameters[4].Value);
         Assert.Equal(0, query.Parameters[8].Value);
         Assert.Equal(1, query.Parameters[9].Value);
@@ -47,7 +45,6 @@ public class WriteSqlBuilderTests
         var error = Assert.Throws<LowCodeException>(() => WriteSqlBuilder.BuildInsert(new InsertRequest
         {
             Entity = TestEntity.Station(),
-            Schema = Schema,
             Id = Guid.NewGuid(),
             Context = new WriteContext(UserId, null, Now),
             Values = new Dictionary<string, object?> { ["name"] = "一站" }
@@ -62,7 +59,6 @@ public class WriteSqlBuilderTests
         var error = Assert.Throws<LowCodeException>(() => WriteSqlBuilder.BuildInsert(new InsertRequest
         {
             Entity = TestEntity.Stocktake(),
-            Schema = Schema,
             Id = Guid.NewGuid(),
             Context = new WriteContext(UserId, null, Now),
             Values = new Dictionary<string, object?> { ["model_code"] = Guid.NewGuid() }
@@ -78,7 +74,6 @@ public class WriteSqlBuilderTests
         var query = WriteSqlBuilder.BuildInsert(new InsertRequest
         {
             Entity = TestEntity.Stocktake(),
-            Schema = Schema,
             Id = Guid.NewGuid(),
             Context = new WriteContext(UserId, sbuId, Now),
             Values = new Dictionary<string, object?>
@@ -101,7 +96,6 @@ public class WriteSqlBuilderTests
         var query = WriteSqlBuilder.BuildUpdate(new UpdateRequest
         {
             Entity = TestEntity.Station(),
-            Schema = Schema,
             Id = id,
             Revision = 3,
             Context = new WriteContext(UserId, null, Now),
@@ -120,7 +114,6 @@ public class WriteSqlBuilderTests
         var error = Assert.Throws<LowCodeException>(() => WriteSqlBuilder.BuildUpdate(new UpdateRequest
         {
             Entity = TestEntity.Stocktake(),
-            Schema = Schema,
             Id = Guid.NewGuid(),
             Revision = 1,
             Context = new WriteContext(UserId, Guid.NewGuid(), Now),
@@ -136,7 +129,6 @@ public class WriteSqlBuilderTests
         Assert.Throws<LowCodeException>(() => WriteSqlBuilder.BuildUpdate(new UpdateRequest
         {
             Entity = TestEntity.Station(),
-            Schema = Schema,
             Id = Guid.NewGuid(),
             Revision = 1,
             Context = new WriteContext(UserId, null, Now)
@@ -148,7 +140,7 @@ public class WriteSqlBuilderTests
     {
         var id = Guid.NewGuid();
         var query = WriteSqlBuilder.BuildSoftDelete(
-            TestEntity.Station(), Schema, id, 5, new WriteContext(UserId, null, Now));
+            TestEntity.Station(), id, 5, new WriteContext(UserId, null, Now));
 
         Assert.Contains("\"IS_DELETED\" = 1", query.Sql);
         Assert.Contains("WHERE \"ID\" = :id AND \"REVISION\" = :rev AND \"IS_DELETED\" = 0", query.Sql);
@@ -162,7 +154,6 @@ public class WriteSqlBuilderTests
         var query = WriteSqlBuilder.BuildInsert(new InsertRequest
         {
             Entity = TestEntity.Stocktake(),
-            Schema = Schema,
             Id = Guid.NewGuid(),
             Context = new WriteContext(UserId, Guid.NewGuid(), Now),
             Values = new Dictionary<string, object?> { ["model_code"] = Guid.NewGuid() }

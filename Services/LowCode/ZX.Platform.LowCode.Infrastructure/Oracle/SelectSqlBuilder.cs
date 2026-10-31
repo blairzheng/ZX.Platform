@@ -3,44 +3,11 @@ using ZX.Platform.LowCode.Domain;
 
 namespace ZX.Platform.LowCode.Infrastructure.Oracle;
 
-/// <summary>一个筛选条件。In / Between 用 Values，其余用 Value。</summary>
-public sealed record FilterCondition(
-    string Field,
-    QueryOperator Operator,
-    string? Value = null,
-    IReadOnlyList<string>? Values = null);
-
-/// <summary>一个排序项。</summary>
-public sealed record SortSpec(string Field, bool Descending = false);
-
-/// <summary>列表查询请求。所有条件在服务端校验，不信任前端传来的字段名。</summary>
-public sealed class SelectRequest
-{
-    public required EntityDefinition Entity { get; init; }
-
-    public required string Schema { get; init; }
-
-    /// <summary>投影字段。null 表示全部启用字段。</summary>
-    public IReadOnlyList<string>? Fields { get; init; }
-
-    public IReadOnlyList<FilterCondition> Filters { get; init; } = [];
-
-    public IReadOnlyList<SortSpec> Sorts { get; init; } = [];
-
-    public int Skip { get; init; }
-
-    public int Take { get; init; } = ViewDefinition.DefaultPageSize;
-
-    /// <summary>当前 SBU。实体要求 SBU 时必须提供。</summary>
-    public Guid? SbuId { get; init; }
-
-    /// <summary>是否拥有 read.all 权限，拥有时跳过 SBU 过滤。</summary>
-    public bool AllSbus { get; init; }
-}
-
 /// <summary>
 /// 只读查询生成。三条护栏写死在这里：SBU 过滤、算子白名单、分页上限。
 /// 任何一条都不允许由页面配置关闭。
+///
+/// 不带 schema 前缀：表建在哪个 schema 由连接账号决定，见 docs/lowcode/setup.md。
 /// </summary>
 public static class SelectSqlBuilder
 {
@@ -48,15 +15,22 @@ public static class SelectSqlBuilder
     public const int MaxSkip = 10_000;
     public const int MaxInValues = 1000;
 
-    public static SqlQuery BuildSelect(SelectRequest request)
+    /// <summary>
+    /// 实际取多少条。截断规则只有这一处，读结果分页信息时也用它，
+    /// 否则"生成的 SQL"和"返回给前端的 take"会各算各的。
+    /// </summary>
+    public static int ResolveTake(int take) =>
+        Math.Clamp(take <= 0 ? ViewDefinition.DefaultPageSize : take, 1, MaxPageSize);
+
+    public static SqlQuery BuildSelect(QuerySpec request)
     {
         var context = new BuildContext(request);
         var where = BuildWhere(request, context);
         var columns = BuildProjection(request);
         var order = BuildOrderBy(request);
-        var table = OracleIdentifier.QuoteQualified(request.Schema, request.Entity.TableName);
+        var table = OracleIdentifier.Quote(request.Entity.TableName);
 
-        var take = Math.Clamp(request.Take <= 0 ? ViewDefinition.DefaultPageSize : request.Take, 1, MaxPageSize);
+        var take = ResolveTake(request.Take);
         if (request.Skip < 0) throw LowCodeException.ResultTooLarge("skip 不能为负。");
         if (request.Skip > MaxSkip)
             throw LowCodeException.ResultTooLarge($"翻页过深，skip 不得超过 {MaxSkip}，请缩小筛选范围。");
@@ -75,17 +49,17 @@ public static class SelectSqlBuilder
         return new SqlQuery(sql, context.Parameters);
     }
 
-    public static SqlQuery BuildCount(SelectRequest request)
+    public static SqlQuery BuildCount(QuerySpec request)
     {
         var context = new BuildContext(request);
         var where = BuildWhere(request, context);
-        var table = OracleIdentifier.QuoteQualified(request.Schema, request.Entity.TableName);
+        var table = OracleIdentifier.Quote(request.Entity.TableName);
 
         var sql = $"SELECT COUNT(*) FROM {table}" + (where.Length > 0 ? $" WHERE {where}" : string.Empty);
         return new SqlQuery(sql, context.Parameters);
     }
 
-    private static string BuildProjection(SelectRequest request)
+    private static string BuildProjection(QuerySpec request)
     {
         var columns = new List<string> { OracleIdentifier.Quote(ReservedColumns.Id) };
 
@@ -111,9 +85,15 @@ public static class SelectSqlBuilder
         return string.Join(",", columns);
     }
 
-    private static string BuildWhere(SelectRequest request, BuildContext context)
+    private static string BuildWhere(QuerySpec request, BuildContext context)
     {
         var clauses = new List<string> { $"{OracleIdentifier.Quote(ReservedColumns.IsDeleted)} = 0" };
+
+        if (request.Id is not null)
+        {
+            clauses.Add($"{OracleIdentifier.Quote(ReservedColumns.Id)} = :recordId");
+            context.Parameters.Add(new SqlParameter("recordId", request.Id));
+        }
 
         if (request.Entity.HasSbuScope && !request.AllSbus)
         {
@@ -207,7 +187,7 @@ public static class SelectSqlBuilder
         .Replace("%", "\\%")
         .Replace("_", "\\_");
 
-    private static string BuildOrderBy(SelectRequest request)
+    private static string BuildOrderBy(QuerySpec request)
     {
         var sorts = new List<string>();
 
@@ -236,10 +216,10 @@ public static class SelectSqlBuilder
         return $":{name}";
     }
 
-    private sealed class BuildContext(SelectRequest request)
+    private sealed class BuildContext(QuerySpec request)
     {
         public List<SqlParameter> Parameters { get; } = [];
 
-        public SelectRequest Request { get; } = request;
+        public QuerySpec Request { get; } = request;
     }
 }

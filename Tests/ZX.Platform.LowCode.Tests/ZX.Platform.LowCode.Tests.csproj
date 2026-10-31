@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Services\LowCode\ZX.Platform.LowCode.Domain\ZX.Platform.LowCode.Domain.csproj" />
     <ProjectReference Include="..\..\Services\LowCode\ZX.Platform.LowCode.Infrastructure\ZX.Platform.LowCode.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Services\LowCode\ZX.Platform.LowCode.Application\ZX.Platform.LowCode.Application.csproj" />
   </ItemGroup>
 
 </Project>
