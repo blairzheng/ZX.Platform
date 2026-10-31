@@ -10,9 +10,10 @@
 
 1. [开发环境](development.md#本地启动)：配置 SDK、数据库和开发证书，运行 Identity 与 Gateway。
 2. [开发者培训指南](developer-training.md)：先理解整体架构，再按现有 SBU 模块学习业务接入流程。
-3. [开发者指南](developer-guide.md)：理解目录职责、依赖方向、请求链和当前能力边界。
-4. [数据库与持久化](database.md)：理解用户、SBU、关系表、审计与软删除。
-5. [新增一个业务功能](developer-guide.md#新增一个业务功能)：从 DTO、实体和服务到接口、资源与验收的流程。
+3. [业务模块开发模板](business-module-template.md)：按文件路径实施后端、前端、权限、SBU、菜单和数据库接入。
+4. [开发者指南](developer-guide.md)：理解目录职责、依赖方向、请求链和当前能力边界。
+5. [数据库与持久化](database.md)：理解用户、SBU、关系表、审计与软删除。
+6. [新增一个业务功能](developer-guide.md#新增一个业务功能)：从 DTO、实体和服务到接口、资源与验收的流程。
 
 ## 按任务查阅
 
