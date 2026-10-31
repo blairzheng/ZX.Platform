@@ -6,6 +6,13 @@
 
 本文默认先把业务模块接入现有 Identity 服务，便于开发者熟悉当前仓库。业务规模扩大或需要独立部署时，再按最后一节拆成独立服务。
 
+## 阅读顺序
+
+1. 先看模块边界和目录落点。
+2. 再按后端文件顺序实现实体、DTO、Repository、Service、Controller 和 Migration。
+3. 再按前端文件顺序实现 API、页面、组件、权限和菜单。
+4. 最后阅读完整代码示例，对照自己的模块逐文件替换名称和字段。
+
 ## 一、先确定模块边界
 
 开始写代码前，先把下面的信息写进模块设计单：
@@ -406,3 +413,764 @@ git diff --check
 ```
 
 只提交本次模块相关文件，检查 `git status` 和 `git diff --stat`，确认没有把构建产物、图片、连接配置或其他模块的改动一起提交。
+
+## 九、完整代码示例
+
+这一节把“设备点检记录”按当前项目风格写成一套代码骨架。它是培训示例，路径和字段可以复制后再按实际业务调整；由于数据库表和权限尚未创建，不能直接当成已完成业务运行。
+
+### 1. Domain 实体
+
+文件：`Services/Identity/ZX.Platform.Identity.Domain/Entities/InspectionRecord.cs`
+
+```csharp
+using ZX.Platform.Identity.Domain.Auditing;
+
+namespace ZX.Platform.Identity.Domain.Entities;
+
+public sealed class InspectionRecord : SoftDeletableEntity
+{
+    private InspectionRecord() { }
+
+    private InspectionRecord(
+        Guid id,
+        Guid sbuId,
+        string equipmentCode,
+        DateTimeOffset inspectedAtUtc,
+        string result,
+        string remark)
+    {
+        Id = id;
+        SbuId = sbuId;
+        EquipmentCode = equipmentCode;
+        InspectedAtUtc = inspectedAtUtc.ToUniversalTime();
+        Result = result;
+        Remark = remark;
+    }
+
+    public Guid Id { get; private set; }
+    public Guid SbuId { get; private set; }
+    public string EquipmentCode { get; private set; } = string.Empty;
+    public DateTimeOffset InspectedAtUtc { get; private set; }
+    public string Result { get; private set; } = string.Empty;
+    public string Remark { get; private set; } = string.Empty;
+
+    public static InspectionRecord Create(
+        Guid sbuId,
+        string equipmentCode,
+        DateTimeOffset inspectedAtUtc,
+        string result,
+        string remark)
+    {
+        ArgumentOutOfRangeException.ThrowIfEqual(sbuId, Guid.Empty);
+        ArgumentException.ThrowIfNullOrWhiteSpace(equipmentCode);
+        ArgumentException.ThrowIfNullOrWhiteSpace(result);
+
+        return new InspectionRecord(
+            Guid.NewGuid(),
+            sbuId,
+            equipmentCode.Trim(),
+            inspectedAtUtc,
+            result.Trim(),
+            remark.Trim());
+    }
+
+    public void Update(
+        string equipmentCode,
+        DateTimeOffset inspectedAtUtc,
+        string result,
+        string remark)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(equipmentCode);
+        ArgumentException.ThrowIfNullOrWhiteSpace(result);
+        EquipmentCode = equipmentCode.Trim();
+        InspectedAtUtc = inspectedAtUtc.ToUniversalTime();
+        Result = result.Trim();
+        Remark = remark.Trim();
+    }
+
+    protected override void OnDeleted() { }
+    protected override void OnRestored() { }
+}
+```
+
+这里没有 `SbuId` 的修改方法，因为记录创建后不能被普通编辑接口跨 SBU 移动。需要调整归属时，应设计单独的管理员用例和审计规则。
+
+### 2. DTO
+
+目录：`Services/Identity/ZX.Platform.Identity.Application/Equipment/Dtos/`
+
+`CreateInspectionRecordDto.cs`：
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+
+namespace ZX.Platform.Identity.Application.Equipment.Dtos;
+
+public sealed class CreateInspectionRecordDto
+{
+    [Required(ErrorMessage = "Validation.EquipmentCodeRequired")]
+    [MaxLength(100, ErrorMessage = "Validation.EquipmentCodeMaxLength")]
+    public string EquipmentCode { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Validation.InspectedAtRequired")]
+    public DateTimeOffset InspectedAtUtc { get; set; }
+
+    [Required(ErrorMessage = "Validation.InspectionResultRequired")]
+    [MaxLength(30, ErrorMessage = "Validation.InspectionResultMaxLength")]
+    public string Result { get; set; } = string.Empty;
+
+    [MaxLength(500, ErrorMessage = "Validation.InspectionRemarkMaxLength")]
+    public string Remark { get; set; } = string.Empty;
+}
+```
+
+`UpdateInspectionRecordDto.cs`：
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+
+namespace ZX.Platform.Identity.Application.Equipment.Dtos;
+
+public sealed class UpdateInspectionRecordDto
+{
+    [Required]
+    public Guid Id { get; set; }
+
+    [Required(ErrorMessage = "Validation.EquipmentCodeRequired")]
+    [MaxLength(100, ErrorMessage = "Validation.EquipmentCodeMaxLength")]
+    public string EquipmentCode { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Validation.InspectedAtRequired")]
+    public DateTimeOffset InspectedAtUtc { get; set; }
+
+    [Required(ErrorMessage = "Validation.InspectionResultRequired")]
+    [MaxLength(30, ErrorMessage = "Validation.InspectionResultMaxLength")]
+    public string Result { get; set; } = string.Empty;
+
+    [MaxLength(500, ErrorMessage = "Validation.InspectionRemarkMaxLength")]
+    public string Remark { get; set; } = string.Empty;
+}
+```
+
+`InspectionRecordQueryDto.cs` 和 `InspectionRecordDto.cs`：
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+
+namespace ZX.Platform.Identity.Application.Equipment.Dtos;
+
+public sealed class InspectionRecordQueryDto
+{
+    [MaxLength(100)]
+    public string? EquipmentCode { get; set; }
+    public DateTimeOffset? FromUtc { get; set; }
+    public DateTimeOffset? ToUtc { get; set; }
+}
+
+public sealed class InspectionRecordDto
+{
+    public Guid Id { get; init; }
+    public Guid SbuId { get; init; }
+    public string EquipmentCode { get; init; } = string.Empty;
+    public DateTimeOffset InspectedAtUtc { get; init; }
+    public string Result { get; init; } = string.Empty;
+    public string Remark { get; init; } = string.Empty;
+}
+```
+
+请求 DTO 不接收 `SbuId`。SBU 来自 `[RequireSbu]` 校验后的 `CurrentSbuContext`，避免客户端伪造范围。
+
+### 3. Repository
+
+接口文件：`Services/Identity/ZX.Platform.Identity.Application/Equipment/IInspectionRecordRepository.cs`
+
+```csharp
+using ZX.Platform.Identity.Domain.Entities;
+
+namespace ZX.Platform.Identity.Application.Equipment;
+
+public interface IInspectionRecordRepository
+{
+    Task<List<InspectionRecord>> ListAsync(
+        Guid sbuId,
+        string? equipmentCode,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        CancellationToken cancellationToken);
+
+    Task<InspectionRecord?> GetAsync(
+        Guid id,
+        Guid sbuId,
+        CancellationToken cancellationToken);
+
+    void Add(InspectionRecord record);
+}
+```
+
+实现文件：`Services/Identity/ZX.Platform.Identity.Infrastructure/Persistence/Repositories/InspectionRecordRepository.cs`
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using ZX.Platform.Identity.Application.Equipment;
+using ZX.Platform.Identity.Domain.Entities;
+
+namespace ZX.Platform.Identity.Infrastructure.Persistence.Repositories;
+
+public sealed class InspectionRecordRepository(PlatformIdentityDbContext db)
+    : IInspectionRecordRepository
+{
+    public async Task<List<InspectionRecord>> ListAsync(
+        Guid sbuId,
+        string? equipmentCode,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        CancellationToken cancellationToken)
+    {
+        var query = db.InspectionRecords
+            .AsNoTracking()
+            .Where(item => item.SbuId == sbuId);
+
+        if (!string.IsNullOrWhiteSpace(equipmentCode))
+            query = query.Where(item => item.EquipmentCode == equipmentCode.Trim());
+        if (fromUtc is not null)
+            query = query.Where(item => item.InspectedAtUtc >= fromUtc.Value.ToUniversalTime());
+        if (toUtc is not null)
+            query = query.Where(item => item.InspectedAtUtc <= toUtc.Value.ToUniversalTime());
+
+        return await query
+            .OrderByDescending(item => item.InspectedAtUtc)
+            .ThenBy(item => item.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task<InspectionRecord?> GetAsync(
+        Guid id,
+        Guid sbuId,
+        CancellationToken cancellationToken) =>
+        db.InspectionRecords.FirstOrDefaultAsync(
+            item => item.Id == id && item.SbuId == sbuId,
+            cancellationToken);
+
+    public void Add(InspectionRecord record) => db.InspectionRecords.Add(record);
+}
+```
+
+Repository 的每个查询都带 `sbuId`，这样 Service 少传一次条件也不会意外查出其他 SBU 的记录。
+
+### 4. EF 配置和 DbContext
+
+配置文件：`Services/Identity/ZX.Platform.Identity.Infrastructure/Persistence/Configurations/InspectionRecordConfiguration.cs`
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using ZX.Platform.Identity.Domain.Entities;
+
+namespace ZX.Platform.Identity.Infrastructure.Persistence.Configurations;
+
+public sealed class InspectionRecordConfiguration
+    : IEntityTypeConfiguration<InspectionRecord>
+{
+    public void Configure(EntityTypeBuilder<InspectionRecord> builder)
+    {
+        builder.ToTable("ZX_IDENTITY_INSPECTION_RECORD");
+        builder.HasKey(item => item.Id);
+        builder.Property(item => item.Id).HasColumnName("ID").ValueGeneratedNever();
+        builder.Property(item => item.SbuId).HasColumnName("SBU_ID").IsRequired();
+        builder.Property(item => item.EquipmentCode)
+            .HasColumnName("EQUIPMENT_CODE").HasMaxLength(100).IsRequired();
+        builder.Property(item => item.InspectedAtUtc)
+            .HasColumnName("INSPECTED_AT_UTC").IsRequired();
+        builder.Property(item => item.Result)
+            .HasColumnName("RESULT").HasMaxLength(30).IsRequired();
+        builder.Property(item => item.Remark)
+            .HasColumnName("REMARK").HasMaxLength(500).IsRequired(false);
+        builder.HasIndex(item => new
+        {
+            item.SbuId,
+            item.EquipmentCode,
+            item.InspectedAtUtc,
+        });
+        builder.ConfigureAuditing();
+        builder.ConfigureSoftDelete();
+    }
+}
+```
+
+在 `PlatformIdentityDbContext.cs` 增加：
+
+```csharp
+public DbSet<InspectionRecord> InspectionRecords => Set<InspectionRecord>();
+```
+
+`ApplyConfigurationsFromAssembly` 会自动发现上面的配置，不需要在 `OnModelCreating` 里逐个手工注册。
+
+### 5. Application Service
+
+接口：`Services/Identity/ZX.Platform.Identity.Application/Equipment/IInspectionRecordService.cs`
+
+```csharp
+using ZX.Platform.Identity.Application.Equipment.Dtos;
+
+namespace ZX.Platform.Identity.Application.Equipment;
+
+public interface IInspectionRecordService
+{
+    Task<List<InspectionRecordDto>> ListAsync(
+        InspectionRecordQueryDto query,
+        Guid sbuId,
+        CancellationToken cancellationToken);
+
+    Task<Guid> CreateAsync(
+        CreateInspectionRecordDto input,
+        Guid sbuId,
+        CancellationToken cancellationToken);
+
+    Task UpdateAsync(
+        UpdateInspectionRecordDto input,
+        Guid sbuId,
+        CancellationToken cancellationToken);
+}
+```
+
+实现：`Services/Identity/ZX.Platform.Identity.Application/Equipment/InspectionRecordService.cs`
+
+```csharp
+using ZX.Platform.Identity.Application.Errors;
+using ZX.Platform.Identity.Application.Exceptions;
+using ZX.Platform.Identity.Application.Equipment.Dtos;
+using ZX.Platform.Identity.Application.Persistence;
+using ZX.Platform.Identity.Domain.Entities;
+
+namespace ZX.Platform.Identity.Application.Equipment;
+
+public sealed class InspectionRecordService(
+    IInspectionRecordRepository records,
+    IUnitOfWork unitOfWork) : IInspectionRecordService
+{
+    public async Task<List<InspectionRecordDto>> ListAsync(
+        InspectionRecordQueryDto query,
+        Guid sbuId,
+        CancellationToken cancellationToken)
+    {
+        var data = await records.ListAsync(
+            sbuId,
+            query.EquipmentCode,
+            query.FromUtc,
+            query.ToUtc,
+            cancellationToken);
+        return data.Select(ToDto).ToList();
+    }
+
+    public async Task<Guid> CreateAsync(
+        CreateInspectionRecordDto input,
+        Guid sbuId,
+        CancellationToken cancellationToken)
+    {
+        var record = InspectionRecord.Create(
+            sbuId,
+            input.EquipmentCode,
+            input.InspectedAtUtc,
+            input.Result,
+            input.Remark);
+        records.Add(record);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return record.Id;
+    }
+
+    public async Task UpdateAsync(
+        UpdateInspectionRecordDto input,
+        Guid sbuId,
+        CancellationToken cancellationToken)
+    {
+        var record = await records.GetAsync(input.Id, sbuId, cancellationToken);
+        if (record is null)
+            throw new BusinessException(ErrorCodes.NotFound, "Equipment.InspectionNotFound");
+
+        record.Update(
+            input.EquipmentCode,
+            input.InspectedAtUtc,
+            input.Result,
+            input.Remark);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    private static InspectionRecordDto ToDto(InspectionRecord record) => new()
+    {
+        Id = record.Id,
+        SbuId = record.SbuId,
+        EquipmentCode = record.EquipmentCode,
+        InspectedAtUtc = record.InspectedAtUtc,
+        Result = record.Result,
+        Remark = record.Remark,
+    };
+}
+```
+
+### 6. `InspectionRecordsController`
+
+文件：`Services/Identity/ZX.Platform.Identity.Api/Controllers/InspectionRecordsController.cs`
+
+```csharp
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using ZX.Platform.Identity.Api.Authorization;
+using ZX.Platform.Identity.Api.Contracts;
+using ZX.Platform.Identity.Api.Localization;
+using ZX.Platform.Identity.Application.Authorization;
+using ZX.Platform.Identity.Application.Equipment;
+using ZX.Platform.Identity.Application.Equipment.Dtos;
+
+namespace ZX.Platform.Identity.Api.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+[Authorize]
+public sealed class InspectionRecordsController(
+    IInspectionRecordService records,
+    CurrentSbuContext currentSbu,
+    IApiMessageLocalizer messages) : ControllerBase
+{
+    [HttpGet("list")]
+    [Authorize(Policy = IdentityPermissions.EquipmentInspectionRead)]
+    [RequireSbu]
+    public async Task<IActionResult> ListAsync(
+        [FromQuery] InspectionRecordQueryDto query,
+        CancellationToken cancellationToken)
+    {
+        var data = await records.ListAsync(query, currentSbu.SbuId, cancellationToken);
+        return Ok(new ApiResponse<List<InspectionRecordDto>>
+        {
+            Code = 0,
+            Message = messages["Equipment.InspectionListLoaded"].Value,
+            Data = data,
+        });
+    }
+
+    [HttpPost("add")]
+    [Authorize(Policy = IdentityPermissions.EquipmentInspectionCreate)]
+    [RequireSbu]
+    public async Task<IActionResult> CreateAsync(
+        [FromBody] CreateInspectionRecordDto input,
+        CancellationToken cancellationToken)
+    {
+        var id = await records.CreateAsync(input, currentSbu.SbuId, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created,
+            new ApiResponse<Guid>
+            {
+                Code = 0,
+                Message = messages["Equipment.InspectionCreated"].Value,
+                Data = id,
+            });
+    }
+
+    [HttpPut("update")]
+    [Authorize(Policy = IdentityPermissions.EquipmentInspectionUpdate)]
+    [RequireSbu]
+    public async Task<IActionResult> UpdateAsync(
+        [FromBody] UpdateInspectionRecordDto input,
+        CancellationToken cancellationToken)
+    {
+        await records.UpdateAsync(input, currentSbu.SbuId, cancellationToken);
+        return Ok(new ApiResponse
+        {
+            Code = 0,
+            Message = messages["Equipment.InspectionUpdated"].Value,
+        });
+    }
+}
+```
+
+这个 Controller 的关键点：
+
+- `[Authorize]` 要求登录。
+- Policy 判断功能权限。
+- `[RequireSbu]` 校验 `X-SBU-ID` 是否属于当前用户。
+- `CurrentSbuContext.SbuId` 传给 Service，不能从请求体取 SBU。
+- Controller 不写 SQL、不访问 `DbContext`。
+
+在 `Program.cs` 注册：
+
+```csharp
+builder.Services.AddScoped<IInspectionRecordRepository, InspectionRecordRepository>();
+builder.Services.AddScoped<IInspectionRecordService, InspectionRecordService>();
+```
+
+同时在 `MenuService.Validate` 的组件白名单中加入 `EquipmentInspection`，否则菜单管理保存页面时会拒绝未知组件。
+
+### 7. 前端 API 文件
+
+文件：`ZX.front.vue/src/api/equipment/inspection.ts`
+
+```ts
+import { request, type RequestOptions } from '@/utils/request'
+
+export interface InspectionRecord {
+  id: string
+  sbuId: string
+  equipmentCode: string
+  inspectedAtUtc: string
+  result: string
+  remark: string
+}
+
+export interface InspectionRecordQuery {
+  equipmentCode?: string
+  fromUtc?: string
+  toUtc?: string
+}
+
+export interface CreateInspectionRecordInput {
+  equipmentCode: string
+  inspectedAtUtc: string
+  result: string
+  remark: string
+}
+
+export interface UpdateInspectionRecordInput extends CreateInspectionRecordInput {
+  id: string
+}
+
+type Options = Pick<RequestOptions, 'signal' | 'showError' | 'loading'>
+
+export const getInspectionRecords = (
+  params: InspectionRecordQuery = {},
+  options: Options = {},
+) =>
+  request<InspectionRecord[]>({
+    ...options,
+    url: '/identity/api/InspectionRecords/list',
+    method: 'get',
+    params,
+  })
+
+export const createInspectionRecord = (
+  data: CreateInspectionRecordInput,
+  options: Options = {},
+) =>
+  request<string, CreateInspectionRecordInput>({
+    ...options,
+    url: '/identity/api/InspectionRecords/add',
+    method: 'post',
+    data,
+  })
+
+export const updateInspectionRecord = (
+  data: UpdateInspectionRecordInput,
+  options: Options = {},
+) =>
+  request<void, UpdateInspectionRecordInput>({
+    ...options,
+    url: '/identity/api/InspectionRecords/update',
+    method: 'put',
+    data,
+  })
+```
+
+当前请求层会从登录状态自动加入 `X-SBU-ID`。API 文件不要自己从 localStorage 读取 Token 或拼接这个请求头。
+
+### 8. 前端权限常量和动态组件
+
+修改 `ZX.front.vue/src/api/identity/permissions.ts`：
+
+```ts
+export const Permission = {
+  // 现有权限保留
+  EquipmentInspectionRead: 'equipment.inspection.read',
+  EquipmentInspectionCreate: 'equipment.inspection.create',
+  EquipmentInspectionUpdate: 'equipment.inspection.update',
+} as const
+```
+
+修改 `ZX.front.vue/src/router/dynamic.ts`：
+
+```ts
+export const menuComponents = {
+  SystemUser: () => import('@/views/system/user/index.vue'),
+  SystemSbu: () => import('@/views/system/sbu/index.vue'),
+  SystemRole: () => import('@/views/system/role/index.vue'),
+  SystemMenu: () => import('@/views/system/menu/index.vue'),
+  EquipmentInspection: () =>
+    import('@/views/equipment/inspection/index.vue'),
+}
+```
+
+前端映射名、后端菜单 `component` 字段和后端组件白名单必须完全一致。
+
+### 9. 前端页面
+
+文件：`ZX.front.vue/src/views/equipment/inspection/index.vue`
+
+下面是一个最小可运行风格的列表页骨架，实际项目还要补充筛选表单和编辑弹窗：
+
+```vue
+<script setup lang="tsx">
+import { computed, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+import DataTable from '@/components/DataTable/index.vue'
+import type { DataTableColumn } from '@/components/DataTable/types'
+import { useAuthStore } from '@/stores/auth'
+import { Permission } from '@/api/identity/permissions'
+import {
+  createInspectionRecord,
+  getInspectionRecords,
+  type InspectionRecord,
+} from '@/api/equipment/inspection'
+
+const { t } = useI18n()
+const auth = useAuthStore()
+const rows = ref<InspectionRecord[]>([])
+const loading = ref(false)
+
+const load = async () => {
+  loading.value = true
+  try {
+    const response = await getInspectionRecords()
+    rows.value = response.data ?? []
+  } finally {
+    loading.value = false
+  }
+}
+
+const create = async () => {
+  const response = await createInspectionRecord({
+    equipmentCode: 'DEMO-001',
+    inspectedAtUtc: new Date().toISOString(),
+    result: 'pass',
+    remark: '',
+  })
+  ElMessage.success(response.message)
+  await load()
+}
+
+const columns = computed<DataTableColumn<InspectionRecord>[]>(() => [
+  { prop: 'equipmentCode', label: t('equipmentInspection.equipmentCode'), minWidth: 160 },
+  { prop: 'inspectedAtUtc', label: t('equipmentInspection.inspectedAt'), minWidth: 180 },
+  { prop: 'result', label: t('equipmentInspection.result'), minWidth: 120 },
+  { prop: 'remark', label: t('equipmentInspection.remark'), minWidth: 240 },
+])
+
+onMounted(load)
+</script>
+
+<template>
+  <section class="equipment-inspection">
+    <div class="surface-card">
+      <data-table
+        :data="rows"
+        :columns="columns"
+        row-key="id"
+        storage-key="equipment-inspection"
+        :loading="loading"
+        :addable="auth.hasPermission(Permission.EquipmentInspectionCreate)"
+        refreshable
+        @add="create"
+        @refresh="load"
+      />
+    </div>
+  </section>
+</template>
+```
+
+上面的 `create` 只是为了展示调用链，正式页面应打开 `InspectionEditor.vue` 收集用户输入，不能使用固定的 `DEMO-001`。页面按钮权限只控制入口，接口仍由后端 Policy 最终判断。
+
+### 10. 表单组件
+
+文件：`ZX.front.vue/src/views/equipment/inspection/components/InspectionEditor.vue`
+
+表单组件只负责收集字段和校验，通过 `save` 回调把数据交给页面：
+
+```vue
+<script setup lang="ts">
+import { reactive, ref, watch } from 'vue'
+import type { FormInstance } from 'element-plus'
+import type { CreateInspectionRecordInput } from '@/api/equipment/inspection'
+
+const open = defineModel<boolean>({ required: true })
+const props = defineProps<{
+  save: (input: CreateInspectionRecordInput) => void | Promise<void>
+}>()
+
+const formRef = ref<FormInstance>()
+const form = reactive<CreateInspectionRecordInput>({
+  equipmentCode: '',
+  inspectedAtUtc: new Date().toISOString(),
+  result: 'pass',
+  remark: '',
+})
+
+watch(open, (visible) => {
+  if (visible) {
+    form.equipmentCode = ''
+    form.inspectedAtUtc = new Date().toISOString()
+    form.result = 'pass'
+    form.remark = ''
+  }
+})
+
+const submit = async () => {
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return
+  await props.save({ ...form, equipmentCode: form.equipmentCode.trim() })
+  open.value = false
+}
+</script>
+
+<template>
+  <el-dialog v-model="open" title="新增设备点检" width="520px" destroy-on-close>
+    <el-form ref="formRef" :model="form" label-position="top">
+      <el-form-item label="设备编号" prop="equipmentCode">
+        <el-input v-model="form.equipmentCode" maxlength="100" />
+      </el-form-item>
+      <el-form-item label="点检结果" prop="result">
+        <el-select v-model="form.result">
+          <el-option label="通过" value="pass" />
+          <el-option label="异常" value="fail" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="备注" prop="remark">
+        <el-input v-model="form.remark" type="textarea" maxlength="500" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="open = false">取消</el-button>
+      <el-button type="primary" @click="submit">保存</el-button>
+    </template>
+  </el-dialog>
+</template>
+```
+
+正式代码要把中文文字替换为 `equipmentInspection` 词条，并按现有主题公共类补充样式。
+
+### 11. 菜单配置后的完整访问链路
+
+代码完成并部署后，在菜单管理中配置：
+
+```text
+目录：设备管理
+  └── 页面：设备点检
+      code：由后端创建时生成
+      kind：page
+      path：/equipment/inspection
+      component：EquipmentInspection
+      permission：equipment.inspection.read
+      操作：equipment.inspection.create
+            equipment.inspection.update
+```
+
+用户登录后：
+
+```text
+Auth/me 返回菜单
+  → 前端检查组件映射和查看权限
+  → 动态注册 /equipment/inspection
+  → 页面请求 /InspectionRecords/list
+  → Gateway 转发到 Identity
+  → Policy 检查功能权限
+  → RequireSbu 检查用户与 SBU 关系
+  → Repository 按 SbuId 查询
+  → 页面展示当前 SBU 数据
+```
+
+这条链路中任何一层缺失，都会出现对应问题：菜单不显示、路由无法注册、接口 403、SBU 校验失败或数据范围错误。排查时按这条链路从前往后检查。
