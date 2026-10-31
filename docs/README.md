@@ -9,9 +9,10 @@
 换电脑或新会话接续开发，先读[项目交接说明](project-handoff.md)，了解当前版本、已接受的设计和环境恢复步骤。
 
 1. [开发环境](development.md#本地启动)：配置 SDK、数据库和开发证书，运行 Identity 与 Gateway。
-2. [开发者指南](developer-guide.md)：理解目录职责、依赖方向、请求链和当前能力边界。
-3. [数据库与持久化](database.md)：理解用户、SBU、关系表、审计与软删除。
-4. [新增一个业务功能](developer-guide.md#新增一个业务功能)：从 DTO、实体和服务到接口、资源与验收的流程。
+2. [开发者培训指南](developer-training.md)：先理解整体架构，再按现有 SBU 模块学习业务接入流程。
+3. [开发者指南](developer-guide.md)：理解目录职责、依赖方向、请求链和当前能力边界。
+4. [数据库与持久化](database.md)：理解用户、SBU、关系表、审计与软删除。
+5. [新增一个业务功能](developer-guide.md#新增一个业务功能)：从 DTO、实体和服务到接口、资源与验收的流程。
 
 ## 按任务查阅
 
