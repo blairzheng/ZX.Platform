@@ -132,10 +132,15 @@ dotnet run --project Tests/ZX.Platform.Identity.AuthChecks
 
 | 层 | 内容 |
 | --- | --- |
-| 权限注册 | 实体发布时把 `{app}.{entity}.{action}` 写进 `ZX_IDENTITY_PERMISSION` 目录，否则非管理员永远没法授权 |
 | 前端 | `LowCodePage` 渲染器、`SchemaTable` / `SchemaForm`、设计器 |
 | 外部数据集 | 连接器、只读视图取数、SBU 绑定变量 |
 | 导出 | MiniExcel 服务端导出 |
+
+### 一条已确认的范围决定
+
+**低代码目前只对管理员开放。** 实体的 `{app}.{entity}.{action}` 权限码不写进 `ZX_IDENTITY_PERMISSION` 目录，因此非管理员即使被授予角色也拿不到这些码——`LowCodePermissionGuard` 只在授权快照里找不到码时才拒绝，而快照里永远不会出现它们。
+
+这样做的理由：现阶段使用者是开发和实施，都是管理员；提前把动态权限灌进目录，反而会做出一批没人维护、也没人授予的权限项。等真正要给业务用户开只读/录入权限时，再在发布流程里补"注册实体权限"这一步——位置在 `MetadataService.PublishAsync`，把 `entity.PermissionPrefix` 下的 5 个动作写进权限表即可。
 
 ## 6. 几个实现上的约定
 
