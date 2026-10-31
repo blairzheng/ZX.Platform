@@ -29,8 +29,12 @@ internal static class Oracle19Checks
             "Oracle 19c business tables must resolve explicitly to ZX_IDENTITY even when another account logs in.");
         CheckNumericBooleans(db);
         var migrations = db.Database.GetMigrations().ToArray();
-        Check.That(migrations.Length == 2 && migrations[0] == "20261027000000_InitialIdentitySchema" &&
-            migrations[1] == "20261028084818_ReplaceFactoriesWithSbus",
+
+        // 只校验"基线是第一条、之后是一条线性链"，不写死总数：
+        // 每加一个迁移都要改一次这里，除了制造冲突没有别的作用。
+        Check.That(migrations.Length >= 2 && migrations[0] == "20261027000000_InitialIdentitySchema" &&
+            migrations[1] == "20261028084818_ReplaceFactoriesWithSbus" &&
+            migrations.SequenceEqual(migrations.Order(StringComparer.Ordinal)),
             "The project must have one Oracle 19c migration chain starting at its new baseline.");
 
         var migrator = db.GetService<IMigrator>();

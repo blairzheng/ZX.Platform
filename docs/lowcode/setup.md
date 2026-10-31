@@ -88,12 +88,33 @@ dotnet ef database update \
 ## 4. 测试
 
 ```bash
+# 纯内存单测（不需要数据库、不需要 Redis）
 dotnet test Tests/ZX.Platform.LowCode.Tests/ZX.Platform.LowCode.Tests.csproj
+
+# 加上真库集成检查（7 条，连本机 Oracle 建真表、跑真 DDL）
+LOWCODE_TEST_DB='User Id=ZX_IDENTITY;Password=***;Data Source=127.0.0.1:1521/FREEPDB1' \
+  dotnet test Tests/ZX.Platform.LowCode.Tests/ZX.Platform.LowCode.Tests.csproj \
+  --filter "FullyQualifiedName~OracleIntegrationTests"
+
+# 低代码 HTTP 全链路（需要 Redis；元数据与业务表用内存替身）
+dotnet run --project Tests/ZX.Platform.Identity.AuthChecks
 ```
 
-纯内存单测，**不需要数据库、不需要 Redis**。当前 103 条。
+当前 171 条单测 + 7 条真库集成检查 + 1 组 HTTP 全链路检查。
 
-覆盖的是"最容易错、错了最难查"的部分：类型 → 列型映射、算子白名单、LIKE 转义、SBU 过滤、分页上限、乐观锁、保留列不可写、标识符注入拒绝。
+覆盖的是"最容易错、错了最难查"的部分：类型 → 列型映射、算子白名单、LIKE 转义、SBU 过滤、分页上限、乐观锁、保留列不可写、标识符注入拒绝、发布状态机、结构变更回路、值规范化、唯一性预检、DDL 执行状态机。
+
+### 真库集成检查抓到的三个问题
+
+这三个都只在真库上暴露，单测再密也发现不了：
+
+| 问题 | 后果 | 修法 |
+| --- | --- | --- |
+| `new OracleParameter(name, Guid)` | ODP.NET 的隐式映射表里没有 `Guid`，抛 `ArgumentException`，**所有写操作全挂** | `CreateParameter` 按 CLR 类型显式指定 `OracleDbType`，`Guid` → `Raw` + `byte[16]` |
+| `date` 字段绑 `DateTimeOffset` | 列是 `DATE`，绑定变量是 `TIMESTAMP WITH TIME ZONE`，ORA-00932 | `WriteSqlBuilder.Coerce` 按字段类型归一：`Date` → `DateTime.Date`，`DateTime` → UTC |
+| RAW(16) 读出来是 `byte[]` | 序列化成 JSON 是 base64，前端拿 ID 查详情 404 | 网关 `Normalize` 里 `byte[16]` → `Guid` |
+
+另外验证了"唯一索引靠虚拟列模拟部分索引"这套做法在真库上成立：重复编码撞 ORA-00001，软删之后同一编码可以再用。
 
 ## 5. 当前实现进度
 
@@ -101,17 +122,17 @@ dotnet test Tests/ZX.Platform.LowCode.Tests/ZX.Platform.LowCode.Tests.csproj
 
 | 层 | 内容 |
 | --- | --- |
-| `LowCode.Domain` | 13 种字段类型 + 类型×算子矩阵；实体/字段/视图模型；命名规则；28 条校验规则；默认值解析；元数据 POCO；错误码 600xxx/610xxx |
-| `LowCode.Infrastructure` | Oracle 标识符处理、类型映射、DDL 生成、查询生成、写入生成；`LowCodeDbContext` + 6 张元数据表 + 迁移；设计时工厂 |
-| `Tests` | 103 条单测 |
+| `LowCode.Domain` | 13 种字段类型 + 类型×算子矩阵；实体/字段/视图模型；命名规则；28 条校验规则；默认值解析；元数据 POCO；错误码 600xxx/610xxx；`QuerySpec` 查询语义；不可逆变更检查 |
+| `LowCode.Application` | `MetadataService`（草稿/发布/版本/回滚）；`QueryEngine`（列表/单条）；`RecordEngine`（新增/修改/软删 + 唯一性预检）；`RecordValueMapper`；`SchemaChangeService`（执行/导出/核对） |
+| `LowCode.Infrastructure` | Oracle 标识符处理、类型映射、DDL 生成、查询生成、写入生成；`LowCodeDbContext` + 6 张元数据表 + 迁移；设计时工厂；`EfMetadataStore`；`SchemaChangePlanner`；`OracleSchemaInspector`；`OracleSchemaChangeExecutor`；`DapperRecordGateway` |
+| `ZX.Platform.Identity.Api` | `LowCodeController` 三个控制器（元数据 / 业务数据 / 结构变更），13 条路由；`LowCodePermissionGuard`；`AddLowCodeModule`；`LowCodeException` → HTTP 映射 |
+| `Tests` | 171 条单测 + 7 条真库集成检查 + 1 组 HTTP 全链路检查 |
 
 ### 未开始
 
 | 层 | 内容 |
 | --- | --- |
-| `LowCode.Application` | `MetadataService`（草稿/发布/版本/回滚）、`QueryEngine`、`RecordEngine`、`SchemaChangeService` |
-| `LowCode.Api` | Controller、网关路由、`AddApplicationPart` 挂载 |
-| `LowCode.Contracts` | 对外 DTO |
+| 权限注册 | 实体发布时把 `{app}.{entity}.{action}` 写进 `ZX_IDENTITY_PERMISSION` 目录，否则非管理员永远没法授权 |
 | 前端 | `LowCodePage` 渲染器、`SchemaTable` / `SchemaForm`、设计器 |
 | 外部数据集 | 连接器、只读视图取数、SBU 绑定变量 |
 | 导出 | MiniExcel 服务端导出 |
@@ -126,3 +147,12 @@ dotnet test Tests/ZX.Platform.LowCode.Tests/ZX.Platform.LowCode.Tests.csproj
 | 元数据类不用继承 | EF 会把基类当成 TPH 层次，四张表互相打架。各自独立属性 + 字符串 API 配置 |
 | EF 版本对齐 10.0.12 | 与 Identity 一致。不同版本会在同一进程里出现两套 EF 程序集 |
 | 业务表不走 EF | 列是运行时才有的，EF 的编译期模型用不上。走 Dapper + 手写 SQL，共用同一个连接与事务 |
+| 结构变更以库为准 | 不拿"已发布定义"当基线。生产 DDL 由 DBA 执行，提前建好的列不能再算成"缺失"，否则实体永远发布不出去 |
+| 查询不带 schema 前缀 | 表建在哪个 schema 由连接账号决定。只有 DDL 导出脚本支持 `schema.table`，方便 DBA 在别的账号下执行 |
+| 值规范化在服务端 | Oracle 把 boolean 存成 `NUMBER(1)`、date 存成 `TIMESTAMP`。统一在 `RecordValueMapper` 转换，前端只认一种形状 |
+| "待执行"= 状态不是 applied | 不是"等于 pending"。导出了、执行中、执行失败都算没完成，否则变更一从 pending 走到 exported，发布闸门就失效 |
+| DDL 不当原子操作 | Oracle 的 DDL 每条隐式提交。执行失败必须报"第几条 + 前面的已生效"，不能让用户以为可以无脑重试 |
+| 唯一性预检不按 SBU 过滤 | 唯一索引建在整张表上。预检只看当前 SBU 的话，两个 SBU 各插一条同编码会双双放行，最后撞索引 |
+| 权限不走 `HasAsync` | 实体权限是动态的（`mes.stocktake.read`），而 `IPermissionService.HasAsync` 第一步就查 `IdentityPermissions.All` 静态目录，动态码一律 false——用它判定会让**所有低代码接口连管理员都 403**。`LowCodePermissionGuard` 直接读授权快照 |
+| 绑定参数显式指定 `OracleDbType` | `new OracleParameter(name, value)` 不认 `Guid`，会抛 `ArgumentException`。ID / SBU_ID / 关联字段全是 RAW(16)，等于所有写操作都过不去 |
+| 字符串按长度分流 | 超过 4000 字符绑 CLOB，否则驱动拒绝。VARCHAR2 → CLOB 在 INSERT/UPDATE 里 Oracle 允许隐式转换，反向不行，所以只单向分流 |

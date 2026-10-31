@@ -19,6 +19,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using ZX.Platform.Identity.Infrastructure.Persistence;
 
 namespace ZX.Platform.Identity.AuthChecks;
@@ -54,6 +55,10 @@ internal static class HttpChecks
         builder.Services.AddSingleton<IUserRepository>(fixture.Users);
         builder.Services.AddSingleton<IRoleRepository>(fixture.Roles);
         builder.Services.AddSingleton<IMenuRepository>(fixture.Menus);
+        // AuthService 与 SBU 相关的接口在 HTTP 检查里同样要有替身，
+        // 否则容器在 Build 阶段就会因为缺依赖直接失败（而不是等到某个请求）。
+        builder.Services.AddSingleton<IUserSbuRepository>(fixture.UserSbus);
+        builder.Services.AddSingleton<ISbuRepository>(fixture.Sbus);
         builder.Services.AddSingleton<IPermissionCache>(fixture.PermissionCache);
         builder.Services.AddSingleton<IUnitOfWork>(fixture.Unit);
         builder.Services.AddSingleton<IPasswordHasher>(fixture.Passwords);
@@ -67,7 +72,18 @@ internal static class HttpChecks
         builder.Services.AddControllers().AddApplicationPart(typeof(AuthController).Assembly)
             .AddJsonOptions(options => options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)
             .AddDataAnnotationsLocalization(options => options.DataAnnotationLocalizerProvider = (_, sbu) => sbu.Create(typeof(ValidationMessages)))
-            .AddUnifiedApiBehavior();
+            .AddUnifiedApiBehavior()
+            // 本工程为了转发头检查引用了 Gateway，MVC 会把它的模板控制器一起扫进来，
+            // 与 Identity 自己的 WeatherForecastController 撞同一个路由，Swagger 直接 500。
+            // 真实 API 不引用 Gateway，所以只在检查工程里摘掉这个程序集。
+            .ConfigureApplicationPartManager(manager =>
+            {
+                var gateway = typeof(ZX.Platform.Gateway.Controllers.WeatherForecastController).Assembly;
+                foreach (var part in manager.ApplicationParts
+                             .Where(item => item is AssemblyPart assembly && assembly.Assembly == gateway)
+                             .ToList())
+                    manager.ApplicationParts.Remove(part);
+            });
         await using var app = builder.Build();
         app.UseRequestLocalization();
         app.UseExceptionHandler();
