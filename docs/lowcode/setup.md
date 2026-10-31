@@ -6,10 +6,12 @@
 
 ### 为什么单独一个 schema
 
-两条理由，第二条比第一条更实际：
+两条理由：
 
 1. **能整体摘除**。低代码元数据和业务表都在 `ZX_LOWCODE` 里，下线就是 `DROP USER ZX_LOWCODE CASCADE`，Identity 的迁移历史一行不动。
-2. **配额**。本机 `ZX_IDENTITY` 在 `ZX_IDENTITY_DATA` 上只有 1.56 MB，装完 Identity 的 9 张表已经所剩无几；低代码 6 张元数据表加上业务表，跑两天就满。
+2. **权限边界**。应用日常跑业务数据只需要读写业务表，不该顺带握着 Identity 表的 DDL 权限。
+
+配额不是理由——本机 `ZX_IDENTITY` 在 `ZX_IDENTITY_DATA` 上的上限是 **200 MB**（当前已用约 1.7 MB），装低代码的表绰绰有余。
 
 ### 建用户（需要 DBA 账号）
 
