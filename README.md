@@ -59,7 +59,7 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 
 端口以各项目的 `Properties/launchSettings.json` 为准。Gateway 目标配置和前端代理地址需要同步；完整步骤见[开发环境](docs/development.md)。
 
-日常发布在仓库根目录执行 `bash scripts/publish-images.sh <新版本号>`，本地构建并上传后，再在 GitLab 手动发布。只打包、重传及流水线参数见[Runner 发布说明](docs/deployment.md)。
+后端发布优先在 GitHub **Actions → 生成后端发布包**，填写 DBA 查到的正式库迁移 ID，自动生成镜像与数据库升级包，见[GitHub 手动打包](docs/github-release.md)。下载后将 SQL 交 DBA，镜像包上传内网 GitLab 并手动部署。本地构建仍可使用 `bash scripts/publish-images.sh <新版本号>`；上传、部署及回滚见[Runner 发布说明](docs/deployment.md)。
 
 ## 开发文档
 
@@ -76,7 +76,8 @@ dotnet run --project ZX.Platform.Gateway --launch-profile https
 | [Identity 业务语义](docs/identity.md)       | 状态、SBU关系与当前能力边界               |
 | [API 响应与错误](docs/http.md)              | HTTP / 业务码、异常、校验与取消信号        |
 | [运行与接口日志](docs/logging.md)          | 请求摘要、TraceId、异步输出与 Docker 日志查询 |
-| [GitLab Runner 发布](docs/deployment.md) | 本地镜像打包上传、运行变量、手动发布与回滚 |
+| [GitHub 手动打包](docs/github-release.md) | 填正式库迁移 ID，生成同版本后端镜像与数据库交付包 |
+| [GitLab Runner 发布](docs/deployment.md) | 镜像包上传、运行变量、手动发布与回滚 |
 | [当前部署拓扑](docs/deployment-topology.md) | 176 入口和 Runner、177/178 后端、共享数据库与 Redis |
 | [数据库初始化](docs/database-initialization.md) / [迁移操作](docs/migration-operations.md) | 首次建表、管理员 SQL、增量 SQL 交 DBA |
 | [API 多语言](docs/localization.md)          | 请求语言、资源分组、消息键与扩展步骤       |

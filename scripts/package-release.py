@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""Package backend images and offline Oracle upgrade SQL from the same checkout."""
+
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import zipfile
+
+
+ROOT = Path(__file__).resolve().parents[1]
+EF_OPTIONS = [
+    '--context', 'PlatformIdentityDbContext',
+    '--project', 'Services/Identity/ZX.Platform.Identity.Infrastructure',
+    '--startup-project', 'Services/Identity/ZX.Platform.Identity.Api',
+    '--configuration', 'Release', '--no-build', '--no-color',
+]
+
+
+def run(command, *, capture=False):
+    return subprocess.run(
+        command, cwd=ROOT, check=True, text=True,
+        stdout=subprocess.PIPE if capture else None,
+    ).stdout
+
+
+def ef(*arguments, capture=False):
+    return run(['dotnet', 'tool', 'run', 'dotnet-ef', *arguments, *EF_OPTIONS],
+               capture=capture)
+
+
+def parse_migrations(output):
+    # EF may print design-time diagnostics before its JSON array.
+    start = re.search(r'^\s*\[', output, re.MULTILINE)
+    if start is None:
+        raise ValueError('EF 未返回迁移 JSON 列表。')
+    records = json.loads(output[start.start():])
+    migrations = [record['id'] for record in records]
+    if (not migrations or len(set(migrations)) != len(migrations) or
+            migrations != sorted(migrations) or
+            any(not re.fullmatch(r'[0-9]{14}_[A-Za-z0-9_]+', item) for item in migrations)):
+        raise ValueError('迁移列表为空、重复或顺序异常，停止打包。')
+    return migrations
+
+
+def validate_inputs(release, from_migration, schema):
+    if (not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,79}', release) or
+            release == 'latest'):
+        raise ValueError('请使用明确的发布版本，不能使用 latest。')
+    if not re.fullmatch(r'[0-9]{14}_[A-Za-z0-9_]+', from_migration):
+        raise ValueError('请填写完整 MigrationId，例如 20261103090000_AllowPendingLdapLogin。')
+    if not re.fullmatch(r'[A-Z][A-Z0-9_]{0,127}', schema):
+        raise ValueError('目标 schema 必须是以大写字母开头的大写 Oracle 标识符。')
+
+
+def select_pending(migrations, from_migration):
+    if from_migration not in migrations:
+        raise ValueError('正式库版本不在本次发布的迁移链中；请核实版本和发布代码。')
+    return migrations[migrations.index(from_migration) + 1:]
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_checksum(path):
+    digest = sha256(path)
+    path.with_name(path.name + '.sha256').write_text(
+        f'{digest}  {path.name}\n', encoding='utf-8')
+    return digest
+
+
+def package_database(directory, *, release, from_migration, schema, migrations, commit):
+    pending = select_pending(migrations, from_migration)
+    target = migrations[-1]
+    directory.mkdir()
+    sql_path = directory / 'upgrade.sql'
+    if pending:
+        generated = directory / 'upgrade.generated.sql'
+        ef('migrations', 'script', from_migration, target, '--output', str(generated))
+        run([
+            sys.executable, str(ROOT / 'deploy/docker/export-oracle19-sql.py'),
+            str(generated), str(sql_path), schema, '--session-agnostic',
+            '--from-migration', from_migration, '--to-migration', target,
+        ])
+        sql_path.write_text(
+            'WHENEVER SQLERROR EXIT SQL.SQLCODE\nSET DEFINE OFF\n\n' +
+            sql_path.read_text(encoding='utf-8'), encoding='utf-8')
+        # Only the retargeted script is delivered to the DBA.
+        generated.unlink()
+    else:
+        (directory / 'NO_DATABASE_CHANGE.txt').write_text(
+            f'正式库版本与发布目标相同：{target}\n本次无数据库升级 SQL，无需 DBA 改表。\n',
+            encoding='utf-8')
+
+    metadata = {
+        'release': release,
+        'commit': commit,
+        'schema': schema,
+        'fromMigration': from_migration,
+        'toMigration': target,
+        'requiresDatabaseUpgrade': bool(pending),
+        'pendingMigrations': pending,
+        'upgradeSqlSha256': sha256(sql_path) if pending else None,
+    }
+    (directory / 'database.json').write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    (directory / 'verify.sql').write_text(
+        f'SELECT "MigrationId", "ProductVersion"\n'
+        f'FROM "{schema}"."ZX_IDENTITY_MIGRATIONS"\n'
+        'ORDER BY "MigrationId";\n', encoding='utf-8')
+    migration_list = '\n'.join(f'- `{item}`' for item in pending) or '- 无，本次不升级数据库。'
+    (directory / 'README.md').write_text(
+        f'# 数据库交付：{release}\n\n'
+        f'- 源码提交：`{commit}`\n- 目标 schema：`{schema}`\n'
+        f'- 起点：`{from_migration}`\n- 终点：`{target}`\n\n'
+        f'## 本次迁移\n\n{migration_list}\n\n'
+        '## 执行顺序\n\n'
+        '1. 在目标会话确认数据库服务、schema、备份和完整迁移历史；仅核对最后一条不能排除历史缺项。\n'
+        '2. 审核 upgrade.sql 的改表与数据影响，安排停写、排空请求后执行。'
+        '若只有 NO_DATABASE_CHANGE.txt，则不执行数据库升级。\n'
+        '3. 有升级时，在支持 SQL*Plus/SQLcl 指令的客户端中执行完整 upgrade.sql；'
+        '脚本已包含历史版本写入，不手工补版本。\n'
+        '4. 执行 verify.sql，核对历史及变更对象；应用账号与表 owner 不同时，核对新对象访问权限。\n'
+        '5. DBA 确认成功后，部署同版本镜像。\n\n'
+        'Oracle DDL 隐式提交；失败可能留下部分变更，停止并检查现场，不直接重跑。'
+        '此包不包含自动回退 SQL；应用回滚不等于数据库回滚。\n', encoding='utf-8')
+    return metadata
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--release', required=True)
+    parser.add_argument('--from-migration', required=True)
+    parser.add_argument('--schema', default='SAJET')
+    parser.add_argument('--database-only', action='store_true',
+                        help='只导出数据库包，供本机离线检查，不构建 Docker 镜像。')
+    args = parser.parse_args()
+    from_migration = args.from_migration.strip()
+    schema = args.schema.strip().upper()
+    validate_inputs(args.release, from_migration, schema)
+
+    # These commands use the offline design-time factory, never database update.
+    ef('migrations', 'has-pending-model-changes')
+    migrations = parse_migrations(ef('migrations', 'list', '--no-connect', '--json', capture=True))
+    select_pending(migrations, from_migration)
+    commit = run(['git', 'rev-parse', 'HEAD'], capture=True).strip()
+    directory = ROOT / 'output/mom-release' / args.release
+    directory.parent.mkdir(parents=True, exist_ok=True)
+    directory.mkdir()  # Never overwrite a previously generated release.
+
+    database_dir = directory / 'database'
+    database = package_database(
+        database_dir, release=args.release, from_migration=from_migration,
+        schema=schema, migrations=migrations, commit=commit)
+    database_archive = directory / f'mom-database-{args.release}.zip'
+    with zipfile.ZipFile(database_archive, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(database_dir.iterdir()):
+            archive.write(path, path.name)
+    shutil.rmtree(database_dir)
+    database_digest = write_checksum(database_archive)
+
+    images = None
+    if not args.database_only:
+        run(['bash', 'scripts/publish-images.sh', '--package-only', args.release])
+        images_archive = directory / f'mom-images-{args.release}.tar.gz'
+        shutil.move(str(ROOT / 'output' / images_archive.name), str(images_archive))
+        # Calculate on the delivered archive, not on an inner images.tar.gz.
+        images_digest = write_checksum(images_archive)
+        (ROOT / 'output' / (images_archive.name + '.sha256')).unlink()
+        images = {'file': images_archive.name, 'sha256': images_digest,
+                  'platform': 'linux/amd64'}
+
+    metadata = {
+        'release': args.release,
+        'commit': commit,
+        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+        'database': database,
+        'databasePackage': {'file': database_archive.name, 'sha256': database_digest},
+        'images': images,
+    }
+    (directory / 'release.json').write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    database_state = '需 DBA 执行升级 SQL' if database['requiresDatabaseUpgrade'] else '无数据库变更'
+    instructions = (
+        f'# 后端发布包：{args.release}\n\n源码提交：`{commit}`\n\n'
+        f'数据库状态：**{database_state}**。'
+        f'起点 `{from_migration}` → 终点 `{database["toMigration"]}`，schema `{schema}`。\n\n'
+        f'将 `{database_archive.name}` 交给 DBA，操作说明在包内 README.md。'
+        '版本来自手工输入，生成成功不代表已连接或更新正式库。\n\n')
+    if images:
+        instructions += (
+            '## 上传内网镜像包\n\n'
+            f'把 `{images["file"]}` 放到 ZX.Platform 仓库的 output/ 下，然后在仓库根目录执行：\n\n'
+            f'```bash\nbash scripts/publish-images.sh --upload-only {args.release}\n```\n\n'
+            '上传后，在内网 mom_img 新建流水线，填写：\n\n'
+            f'```text\nMOM_COMPONENT=backend\nMOM_ACTION=deploy\nMOM_RELEASE={args.release}\n'
+            f'MOM_PACKAGE_SHA256={images["sha256"]}\n```\n\n'
+            '有数据库变更时，须先得到 DBA 执行成功的确认，再点击 GitLab 的 deploy_mom。\n')
+    (directory / 'README.md').write_text(instructions, encoding='utf-8')
+    summary = os.environ.get('GITHUB_STEP_SUMMARY')
+    if summary:
+        with open(summary, 'a', encoding='utf-8') as stream:
+            stream.write(instructions)
+    print(f'发布包已生成：{directory}')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (ValueError, OSError, subprocess.CalledProcessError, KeyError) as error:
+        print(f'打包失败：{error}', file=sys.stderr)
+        sys.exit(1)

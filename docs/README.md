@@ -22,7 +22,8 @@
 | 理解架构 / 新增业务 | [开发者指南](developer-guide.md) | 四层职责、Repository / Unit of Work、开发约定 |
 | 启动 / 配置 / 排错  | [开发环境](development.md)       | User Secrets、端口、HTTPS、Gateway 和 Git     |
 | 查看部署拓扑 | [当前部署拓扑](deployment-topology.md) | 176 入口和 Runner、177/178 后端、共享数据库与 Redis |
-| 发布 / 回滚应用 | [GitLab Runner 发布](deployment.md) | 本地镜像打包、Registry 上传、变量、校验与手动发布 |
+| 生成后端发布包 | [GitHub 手动打包](github-release.md) | 填正式库迁移 ID，生成镜像、SQL、版本清单与校验摘要 |
+| 发布 / 回滚应用 | [GitLab Runner 发布](deployment.md) | 镜像包上传、Registry 变量、校验与手动发布 |
 | 查运行和接口日志 | [运行与接口日志](logging.md) | 请求摘要、TraceId、异步控制台输出、Docker 日志 |
 | 修改实体 / 数据库   | [数据库与持久化](database.md)    | 唯一索引、软删除、审计、关系和 Migration      |
 | 执行数据库迁移 | [迁移操作手册](migration-operations.md) | 本机、测试库直接更新与正式库交 DBA 的步骤 |

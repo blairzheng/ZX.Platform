@@ -4,15 +4,16 @@
 
 日常操作可看[三步发布简版](https://bu17gitlab.luxshare.com.cn/awe/mom_img/-/blob/main/QUICKSTART.md)。
 
-当前流程：**开发机构建镜像 → 上传 GitLab Package Registry → 新建流水线 → 校验通过后手动发布**。服务器没有外网，Runner 只下载成品并执行 Docker 部署，不在服务器还原 NuGet 或构建代码。
+后端成品优先通过 [GitHub 手动打包](github-release.md)生成：填写正式库当前迁移 ID，自动得到镜像与数据库升级包；开发机下载后上传 GitLab Package Registry，再新建内网流水线，校验通过后手动发布。原有开发机构建入口继续保留。服务器没有外网，内网 Runner 只下载成品并执行 Docker 部署，不在服务器还原 NuGet 或构建代码。
 
 ## 发布入口与分工
 
 | 项目 | 当前用途 |
 | --- | --- |
 | `ZX.Platform` | 后端源码、Dockerfile、EF 迁移 |
+| GitHub Actions | 手动生成同版本后端镜像、数据库升级包、版本与摘要清单 |
 | [GitLab awe/mom_img](https://bu17gitlab.luxshare.com.cn/awe/mom_img) | `.gitlab-ci.yml`、镜像包和前端包；项目 ID `80` |
-| 开发机 | Docker 构建两个 `linux/amd64` 镜像、导出压缩包、上传 |
+| 开发机 | 下载 GitHub 产物并上传内网；也可继续本机构建两个 `linux/amd64` 镜像 |
 | 176 Runner | Shell/Bash executor，标签 `zxnet_runner`，账号 `gitlab-runner` |
 | 177、178 | 分别运行 `mom-identity`、`mom-gateway`；Runner 通过内网 SSH 顺序更新 |
 
@@ -53,6 +54,8 @@
 OA / LDAP 登录的可选配置不进入上表必填项：默认 `AuthenticationLdap__Enabled=false`，本地登录与现有发布流程完全不受影响。需要开放 OA 登录时，按 `deploy/docker/templates/identity.env.example` 的 `AuthenticationLdap__*` 注释段在服务器 env 文件补齐节点、BaseDn 和服务账号，服务账号密码只写入服务器本地的 env 文件（权限仅部署管理员可读），不写入仓库变量说明、镜像、日志或工单。两台实例的 `Provider`、节点顺序、超时和 JWT/Redis 前缀必须一致，否则会出现同一工号在不同节点建档或绑定失败。目录查询与 bind 的最终联调见 [OA / LDAP 登录实施方案](oa-ldap-login-implementation.md#10-实施结果与联调状态)。
 
 ## 1. 本地构建并上传
+
+使用 GitHub 打包时跳过本地构建，将下载的镜像压缩包放到 `output/`，按下一节 `--upload-only` 上传。
 
 先启动本机 Docker，在 `ZX.Platform` 根目录执行，版本号换成本次新版本：
 
@@ -147,4 +150,4 @@ curl -i --connect-timeout 5 --max-time 10 \
 | 新容器启动失败 | Identity/Gateway 日志、GitLab 运行变量、目标数据库 Migration ID |
 | HTTP 登录后没有刷新 Cookie | 当前入口需 Cookie `false/true`；改变量后重新部署；协议切换后清理旧 Secure Cookie |
 
-数据库初始化与管理员 SQL 见[数据库首次初始化](database-initialization.md)，日常增量升级见[迁移操作手册](migration-operations.md)。SQL 导出工具只在开发机运行，服务器及 Runner 发布不依赖 Python。
+数据库初始化与管理员 SQL 见[数据库首次初始化](database-initialization.md)，日常增量升级见[GitHub 手动打包](github-release.md)及[迁移操作手册](migration-operations.md)。SQL 在 GitHub 打包阶段或开发机离线生成；服务器及内网 Runner 不执行数据库升级，也不依赖 Python。
