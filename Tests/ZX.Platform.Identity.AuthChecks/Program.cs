@@ -1,5 +1,8 @@
 using ZX.Platform.Identity.AuthChecks;
 
+DevelopmentMigrationChecks.Run();
+if (args.Contains("--development-migrations-only")) return;
+
 if (args is ["--oracle19-sql", var outputPath])
 {
     Oracle19Checks.Run(outputPath);

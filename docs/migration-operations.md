@@ -7,7 +7,7 @@
 | 环境 | 表结构由谁更新 | 操作方式 |
 | --- | --- | --- |
 | 本机开发库 | 开发者 | `dotnet ef database update --connection ...` |
-| 测试库 | 有建表权限的测试库账号或指定人员 | schema 为 `ZX_IDENTITY` 时可直接 `database update`；其他 schema 按下文生成目标 SQL 后由测试库账号执行 |
+| 测试库 | 有建表权限的测试库账号或指定人员 | `database update -- --development` 读取本机 User Secrets 中的测试库连接与 schema；也可导出目标 SQL 后执行 |
 | 正式库 | DBA | 开发者只生成并审核目标 SQL，交 DBA 执行；不在正式库运行 `database update` |
 
 ## 每次改表的顺序
@@ -57,14 +57,29 @@ FROM ZX_IDENTITY.ZX_IDENTITY_MIGRATIONS
 ORDER BY "MigrationId";
 ```
 
-本机已有 SBU 迁移时再次运行 `database update` 不会重复执行它，但也不需要为了确认版本反复更新。`dotnet ef` 使用设计时工厂；未传 `--connection` 时会连到仅供生成 SQL 的占位地址 `127.0.0.1:1`，报 `ORA-50201`。切勿把这个占位地址当数据库故障。
+本机已有 SBU 迁移时再次运行 `database update` 不会重复执行它，但也不需要为了确认版本反复更新。`dotnet ef` 使用设计时工厂；未传 `--connection`，也未启用下文的 `--development` 入口时，会连到仅供生成 SQL 的占位地址 `127.0.0.1:1`，报 `ORA-50201`。切勿把这个占位地址当数据库故障。
 
 ## 测试库更新
 
-先由指定人员确认测试库的服务名、登录账号、表所属 schema 和当前迁移版本。测试库允许建表，不代表可以省略环境核对。共享测试库只由指定人员升级一次。
+先确认测试库的服务名、登录账号、表所属 schema 和当前迁移版本，同步团队代码并协调升级。共享测试库同一批迁移执行一次；若历史包含当前代码没有的迁移，先处理版本差异，不自行回退。先停用依赖旧结构的测试 API，升级后再启动。
 
-- 如果测试库表 owner 也是 `ZX_IDENTITY`，可使用上面的 `database update` 命令，将 `--connection` 换成测试库实际连接。先停用依赖旧结构的测试 API，升级后再启动。
-- 如果表 owner 是 `SAJET` 等其他 schema，当前设计时工厂仍固定生成 `ZX_IDENTITY` 对象；**只换连接字符串不会改表 owner**。按正式库一节的步骤生成目标 schema SQL，由有权限的测试库账号在测试库执行，不必交 DBA。
+设计时工厂位于 `Services/Identity/ZX.Platform.Identity.Api/Persistence/PlatformIdentityDesignTimeFactory.cs`。在 Identity.Api 的本机 User Secrets 中配置 `ConnectionStrings:IdentityDatabase` 和 `IdentityDatabase:Schema`，均使用团队测试库的实际值。入口只读取这两项 User Secrets；不要在这里保存正式库连接。
+
+在仓库根目录执行，将 `TARGET_ID` 换成本次完整目标迁移 ID：
+
+```bash
+dotnet ef database update TARGET_ID \
+  --context PlatformIdentityDbContext \
+  --project Services/Identity/ZX.Platform.Identity.Infrastructure \
+  --startup-project Services/Identity/ZX.Platform.Identity.Api \
+  -- --development
+```
+
+不指定 `TARGET_ID` 时升级到当前代码最新迁移。保留末尾的 `-- --development`，不要再叠加 `--connection`。该命令实际连接并修改测试库，包括 `ZX_IDENTITY` 以外的表 owner；开发专用 SQL 生成器按配置替换目标 schema，并将迁移历史写到同一 owner。
+
+模型、迁移、Designer 和 snapshot 始终保留统一源 schema `ZX_IDENTITY`。**生成迁移和导出发布 SQL 不传 `-- --development`**，仍走原来的离线入口，不读取 User Secrets。此设计时入口不改变应用启动流程，不在启动时自动执行迁移，也不新增 Migration。
+
+如需审核后手工执行测试库 SQL，仍可按正式库一节导出目标 schema SQL，再由有 DDL 权限的测试库账号执行，不必交正式库 DBA。原有 `--connection` 命令仅适用于目标 owner 为 `ZX_IDENTITY` 的路径；单独换连接不会替换 SQL 的源 schema。
 
 本机及测试库的登录账号需要目标表的 DDL 权限；应用日常运行账号不应因此获得正式库 DDL 权限。测试库执行目标 SQL 时，`LOGIN_USER` 填实际执行脚本的账号，`DB_SERVICE` 填实际服务名。
 
@@ -187,7 +202,7 @@ python3 deploy/docker/export-oracle19-sql.py \
 
 | 现象 | 原因与处理 |
 | --- | --- |
-| `ORA-50201`，目标 `127.0.0.1:1` | 忘传 `--connection`，EF 使用设计时占位连接；指定真实数据库连接后重试。 |
+| `ORA-50201`，目标 `127.0.0.1:1` | 使用了离线占位连接；团队测试库按上文配置 User Secrets 并加 `-- --development`，原本机命令则显式传 `--connection`。 |
 | `sed: .env.identity.local: No such file`、`Unable to retrieve project metadata` | 当前在 `ZX.Platform.Identity.Api` 子目录；先 `cd` 到 `ZX.Platform` 根目录。 |
 | 显示 `Pending` | 迁移文件存在，但该数据库尚未执行；按环境选择本机/测试库更新或正式库 SQL。 |
 | 显示 `Done` | 当前命令执行成功；仍要核对迁移历史和业务功能。 |

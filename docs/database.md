@@ -167,13 +167,15 @@ dotnet ef database update \
   --connection 'User Id=ZX_IDENTITY;Password=<本机ZX_IDENTITY密码>;Data Source=127.0.0.1:1521/FREEPDB1;'
 ```
 
-设计时工厂默认使用占位连接，直接更新数据库必须显式提供 `--connection`。这条命令会连接实际数据库，按顺序执行全部尚未应用的迁移并记录版本。这里的固定源 schema 是 `ZX_IDENTITY`，此命令用于本机；其他 schema 的部署按下文导出目标 SQL。
+设计时工厂默认使用占位连接，上述本机更新命令必须显式提供 `--connection`。这条命令会连接实际数据库，按顺序执行全部尚未应用的迁移并记录版本。这里的固定源 schema 是 `ZX_IDENTITY`，此命令用于本机；其他 schema 的正式部署按下文导出目标 SQL。
+
+团队测试库另有 `database update ... -- --development` 入口：从 Identity.Api User Secrets 读取 `ConnectionStrings:IdentityDatabase` 和 `IdentityDatabase:Schema`，适配实际测试库 owner，具体命令见[测试库更新](migration-operations.md#测试库更新)。生成迁移与发布 SQL 保持默认离线方式，不传 `--development`；迁移文件和 snapshot 不使用个人测试 schema。工厂位于 API 项目的 `Persistence/` 下，仅供 EF 设计时工具使用，应用启动不自动执行迁移。
 
 本机迁移可由有权限的管理账号执行，但表仍在 `ZX_IDENTITY`，应用运行账号与表 owner 的配置另行保持正确。迁移不会创建登录用户；清空后需用本机保存的管理员初始化 SQL 建立首个账号，再启动 Identity，详见[本机迁移与首个管理员](database-initialization.md#本机清空后的初始化)。
 
 ### 导出部署 SQL
 
-在仓库根目录执行；设计时工厂不读取真实数据库连接，生成 SQL 不会操作数据库：
+在仓库根目录执行；不传 `--development` 时设计时工厂不读取真实数据库连接，以下生成 SQL 的命令不会操作数据库：
 
 ```bash
 dotnet tool install --global dotnet-ef --version 10.0.12
