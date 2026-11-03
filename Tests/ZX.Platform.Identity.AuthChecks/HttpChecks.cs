@@ -19,6 +19,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using ZX.Platform.Identity.Infrastructure.Persistence;
 
 namespace ZX.Platform.Identity.AuthChecks;
@@ -33,7 +34,7 @@ internal static class HttpChecks
         using var offlineConnection = await ConnectionMultiplexer.ConnectAsync(offlineOptions);
         var offlineSessions = new RedisAuthSessionStore(offlineConnection, fixture.Options, fixture.RedisOptions, fixture.AccessTokens, fixture.Clock);
         var simulateOutage = false;
-        var ordinary = User.Create("USER", "Ordinary", fixture.Passwords.Hash("Example123!"));
+        var ordinary = User.CreateLocal("USER", "Ordinary", fixture.Passwords.Hash("Example123!"));
         fixture.Users.Add(ordinary);
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
         builder.Logging.ClearProviders();
@@ -54,6 +55,8 @@ internal static class HttpChecks
         builder.Services.AddSingleton<IUserRepository>(fixture.Users);
         builder.Services.AddSingleton<IRoleRepository>(fixture.Roles);
         builder.Services.AddSingleton<IMenuRepository>(fixture.Menus);
+        builder.Services.AddSingleton<ISbuRepository>(fixture.Sbus);
+        builder.Services.AddSingleton<IUserSbuRepository>(fixture.UserSbus);
         builder.Services.AddSingleton<IPermissionCache>(fixture.PermissionCache);
         builder.Services.AddSingleton<IUnitOfWork>(fixture.Unit);
         builder.Services.AddSingleton<IPasswordHasher>(fixture.Passwords);
@@ -65,6 +68,19 @@ internal static class HttpChecks
         builder.Services.AddProblemDetails();
         builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
         builder.Services.AddControllers().AddApplicationPart(typeof(AuthController).Assembly)
+            // 测试项目同时引用 Gateway 与 Identity.Api，两者都有 WeatherForecastController，
+            // 会触发 Swagger 的 "Conflicting method/path" 错误；这里只保留 Identity.Api 的控制器。
+            .ConfigureApplicationPartManager(manager =>
+            {
+                var gatewayAssembly = typeof(ZX.Platform.Gateway.Extensions.ForwardedHeadersExtensions).Assembly;
+                foreach (var part in manager.ApplicationParts
+                             .OfType<AssemblyPart>()
+                             .Where(part => part.Assembly == gatewayAssembly)
+                             .ToList())
+                {
+                    manager.ApplicationParts.Remove(part);
+                }
+            })
             .AddJsonOptions(options => options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)
             .AddDataAnnotationsLocalization(options => options.DataAnnotationLocalizerProvider = (_, sbu) => sbu.Create(typeof(ValidationMessages)))
             .AddUnifiedApiBehavior();
@@ -79,7 +95,7 @@ internal static class HttpChecks
         await app.StartAsync();
         using var client = new HttpClient(new HttpClientHandler { UseCookies = false }) { BaseAddress = new Uri(app.Urls.Single()) };
 
-        using (var swagger = JsonDocument.Parse(await client.GetStringAsync("/swagger/v1/swagger.json")))
+        using (var swagger = JsonDocument.Parse(await SwaggerJsonAsync(client)))
         {
             var loginOperation = swagger.RootElement.GetProperty("paths").GetProperty("/api/Auth/login").GetProperty("post");
             Check.That(loginOperation.GetProperty("security").GetArrayLength() == 0, "Swagger login must allow anonymous calls.");
@@ -247,5 +263,14 @@ internal static class HttpChecks
 
     private static string Access(Reply reply) => reply.Json.GetProperty("data").GetProperty("accessToken").GetString()!;
     private static string Cookie(Reply reply) => reply.SetCookie!.Split(';')[0];
+
+    // 生成失败时输出响应正文，避免只看到 500 而不知道具体契约问题。
+    private static async Task<string> SwaggerJsonAsync(HttpClient client)
+    {
+        using var response = await client.GetAsync("/swagger/v1/swagger.json");
+        var body = await response.Content.ReadAsStringAsync();
+        Check.That(response.IsSuccessStatusCode, $"Swagger 生成失败：{response.StatusCode} {body}");
+        return body;
+    }
     private sealed record Reply(HttpStatusCode Status, JsonElement Json, string? SetCookie, string Challenge, bool NoStore);
 }

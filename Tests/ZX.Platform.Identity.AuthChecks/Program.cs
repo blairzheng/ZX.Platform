@@ -32,6 +32,8 @@ if (args.Contains("--forwarded-headers-only")) return;
 
 await SessionChecks.RunAsync();
 await AuthFlowChecks.RunAsync();
+await LdapChecks.RunAsync();
+if (args.Contains("--ldap-only")) return;
 await AuthorizationChecks.RunAsync();
 await MenuChecks.RunAsync();
 await HttpChecks.RunAsync();

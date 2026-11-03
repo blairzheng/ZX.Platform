@@ -133,7 +133,19 @@ Service 预查询只是友好提示，两个同时创建的请求仍可能都通
 
 ## 迁移现状
 
-唯一迁移目录为 `Persistence/Migrations/`，快照为 `PlatformIdentityDbContextModelSnapshot`。基线 `20261027000000_InitialIdentitySchema` 创建旧厂区模型；`20261028084818_ReplaceFactoriesWithSbus` 删除旧厂区及用户厂区表，创建 SBU 及用户 SBU 表，并清理旧内置厂区菜单；`20261030100000_AddMenuLauncherMetadata` 增加菜单宫格颜色和中英文描述字段。旧厂区测试数据不会迁移；用户、角色等其他表保留。部署当前代码必须将目标库升级到第三条迁移。本地、测试、正式使用相同迁移链，仅连接和 schema 不同。
+唯一迁移目录为 `Persistence/Migrations/`，快照为 `PlatformIdentityDbContextModelSnapshot`。基线 `20261027000000_InitialIdentitySchema` 创建旧厂区模型；`20261028084818_ReplaceFactoriesWithSbus` 删除旧厂区及用户厂区表，创建 SBU 及用户 SBU 表，并清理旧内置厂区菜单；`20261030100000_AddMenuLauncherMetadata` 增加菜单宫格颜色和中英文描述字段；`20261102111516_AddLdapAccountApproval` 增加 OA 账号开通与审批字段；`20261102144318_AddUserApprovalAudit` 增加审批审计表。旧厂区测试数据不会迁移；用户、角色等其他表保留。部署当前代码必须将目标库升级到第五条迁移。本地、测试、正式使用相同迁移链，仅连接和 schema 不同。
+
+`AddLdapAccountApproval` 的具体变更：`PASSWORD_HASH` 改为可空；新增 `AUTH_TYPE`、`APPROVAL_STATUS`、`EMPLOYEE_NO`、`LDAP_PROVIDER`、`LDAP_SUBJECT`、`SECURITY_VERSION`、`REVIEWED_BY_USER_ID`、`REVIEWED_AT_UTC`、`REVIEW_REASON`；账号索引重命名为 `UX_ZID_USER_ACCOUNT`，新增 `UX_ZID_USER_EMPLOYEE_NO`、`UX_ZID_USER_LDAP_IDENTITY`、`IX_ZID_USER_TYPE_APPROVAL`；新增 `CK_ZID_USER_AUTH_TYPE`、`CK_ZID_USER_APPROVAL`、`CK_ZID_USER_PASSWORD`、`CK_ZID_USER_LDAP_ENABLED` 四个 CHECK 约束。存量行按默认值变为 `AUTH_TYPE=LOCAL`、`APPROVAL_STATUS=Approved`、`SECURITY_VERSION=1`，密码哈希、Id、角色和 SBU 均不改动。
+
+Oracle 不支持过滤索引，`EMPLOYEE_NO` 与 `(LDAP_PROVIDER, LDAP_SUBJECT)` 的唯一索引依赖“唯一索引允许多行全 NULL”的特性：本地账号这两列为 NULL，不占用唯一性；OA 账号必须同时写入完整身份列。迁移文件中 EF 生成的 `filter:` 参数在 Oracle 上不产生 `WHERE`，因此不能据此认为做了条件唯一。
+
+`SECURITY_VERSION` 是 EF 并发令牌，所有审批类更新都是带 `WHERE SECURITY_VERSION = @原值` 的条件更新，影响 0 行时转换为 `ConcurrencyConflictException`，由 API 返回 `409 / 600004`。这也是 OA 账号没有密码哈希仍能让旧会话失效的依据，见[登录与会话](authentication.md#oa-登录与会话)。
+
+升级脚本已离线生成并纳入仓库：`deploy/database/upgrade-add-ldap-account-approval.sql`，目标 schema `SAJET`，起止版本 `20261030100000_AddMenuLauncherMetadata` → `20261102111516_AddLdapAccountApproval`，执行前由 DBA 核对连接、账号与起点版本。该脚本在本地 Oracle 19c 上按同一起点实际执行通过；本地库执行后表结构、约束行为与存量数据保留均已核对。
+
+`AddUserApprovalAudit` 只新增 `ZX_IDENTITY_USER_APPROVAL_AUDIT` 表与两个索引（`TARGET_USER_ID + CREATED_AT_UTC`、`CREATED_AT_UTC`），不改任何既有表或行。表内含 `TARGET_USER_ID`、`TARGET_ACCOUNT`、`TARGET_EMPLOYEE_NO`、`ACTION`、`FROM_STATUS`、`TO_STATUS`、`ACTOR_USER_ID`、`REASON`、`ROLE_IDS`、`SBU_IDS`、`TRACE_ID` 和各表通用的审计列。账号、工号与角色/SBU 都是事件发生时的快照，不做外键关联，避免后续改名或删除影响历史。对应升级脚本为 `deploy/database/upgrade-add-user-approval-audit.sql`（`20261102111516` → `20261102144318`），同样在本地 Oracle 19c 上执行通过。
+
+`ROLE_IDS` / `SBU_IDS` 随后由 `20261102150741_WidenApprovalAuditSnapshot` 从 `NVARCHAR2(2000)` 放宽为 `CLOB`（对应 `deploy/database/upgrade-widen-approval-audit-snapshot.sql`）：61 个 GUID 拼接就有 2012 字符，业务上并不存在“最多 60 个 SBU”的限制，审计字段不能反过来限制授权，也不能截断证据。Oracle 不允许直接 `MODIFY` 成 `CLOB`，迁移用“新增列 → 复制 → 删旧列 → 改名”完成，详见[迁移操作](migration-operations.md#审计快照容量已生成)。
 
 应用不会自动执行 DDL。空库先执行初始化 SQL；启动后自动补齐菜单和权限。首次使用前，由运维通过本地保存的单独 SQL 创建首个用户和内置管理员关联，应用不会从配置创建管理员。需要清空已有 MOM 数据时，按[数据库初始化与重建](database-initialization.md)中的定向重置步骤重新初始化。
 

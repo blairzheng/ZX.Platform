@@ -15,6 +15,8 @@ public static class IdentityPermissions
     public const string UserAssignSbus = "identity.user.sbus";
     public const string UserAssignRoles = "identity.user.roles";
     public const string UserForceLogout = "identity.user.forceLogout";
+    // 审批 OA 账号开通申请；预开通立即开通时还需要角色和 SBU 分配权限。
+    public const string UserApprove = "identity.user.approve";
     public const string SbuRead = "identity.sbu.read";
     public const string SbuCreate = "identity.sbu.create";
     public const string SbuRename = "identity.sbu.rename";

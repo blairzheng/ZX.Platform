@@ -50,6 +50,8 @@
 
 新的容器配置由 GitLab 变量注入；本地 User Secrets 不进入镜像，也不供服务器读取。服务器原有 `/etc/mom` 文件不参与当前发布。修改变量后，需要重新运行发布任务重建容器才生效。容器运行环境保存在 Docker 元数据中，查看时不要输出完整环境变量或截图传播。
 
+OA / LDAP 登录的可选配置不进入上表必填项：默认 `AuthenticationLdap__Enabled=false`，本地登录与现有发布流程完全不受影响。需要开放 OA 登录时，按 `deploy/docker/templates/identity.env.example` 的 `AuthenticationLdap__*` 注释段在服务器 env 文件补齐节点、BaseDn 和服务账号，服务账号密码只写入服务器本地的 env 文件（权限仅部署管理员可读），不写入仓库变量说明、镜像、日志或工单。两台实例的 `Provider`、节点顺序、超时和 JWT/Redis 前缀必须一致，否则会出现同一工号在不同节点建档或绑定失败。目录查询与 bind 的最终联调见 [OA / LDAP 登录实施方案](oa-ldap-login-implementation.md#10-实施结果与联调状态)。
+
 ## 1. 本地构建并上传
 
 先启动本机 Docker，在 `ZX.Platform` 根目录执行，版本号换成本次新版本：

@@ -12,6 +12,8 @@
 
 当前提供用户、SBU、角色、菜单四组权限；具体代码及对应接口集中在[接口契约](api.md)。功能权限不等于SBU数据范围，`UserSbu` 仍只是归属关系。
 
+OA 账号开通相关新增 `identity.user.approve`：`Users/approveLdap`、`Users/rejectLdap` 需要它，`Users/ldapLookup`、`Users/addLdap` 沿用 `identity.user.create`。`DefaultMenus` 已在用户菜单下补一个“审批OA账号”操作节点。只有 `create` 而没有 `approve` 的管理员可以先建待审批账号，但不能自己放行；这是有意的职责分离，授予 `approve` 等同于可以给新员工分配任意角色和 SBU，应只交给可信审批人。`identity.user.approve` 与 `identity.user.roles`、`identity.user.sbus` 组合起来等价于间接提权，不要授予普通业务管理员。
+
 需要按 SBU 处理的 Identity 业务接口同时标注功能权限和 `[RequireSbu]`，例如 `[Authorize(Policy = "业务权限代码")]` 与 `[RequireSbu]`。后者要求 `X-SBU-ID` 为单个有效 GUID，并查询当前用户与未删除、已启用 SBU 的实时关联；缺失或格式错误返回 `400 / 600001`，无关联或 SBU 停用返回 `403 / 600005`。管理员也须明确关联 SBU，不因角色获得全部数据范围。Controller 注入 API 层的 `CurrentSbuContext`，将已校验的 `SbuId` 和服务端读取的 `SbuCode` 作为参数传给 Application Service；业务查询、详情和写操作仍须校验记录归属。没有 SBU 范围的全局接口不标注该特性，也不读取此上下文。其他业务服务须实现自己的同等服务端校验，不能依赖前端请求头或网关替代授权。
 
 ## 首个管理员

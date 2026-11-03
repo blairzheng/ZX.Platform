@@ -23,4 +23,24 @@
   <data name="User.NotDeleted" xml:space="preserve"><value>用户未被删除，无需恢复。</value></data>
   <data name="User.SbusUnavailable" xml:space="preserve"><value>部分SBU不存在或已被禁用。</value></data>
   <data name="User.RestoreBeforeEnable" xml:space="preserve"><value>已删除的用户必须先恢复，不能直接启用。</value></data>
+  <data name="User.LdapUserFound" xml:space="preserve"><value>已查询到 OA 用户，请核对后开通。</value></data>
+  <data name="User.LdapUserNotFound" xml:space="preserve"><value>LDAP 中未找到该工号。</value></data>
+  <data name="User.LdapUserProvisioned" xml:space="preserve"><value>OA 用户已创建并开通。</value></data>
+  <data name="User.LdapUserPendingCreated" xml:space="preserve"><value>已创建待审批的 OA 用户，请由审核人审批后开通。</value></data>
+  <data name="User.LdapUserApproved" xml:space="preserve"><value>OA 账号审批通过并已开通。</value></data>
+  <data name="User.LdapUserRejected" xml:space="preserve"><value>OA 开通申请已拒绝。</value></data>
+  <data name="User.AccountTypeConflict" xml:space="preserve"><value>该工号或账号已被其他类型账号占用，请由管理员核实后处理。</value></data>
+  <data name="User.LdapIdentityConflict" xml:space="preserve"><value>目录身份与现有账号不一致，请由管理员核实后处理。</value></data>
+  <data name="User.NotLdapAccount" xml:space="preserve"><value>该用户不是 OA 账号，不能执行此操作。</value></data>
+  <data name="User.AlreadyApproved" xml:space="preserve"><value>该 OA 账号已经审批通过，无需重复审批。</value></data>
+  <data name="User.PendingCannotEnable" xml:space="preserve"><value>OA 账号尚未审批通过，不能直接启用。</value></data>
+  <data name="User.RejectedCannotEnable" xml:space="preserve"><value>OA 开通申请已被拒绝，不能直接启用。</value></data>
+  <data name="User.DeletedCannotReview" xml:space="preserve"><value>已删除的账号不能审批，请先恢复。</value></data>
+  <data name="User.NotReviewable" xml:space="preserve"><value>当前账号状态不允许该审批操作。</value></data>
+  <data name="User.StateChanged" xml:space="preserve"><value>账号状态已被其他操作修改，请刷新后重试。</value></data>
+  <data name="User.PendingCannotAssignGrants" xml:space="preserve"><value>仅创建待审批账号时不能同时分配角色或 SBU。</value></data>
+  <data name="User.ApprovalRoleRequired" xml:space="preserve"><value>审批开通至少需要选择一个有效角色。</value></data>
+  <data name="User.ApprovalSbuRequired" xml:space="preserve"><value>审批开通至少需要选择一个有效 SBU。</value></data>
+  <data name="User.AuthTypeInvalid" xml:space="preserve"><value>认证类型只能是 LOCAL 或 LDAP。</value></data>
+  <data name="User.ApprovalStatusInvalid" xml:space="preserve"><value>审批状态只能是 Pending、Approved 或 Rejected。</value></data>
 </root>

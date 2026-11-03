@@ -2,6 +2,8 @@
 
 [文档导航](README.md) · [认证接口契约](api.md#认证接口) · [API 响应与错误](http.md)
 
+本地密码登录与 OA / LDAP 登录并行存在，账号体系互不相通。OA 接入的实施契约与联调状态见 [OA / LDAP 登录实施方案](oa-ldap-login-implementation.md) 和 [Identity 业务语义](identity.md#账号类型与开通审批)；下文描述两种登录共用的会话机制。
+
 后端已实现登录、刷新、退出、当前用户及自助改密码。本文维护会话、安全规则和配置；路由、请求字段及响应集中在[接口契约](api.md#认证接口)。ZX.front.vue 已接入登录页、接管、自动刷新、退出和改密，真实浏览器与 Gateway 联调仍待验收，不能视为已经通过端到端验证。
 
 ## 当前模式
@@ -12,7 +14,9 @@ Access Token 使用标准 JWT，由 `System.IdentityModel.Tokens.Jwt` 签发，A
 
 存储接口为 `Application/Authentication/IAuthSessionStore`，实现为 `Infrastructure/Security/RedisAuthSessionStore`；`JwtAccessTokenIssuer` 负责调用标准库签发 JWT，API 的 `JwtSessionEvents.TokenValidated` 在 `JwtBearer` 校验成功后检查共享会话，并统一 401 / 403 响应。旧的 `SessionAuthenticationHandler`、随机 Access 格式、Access 哈希匹配已移除。JSON 会话使用新键名，与旧 `zx:identity:auth:user:{userId}` Hash 隔离，避免 Redis 类型冲突。旧随机 Token 及旧 Hash 会话均不兼容，更新后需重新登录；旧键按原 TTL 到期，不需要清空 Redis。多实例更新时需统一切换版本，不能让仍认可旧 Hash 会话的实例继续提供服务。
 
-每个用户仅一个 Redis String：`zx:identity:auth:session:{userId}`（userId 为不带连字符的 GUID），值为 `StoredSession` 对象序列化后的 JSON，直接使用属性名：`SessionId`、`Account`、`AccessId`（JWT 的 `jti`）、`RefreshHash`（SHA-256）、`AccessExpiresAtUtc`、`ExpiresAtUtc`、`CredentialStamp` 和 `UsedRefreshHashes`。时间采用带 UTC 偏移的 JSON 日期字符串。密码指纹为 BCrypt 哈希的 SHA-256，用于刷新时识别并发改密留下的旧会话；不保存明文密码或完整 Token。已消费 Refresh 哈希作为数组随会话一起读写，每次刷新追加一项；整条会话按原绝对期限设置过期时间，到期自动清理全部重放记录，无会话数据库表。
+每个用户仅一个 Redis String：`zx:identity:auth:session:{userId}`（userId 为不带连字符的 GUID），值为 `StoredSession` 对象序列化后的 JSON，直接使用属性名：`SessionId`、`Account`、`AccessId`（JWT 的 `jti`）、`RefreshHash`（SHA-256）、`AccessExpiresAtUtc`、`ExpiresAtUtc`、`CredentialStamp` 和 `UsedRefreshHashes`。时间采用带 UTC 偏移的 JSON 日期字符串。凭据指纹为 `"v2:" + SHA256("{userId:N}:{securityVersion}")`；不保存明文密码或完整 Token。已消费 Refresh 哈希作为数组随会话一起读写，每次刷新追加一项；整条会话按原绝对期限设置过期时间，到期自动清理全部重放记录，无会话数据库表。
+
+指纹从 v1（BCrypt 哈希的 SHA-256）改为 v2，因为 OA 账号没有密码哈希，旧算法无法为无密码账号生成可比较的指纹。指纹不再绑密码哈希后，改密本身不会让旧会话失效，因此改密、禁用、删除、恢复、审批和拒绝都必须递增 `SecurityVersion`，靠版本变化淘汰旧 Refresh。**升级后已存在的会话在刷新时因指纹不匹配被拒绝，用户需重新登录一次**；这是有意取舍，不做兼容迁移，也不清空 Redis。
 
 JWT 包含 `sub`（用户 ID）、`name`（账号）、`sid`（会话 ID）、`jti`（Access 唯一编号）、`iat/nbf/exp/iss/aud`；Claims 不放密码、Refresh 或其他秘密，JWT 签名不提供内容加密。关闭默认 Claim 映射，后端通过 `sub` 读取用户 ID，`User.Identity.Name` 对应 `name`。Refresh 由用户 GUID、会话 GUID 和 32 字节随机秘密组成，GUID 只定位 Redis 键，仍须匹配完整 Refresh 的哈希；调用方不解析 Refresh。
 
@@ -40,7 +44,28 @@ JWT 包含 `sub`（用户 ID）、`name`（账号）、`sid`（会话 ID）、`j
 
 撤销不使用客户端请求取消令牌，即使提交结果不确定也尝试下线。Redis 失败返回 503，数据库变更可能已经提交，旧会话在 Redis 恢复后也可能仍存在；调用方需查询状态、恢复依赖后重试下线。系统不会自动回滚数据库或假报成功。直接改数据库同样不触发撤销，运维应使用对应接口。
 
+## OA 登录与会话
+
+`Auth/ldapLogin` 的会话分支只有一条：`status=Authenticated` 时才签发 Access、写 Refresh Cookie。`status=PendingApproval` 表示身份已在目录侧验证通过但 ZX 侧未审批，接口返回成功语义（HTTP 200 / `code=0`），但不发令牌、不写 Cookie、不覆盖浏览器中另一个有效登录，前端必须按 `status` 判断而不是按 HTTP 状态。
+
+会话与本地登录共用同一套 Redis 结构和单会话规则：同一用户只允许一处会话、接管需 `replaceExistingSession=true`、刷新轮换与重放检测一致。差别在凭据指纹：OA 账号没有密码哈希，指纹完全依赖 `SecurityVersion`。因此审批通过、拒绝、禁用、删除、恢复都必须递增该版本，否则旧会话仍能刷新；这套约束由 `User` 实体的方法保证，新增状态变更时不要绕过实体直接改字段。
+
+刷新和 `Auth/me` 都要求 `ApprovalStatus=Approved` 且账号启用。审批前若有人拿到了有效会话（正常流程不会发生），审批状态变化会让指纹和状态检查同时失效。禁用 OA 账号走与本地账号相同的撤销逻辑，不额外需要下线。
+
+OA 登录使用 Redis 键 `{KeyPrefix}ldap-fail:{SHA256(工号)[..32]}` 记录按工号共享的失败次数，键里只有工号摘要，没有密码。默认同工号 5 分钟内失败 10 次后返回 `429 / 600429`。正常的凭据失败处理还会对已建档且未删除的 OA 账号累计数据库失败次数并执行锁定；本地登录使用原有数据库失败次数与锁定时间。递增与补 TTL 在同一段 Lua 脚本中原子执行；**检查入口也同样原子地补齐缺失的 TTL**，因此旧版本遗留的“已达阈值但没有过期时间”的键会在下一次检查时自动恢复，而不是永久 429。目录连接故障、超时、结果不唯一等依赖故障不计入失败次数，也不会返回 401。Redis 不可用时该接口返回 `503 / 600503`，与本地登录的 Redis 故障行为一致。
+
+`Auth/login` 只接受本地账号：读到 `AUTH_TYPE` 不是 `LOCAL` 的记录时，执行一次占位密码校验后直接返回统一凭据错误，不读写该账号的失败次数和锁定状态。否则 OA 账号没有本地密码，本地入口的校验必然失败，知道工号的人反复调用就能把这个人的目录登录锁在本地锁定里。
+
+OA 登录和目录查询共用 `AuthenticationLdap:TotalTimeoutSeconds` 总预算，从等待并发信号量开始计时，连接、搜索、bind 和主备切换都按剩余预算收紧自己的超时。底层是同步 LDAP 调用，取消令牌只能停止等待、不能中断已在执行的请求，因此**并发名额只由真正执行该调用的任务在自己的 `finally` 里归还**：总预算耗尽、浏览器断开或客户端取消都只是结束等待，不会提前释放名额。否则反复取消请求就能让实际并发超过 `MaxConcurrentOperations`。停止等待后的后台任务异常会被继续观察，不会变成未处理的任务异常。
+
+**已知限制（2026-11-03，暂缓修复）**：员工 bind 已开始、调用方先取消或总预算先到期时，后台随后返回的凭据错误只会被 runner 观察，可能没有进入 `AuthService` 的失败处理分支，导致 Redis 与数据库漏记失败次数。并发上限和现有 IP 限流仍有效，按工号的失败限制不能保证覆盖该路径。当前先进入联调，扩大使用范围前优先补齐认证完成后的可靠记账与对应回归检查；延期决定见[实施方案 10.7 节](oa-ldap-login-implementation.md#107-本轮延期决定与联调安排2026-11-03)。
+
+LDAP 未启用（`AuthenticationLdap:Enabled=false`）时 `Auth/ldapLogin` 返回 `503 / 600503` 与 `data.reason=LdapDisabled`，本地登录完全不受影响；身份服务启动不连接目录，目录暂时不可达不会阻止启动，只在真正登录时返回受控错误。
+
+失败按阶段分类，避免把目录配置问题算成员工密码错误：员工 bind 明确返回 `49` 或目录查无该工号时，按凭据失败处理；服务账号 bind / 搜索阶段的 `49` 按依赖故障处理并尝试备用节点，不计员工失败次数。目前管理员查人路径捕获 `LdapException.ErrorCode=49` 时记为 `LdapServiceAccountRejected` 与 Error 日志，员工登录路径仍记为通用 `LdapUnavailable` 与 Warning 日志；统一原因及日志级别已于 2026-11-03 决定延期。搜索以 `sizeLimitExceeded` 结束——不论来自 `LdapException.ErrorCode` 还是 `DirectoryOperationException.Response.ResultCode`——都归为“目录结果歧义”，直接返回 `503` 而不是当成普通故障去试备用节点。
+
 ## 登录失败与密码
+
 
 账号 Trim 后按大写标准化查询，密码不 Trim。密码用 BCrypt 成本因子 12；新密码至少 8 个字符，所有密码入口最多 72 个 UTF-8 字节，超限返回本地化 `400 / 600001`。72 字节不等于 72 个中文字符。
 
@@ -73,6 +98,13 @@ Auth 的 POST / PUT 均要求 `X-Identity-CSRF: 1`。这是非简单请求头，
 | `AuthenticationJwt:Issuer` | `ZX.Platform.Identity` | JWT 签发方，必须精确匹配 |
 | `AuthenticationJwt:Audience` | `ZX.Platform` | JWT 接收方，必须精确匹配 |
 | `AuthenticationJwt:SigningKey` | 仅 Development 提供共享开发值 | Base64 编码的至少 32 字节密钥，生产必须通过安全配置注入独立随机值 |
+| `AuthenticationLdap:Enabled` | false | 关闭时本地登录不受影响；启用需同时给出 `Servers`、`BaseDn`、`BindDn`、`BindPassword`，否则启动失败 |
+| `AuthenticationLdap:AllowPlainText` | false | 使用 389 明文传输时必须显式改 true 并记录风险，优先 `Ldaps` 或 `StartTls` |
+| `AuthenticationLdap:VerifyServerCertificate` | true | 不允许改为 false，改了就启动失败；证书问题用受信任 CA 与正确主机名解决 |
+| `AuthenticationLdap:EmployeeNumberAttribute` | `sAMAccountName` | 以 IT 确认的目录属性为准；改它会同时改变输入工号的查询属性 |
+| `AuthenticationLdap:EmployeeLookupAttribute` | 空（跟随工号属性） | 只在“用登录名查询、工号另存其他属性”时才单独配置 |
+| `AuthenticationLdap:TotalTimeoutSeconds` | 15 | 1～120，单次登录或查询的总预算，含排队与主备切换 |
+| `AuthenticationLdap:MaxFailedAttempts` | 10 | 1～100，配合 `FailureWindowSeconds`（30～86400，默认 300）按工号限制失败次数 |
 
 开发环境通过 `appsettings.Development.json` 提供固定的共享开发密钥，拉取代码后不需要每位开发者生成或迁移 JWT 密钥。该值随仓库公开，只能用于开发；基础 `appsettings.json` 不提供生产默认值。User Secrets 和环境变量仍可覆盖，之前已配置的有效 User Secret 无需删除；同一环境中共享 Redis 会话的实例须采用同一把密钥。
 

@@ -30,7 +30,7 @@ internal static class AuthorizationChecks
         PermissionService Reader() => new(fixture.Roles, otherCache);
         var service = new RoleService(fixture.Roles, fixture.Users, fixture.Unit,
             new PermissionService(fixture.Roles, fixture.PermissionCache), fixture.PermissionCache);
-        var target = User.Create("VIEWER", "Viewer", fixture.Passwords.Hash("Example123!"));
+        var target = User.CreateLocal("VIEWER", "Viewer", fixture.Passwords.Hash("Example123!"));
         fixture.Users.Add(target);
         var activeSbu = Sbu.Create("SBU1", "SBU 1");
         var disabledSbu = Sbu.Create("SBU2", "SBU 2");

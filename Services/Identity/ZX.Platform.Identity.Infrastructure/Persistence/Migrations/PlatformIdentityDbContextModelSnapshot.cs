@@ -344,6 +344,22 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("ACCOUNT");
 
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("NVARCHAR2(16)")
+                        .HasDefaultValue("Approved")
+                        .HasColumnName("APPROVAL_STATUS");
+
+                    b.Property<string>("AuthType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("NVARCHAR2(16)")
+                        .HasDefaultValue("LOCAL")
+                        .HasColumnName("AUTH_TYPE");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("CREATED_AT_UTC");
@@ -358,6 +374,11 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("DISPLAY_NAME");
 
+                    b.Property<string>("EmployeeNo")
+                        .HasMaxLength(32)
+                        .HasColumnType("NVARCHAR2(32)")
+                        .HasColumnName("EMPLOYEE_NO");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_DELETED");
@@ -365,6 +386,16 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_ENABLED");
+
+                    b.Property<string>("LdapProvider")
+                        .HasMaxLength(32)
+                        .HasColumnType("NVARCHAR2(32)")
+                        .HasColumnName("LDAP_PROVIDER");
+
+                    b.Property<string>("LdapSubject")
+                        .HasMaxLength(36)
+                        .HasColumnType("NVARCHAR2(36)")
+                        .HasColumnName("LDAP_SUBJECT");
 
                     b.Property<DateTimeOffset?>("LockoutEndUtc")
                         .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
@@ -377,10 +408,29 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnName("NORMALIZED_ACCOUNT");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("NVARCHAR2(500)")
                         .HasColumnName("PASSWORD_HASH");
+
+                    b.Property<string>("ReviewReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("REVIEW_REASON");
+
+                    b.Property<DateTimeOffset?>("ReviewedAtUtc")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("REVIEWED_AT_UTC");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("REVIEWED_BY_USER_ID");
+
+                    b.Property<long>("SecurityVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("NUMBER(19)")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("SECURITY_VERSION");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
@@ -392,10 +442,120 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("NormalizedAccount")
-                        .IsUnique();
+                    b.HasIndex("EmployeeNo")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ZID_USER_EMPLOYEE_NO")
+                        .HasFilter("\"EMPLOYEE_NO\" IS NOT NULL");
 
-                    b.ToTable("ZX_IDENTITY_USER", "ZX_IDENTITY");
+                    b.HasIndex("NormalizedAccount")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ZID_USER_ACCOUNT");
+
+                    b.HasIndex("AuthType", "ApprovalStatus")
+                        .HasDatabaseName("IX_ZID_USER_TYPE_APPROVAL");
+
+                    b.HasIndex("LdapProvider", "LdapSubject")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ZID_USER_LDAP_IDENTITY")
+                        .HasFilter("\"LDAP_PROVIDER\" IS NOT NULL AND \"LDAP_SUBJECT\" IS NOT NULL");
+
+                    b.ToTable("ZX_IDENTITY_USER", "ZX_IDENTITY", t =>
+                        {
+                            t.HasCheckConstraint("CK_ZID_USER_APPROVAL", "APPROVAL_STATUS IN ('Pending', 'Approved', 'Rejected')");
+
+                            t.HasCheckConstraint("CK_ZID_USER_AUTH_TYPE", "AUTH_TYPE IN ('LOCAL', 'LDAP')");
+
+                            t.HasCheckConstraint("CK_ZID_USER_LDAP_ENABLED", "AUTH_TYPE <> 'LDAP' OR APPROVAL_STATUS = 'Approved' OR IS_ENABLED = 0");
+
+                            t.HasCheckConstraint("CK_ZID_USER_PASSWORD", "(AUTH_TYPE = 'LDAP' AND PASSWORD_HASH IS NULL) OR (AUTH_TYPE = 'LOCAL' AND PASSWORD_HASH IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.UserApprovalAudit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("ID");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("NVARCHAR2(32)")
+                        .HasColumnName("ACTION");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("ACTOR_USER_ID");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("CREATED_AT_UTC");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("CREATED_BY_USER_ID");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("NVARCHAR2(32)")
+                        .HasColumnName("FROM_STATUS");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("REASON");
+
+                    b.Property<string>("RoleIds")
+                        .HasColumnType("CLOB")
+                        .HasColumnName("ROLE_IDS");
+
+                    b.Property<string>("SbuIds")
+                        .HasColumnType("CLOB")
+                        .HasColumnName("SBU_IDS");
+
+                    b.Property<string>("TargetAccount")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("TARGET_ACCOUNT");
+
+                    b.Property<string>("TargetEmployeeNo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("NVARCHAR2(32)")
+                        .HasColumnName("TARGET_EMPLOYEE_NO");
+
+                    b.Property<Guid>("TargetUserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("TARGET_USER_ID");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("NVARCHAR2(32)")
+                        .HasColumnName("TO_STATUS");
+
+                    b.Property<string>("TraceId")
+                        .HasMaxLength(64)
+                        .HasColumnType("NVARCHAR2(64)")
+                        .HasColumnName("TRACE_ID");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("UPDATED_AT_UTC");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("UPDATED_BY_USER_ID");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("TargetUserId", "CreatedAtUtc");
+
+                    b.ToTable("ZX_IDENTITY_USER_APPROVAL_AUDIT", "ZX_IDENTITY");
                 });
 
             modelBuilder.Entity("ZX.Platform.Identity.Domain.Entities.UserRole", b =>

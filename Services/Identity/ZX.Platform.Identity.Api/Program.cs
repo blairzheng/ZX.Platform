@@ -52,6 +52,7 @@ builder.Services.AddScoped<IUnitOfWork>(serviceProvider =>
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISbuService, SbuService>();
 builder.Services.AddScoped<IUserSbuRepository, UserSbuRepository>();
+builder.Services.AddScoped<IUserApprovalAuditRepository, UserApprovalAuditRepository>();
 builder.Services.AddScoped<CurrentSbuContext>();
 
 var app = builder.Build();

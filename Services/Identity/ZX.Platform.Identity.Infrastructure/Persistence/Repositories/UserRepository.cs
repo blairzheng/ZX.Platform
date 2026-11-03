@@ -32,6 +32,25 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Repositories
             _dbContext.Users.Add(user);
         }
 
+        public void Detach(User user)
+        {
+            _dbContext.Entry(user).State = EntityState.Detached;
+        }
+
+        public Task<User?> GetByEmployeeNoAsync(string employeeNo, CancellationToken cancellationToken)
+        {
+            return _dbContext.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.EmployeeNo == employeeNo, cancellationToken);
+        }
+
+        public Task<User?> GetByLdapIdentityAsync(string provider, string subject, CancellationToken cancellationToken)
+        {
+            return _dbContext.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.LdapProvider == provider && u.LdapSubject == subject, cancellationToken);
+        }
+
         public async Task<(List<User>, int count)> GetPageListAsync(UserQueryDto userQuery, CancellationToken cancellationToken)
         {
             var users = _dbContext.Users.AsNoTracking();
@@ -52,6 +71,18 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Repositories
                 var sbuId = userQuery.SbuId.Value;
                 users = users.Where(user => _dbContext.UserSbus.Any(
                     relation => relation.UserId == user.Id && relation.SbuId == sbuId));
+            }
+
+            if (!string.IsNullOrWhiteSpace(userQuery.AuthType))
+            {
+                var authType = userQuery.AuthType.Trim();
+                users = users.Where(e => e.AuthType == authType);
+            }
+
+            if (!string.IsNullOrWhiteSpace(userQuery.ApprovalStatus))
+            {
+                var approvalStatus = userQuery.ApprovalStatus.Trim();
+                users = users.Where(e => e.ApprovalStatus == approvalStatus);
             }
 
             if (userQuery.CreatedFromUtc.HasValue)

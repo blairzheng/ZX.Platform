@@ -13,9 +13,10 @@
 | HTTP | Identity 路径 | 凭据 / 输入 | 成功 `data` |
 | --- | --- | --- | --- |
 | POST | `/api/Auth/login` | JSON `{ account, password, replaceExistingSession? }`，匿名可调用 | `AccessTokenDto`，设置 Refresh Cookie |
+| POST | `/api/Auth/ldapLogin` | JSON `{ employeeNo, password, replaceExistingSession? }`，匿名可调用 | `LdapLoginResultDto`，仅已开通账号设置 Refresh Cookie |
 | POST | `/api/Auth/refresh` | Refresh Cookie，Access 可过期 | `AccessTokenDto`，轮换 Cookie |
 | POST | `/api/Auth/logout` | Refresh Cookie 或有效 Bearer；无凭据也成功 | 无，删除 Cookie |
-| GET | `/api/Auth/me` | 有效 Bearer | `{ id, account, displayName, isAdministrator, roles, permissions, sbus, menus }` |
+| GET | `/api/Auth/me` | 有效 Bearer | `{ id, account, displayName, authType, canChangePassword, isAdministrator, roles, permissions, sbus, menus }` |
 | PUT | `/api/Auth/changePassword` | 有效 Bearer，JSON `{ currentPassword, newPassword }` | 无，撤销会话并删除 Cookie |
 
 Auth 的 POST / PUT 均须请求头 `X-Identity-CSRF: 1`，缺少或不匹配返回 `403 / 600005`。登录账号必填、最多 8 字符，密码必填、最多 72 UTF-8 字节；当前密码同样最多 72 字节，新密码至少 8 字符且最多 72 UTF-8 字节。参数错误返回 `400 / 600001`。密码不 Trim。
@@ -41,16 +42,40 @@ Auth 的 POST / PUT 均须请求头 `X-Identity-CSRF: 1`，缺少或不匹配返
 
 Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie。会话默认 15 分钟 / 7 天绝对有效期、每次刷新替换旧 Access / Refresh、旧 Refresh 重放撤销对应会话。Cookie 属性、CSRF 原因、并发刷新要求和管理员配置见[登录与会话](authentication.md)。认证响应不缓存。
 
+### OA 登录
+
+`/api/Auth/ldapLogin` 与本地登录并行存在，账号体系互不相通：本地账号只能用 `/login`，OA 账号只能用 `/ldapLogin`。工号必填、最多 32 字符并按字符串原样 Trim，密码必填、最多 1024 字符，不套用本地密码强度规则。响应 `data` 只有 `status`、可空 `created` 和可空 `tokens`：
+
+| `status` | `created` | `tokens` | 含义与副作用 |
+| --- | --- | --- | --- |
+| `Authenticated` | 省略 | `AccessTokenDto` | 目录认证通过、账号已审批且启用，已建立会话并设置 Refresh Cookie |
+| `PendingApproval` | `true` | 省略 | 首次申请，已生成待审批账号和 UserId，未建立会话、不写 Cookie |
+| `PendingApproval` | `false` | 省略 | 已有待审批记录，本次仍不建立会话、不写 Cookie |
+
+`PendingApproval` 使用 HTTP 200 与 `code=0`，用 `status` 区分，前端不能只凭 HTTP 状态判断登录成功。待审批时不会覆盖浏览器里另一个有效登录的 Cookie。
+
+| 情况 | HTTP / code | 说明 |
+| --- | --- | --- |
+| 目录认证失败、工号不存在、本地同账号不可用 | `401 / 600401` | 统一无效凭据，不区分账号是否存在 |
+| 已有有效会话且未传 `replaceExistingSession=true` | `409 / 600003` | `data={ reason: "AlreadyOnline" }`，语义与本地登录一致 |
+| 同一工号在窗口内失败次数超限 | `429 / 600429` | 保护 AD 账号不被锁定，窗口到期自动放开 |
+| OA 登录未启用 | `503 / 600503` | `data={ reason: "LdapDisabled" }`，本地登录不受影响 |
+| 目录不可达、超时、结果不唯一或缺少唯一标识 | `503 / 600503` | `data.reason` 取 `LdapUnavailable` / `LdapAmbiguousResult` / `DirectoryIdentityIncomplete` |
+
+目录故障与凭据错误严格分开：故障不消耗工号失败次数，也不返回 401，避免运维误判为密码问题。
+
 ## 访问控制
 
 受保护接口使用 `Authorization: Bearer <accessToken>`；先由标准 JwtBearer 验证 JWT，再检查 Redis 当前会话及 `jti`。缺少、签名无效、Issuer / Audience 不匹配、过期或撤销返回 `401 / 600401`，身份有效但不满足权限返回 `403 / 600005`。除匿名认证动作外，新接口默认要求登录。
 
-用户、SBU及角色接口按功能权限授权，权限来自用户绑定的启用角色。`Users/updateDisplayName` 允许已登录用户修改自己的名称，修改他人需要 `identity.user.rename`。修改密码只通过 `Auth/changePassword` 本人验证旧密码。`Auth/me` 的 `roles` 是有效角色编码数组，`permissions` 是权限代码数组，内置管理员的数组包含全部当前权限；`sbus` 只含当前用户已关联、未删除且启用的 SBU，每项为 `{ id, code, name, isDefault }`，无关联时为 `[]`。管理员不会因此自动获得所有 SBU 的普通业务数据范围。初始化、缓存与管理员保护见[角色与权限](authorization.md)。业务接口的服务端 SBU 访问校验仍待实现。
+用户、SBU及角色接口按功能权限授权，权限来自用户绑定的启用角色。`Users/updateDisplayName` 允许已登录用户修改自己的名称，修改他人需要 `identity.user.rename`。修改密码只通过 `Auth/changePassword` 本人验证旧密码；OA 账号没有本地密码，`Auth/me` 的 `canChangePassword=false`，调用改密返回 `403 / 600005`，提示去 OA 侧修改。`Auth/me` 的 `roles` 是有效角色编码数组，`permissions` 是权限代码数组，内置管理员的数组包含全部当前权限；`sbus` 只含当前用户已关联、未删除且启用的 SBU，每项为 `{ id, code, name, isDefault }`，无关联时为 `[]`。管理员不会因此自动获得所有 SBU 的普通业务数据范围。初始化、缓存与管理员保护见[角色与权限](authorization.md)。业务接口的服务端 SBU 访问校验仍待实现。
 
 | 接口动作 | 所需权限 |
 | --- | --- |
 | Users/getUser、getUserList | `identity.user.read` |
 | Users/add | `identity.user.create` |
+| Users/ldapLookup、addLdap | `identity.user.create` |
+| Users/approveLdap、rejectLdap | `identity.user.approve` |
 | Users/setUserEnable、setUserDisable | `identity.user.status` |
 | Users/logicDelete、batchDelete | `identity.user.delete` |
 | Users/restore | `identity.user.restore` |
@@ -80,12 +105,45 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 | PUT  | `/api/Users/batchDelete`         | JSON Guid 数组                | 无                |
 | PUT  | `/api/Users/restore`             | query `id`                    | 无                |
 | PUT  | `/api/Users/updateUserSbus` | JSON `{ userId, sbuIds }` | 无                |
+| GET  | `/api/Users/ldapLookup`          | query `employeeNo`            | `LdapUserLookupResultDto` |
+| POST | `/api/Users/addLdap`             | JSON `CreateLdapUserDto`      | `LdapUserCreatedDto`，HTTP 201 |
+| PUT  | `/api/Users/approveLdap`         | JSON `ApproveLdapUserDto`     | 无                |
+| PUT  | `/api/Users/rejectLdap`          | JSON `RejectLdapUserDto`      | 无                |
 
 注意软删除接口实际使用 **PUT `logicDelete`**，不是 HTTP DELETE。修改显示名称和SBU关系是两个独立用例，并非一个整体用户更新接口。
 
 `forceLogout` 要求 `identity.user.forceLogout`，用户不存在返回 404；已有或已无会话均返回 200。只下线、不禁用，允许随后重新登录。禁用、删除会自动撤销会话，无需先调用下线接口。禁用及删除（含批量）不能包含操作者本人；操作其他内置管理员还要求操作者为内置管理员。并发竞争及 Redis 写入失败时数据库可能已提交的边界见[登录与会话](authentication.md#禁用删除和改密码)。
 
 源码：[UsersController.cs](../Services/Identity/ZX.Platform.Identity.Api/Controllers/UsersController.cs)、[用户 DTO](../Services/Identity/ZX.Platform.Identity.Application/Users/Dtos)。
+
+### 管理员查询与预开通 OA 账号
+
+管理员不需要员工提供 OA 密码，也不需要员工先登录。`ldapLookup` 只读目录，`addLdap` 才创建数据；两者都要求 `identity.user.create`，审批动作单独要求 `identity.user.approve`。`approveLdap` 会同时写入角色和 SBU，因此还要求 `identity.user.roles` 与 `identity.user.sbus`；只有 `identity.user.approve` 的账号可以拒绝，但不能审批通过。
+
+`ldapLookup` 结果 `LdapUserLookupResultDto` 字段：`found`、`employeeNo`、可空 `displayName` / `department`、`directoryStatus`（`Enabled` / `Disabled` / `Unknown`）、`canProvision` 和可空 `reason`。不返回 DN、服务账号、目录地址或员工密码。`directoryStatus` 用 `userAccountControl` 判断，`Unknown` 表示目录未给出状态属性。
+
+工号在目录中不存在时仍返回 `200 / 0`，用 `found=false`、`canProvision=false`、`reason=LdapUserNotFound` 表达，便于页面区分“没有这个人”和“目录不可用”。`canProvision=false` 时 `reason` 取值：
+
+| `reason` | 含义与处理 |
+| --- | --- |
+| `LdapUserNotFound` | 目录中无此工号，核对工号或等待 OA 建档 |
+| `DirectoryDisabled` | 目录账号已禁用，先在 OA 侧处理 |
+| `DirectoryStateUnknown` / `DirectoryIdentityIncomplete` | 状态或唯一标识缺失，不能建立可复用身份 |
+| `AccountExists` | 本地已有同工号账号；查详情确认，不自动合并 |
+| `AccountTypeConflict` | 同名账号是本地账号，必须改名或改用本地登录 |
+| `IdentityConflict` | 同一目录唯一标识已绑定到另一个账号 |
+
+目录不可达、超时或结果多条不属于查询结果，而是依赖故障：返回 `503 / 600503`，`data.reason` 分别为 `LdapUnavailable`、`LdapAmbiguousResult`，`LdapDisabled` 表示 OA 登录未启用。目录记录缺少登录名或工号属性、或返回的工号与查询值不一致时同样按 `503 / 600503` 处理，服务端不会用请求参数补上缺失的身份字段——那会让属性配置错误看起来像查询成功。
+
+`reason` 只是服务端结论的展示快照，提交 `addLdap` 时服务端会重新查询目录并重新判定，前端不能把 `canProvision=true` 当成可跳过服务端校验的依据。
+
+`CreateLdapUserDto`：`employeeNo` 必填、最多 32 字符；`openImmediately` 决定一次完成开通还是只建待审批记录；`roleIds`、`sbuIds` 为 Guid 数组；可空 `reason` 最多 500 字符。`openImmediately=true` 要求至少一个有效角色和至少一个启用 SBU，一次完成创建、审批和授权；`openImmediately=false` 不能携带角色或 SBU，否则返回 `400 / 600001`。账号的姓名与唯一标识一律由服务端查询目录得出，客户端传了也不采纳。返回 `LdapUserCreatedDto`：`id`、`approvalStatus`、`isEnabled`、`securityVersion`。
+
+`ApproveLdapUserDto`：`id`、`roleIds`、`sbuIds`、必填 `expectedSecurityVersion`、可空 `reason`。审批在同一事务中完成状态变更、角色与 SBU 分配；`expectedSecurityVersion` 与库中不一致说明列表已过期，返回 `409 / 600004` 且不覆盖，需刷新后重试。审批只接受 `Pending` 和 `Rejected`；`Approved` 一律返回 `409 / 600004`，已通过后被禁用的账号必须走 `setUserEnable`，不能借审批恢复启用（那会绕过 `identity.user.status`）。角色替换同时受管理员保护约束：目标是现任管理员或将被设为管理员时，只有管理员能执行。`RejectLdapUserDto` 结构相同但不含角色和 SBU，拒绝后该工号再登录仍显示待审批，不自动重建账号；被拒绝的账号可以在之后重新审批。
+
+预开通和审批失败时的冲突沿用统一业务码：目录不可用 `503 / 600503`、账号或身份重复 `409 / 600003`、状态不允许（例如账号已删除、已通过后再次审批、已通过后重复拒绝、本地账号走 OA 审批）`409 / 600004`、并发版本冲突 `409 / 600004`。
+
+每次预开通、通过、拒绝和重新审核都会向 `ZX_IDENTITY_USER_APPROVAL_AUDIT` 追加一条记录，含操作人、动作、前后状态、审核原因、角色与 SBU 快照和 TraceId。用户表上的 `ReviewedByUserId` / `ReviewedAtUtc` / `ReviewReason` 只表示最近一次审核，重新审核会覆盖，不能当历史使用。
 
 ## 用户请求字段
 
@@ -197,6 +255,8 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 | `pageSize`       | 默认 20，1～10000                    | 支持                     |
 | `keyword`        | 可选，Trim 后搜索                    | 账号或显示名称包含关键字 |
 | `isEnabled`      | 可选 bool；省略表示不筛状态          | 支持                     |
+| `authType`       | 可选，`LOCAL` / `LDAP`               | 按认证类型筛选           |
+| `approvalStatus` | 可选，`Pending` / `Approved` / `Rejected` | 按开通审批状态筛选，待审批视图用 `Pending` |
 | `sbuId`      | 可选 Guid                            | 按关系筛选               |
 | `createdFromUtc` | 可选 DateTimeOffset，ISO 8601 带偏移 | 创建时间下界，包含该时刻 |
 | `createdToUtc`   | 可选 DateTimeOffset，ISO 8601 带偏移 | 创建时间上界，不包含该时刻 |
@@ -220,7 +280,7 @@ SBU列表的 `data` 直接是 `SbuDetailDto` 数组，没有 `list` / `total` �
 
 `message` 是展示提示，以当前语言资源为准，不作为固定协议字符串。
 
-`UserDetailDto` 字段为 `id`、`account`、`displayName`、`isEnabled`、`createdAtUtc`、可空 `updatedAtUtc` 和 `sbuIds`。`SbuDetailDto` 为 `id`、`code`、`name`、`isEnabled`、`createdAtUtc` 和可空 `updatedAtUtc`。空字段可被序列化省略；Guid 是字符串，时间字段数据库存 UTC，接口以带 `Z` / `+00:00` 偏移的 ISO 8601 输出，见[时间字段格式](http.md#时间字段格式)。
+`UserDetailDto` 字段为 `id`、`account`、`displayName`、`isEnabled`、`createdAtUtc`、可空 `updatedAtUtc`、`sbuIds`、`authType`、可空 `employeeNo`、`approvalStatus`、可空 `reviewedByUserId` / `reviewedAtUtc` / `reviewReason` 和 `securityVersion`。`authType` 为 `LOCAL` 或 `LDAP`；`employeeNo` 只有 OA 账号有值；`securityVersion` 用于审批类操作的并发校验。`SbuDetailDto` 为 `id`、`code`、`name`、`isEnabled`、`createdAtUtc` 和可空 `updatedAtUtc`。空字段可被序列化省略；Guid 是字符串，时间字段数据库存 UTC，接口以带 `Z` / `+00:00` 偏移的 ISO 8601 输出，见[时间字段格式](http.md#时间字段格式)。
 
 启用SBU列表排除已删除和已停用SBU；`getSbuList` 返回全部未删除SBU（含已停用），两者都不分页，后者按创建时间倒序、再按 Id 排序。用户详情的 `sbuIds` 表示保存的关系，不保证这些SBU现在仍启用。
 

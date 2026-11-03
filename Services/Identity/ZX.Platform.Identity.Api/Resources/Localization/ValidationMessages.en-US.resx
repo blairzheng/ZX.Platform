@@ -36,4 +36,10 @@
   <data name="Validation.MenuSort" xml:space="preserve"><value>Sort order must be between 0 and 10000.</value></data>
   <data name="Validation.MenuLauncherTone" xml:space="preserve"><value>Invalid menu grid color.</value></data>
   <data name="Validation.MenuCode" xml:space="preserve"><value>Menu codes must start with a letter and contain only letters, numbers, underscores and hyphens.</value></data>
+  <data name="Validation.EmployeeNoRequired" xml:space="preserve"><value>Enter the employee number.</value></data>
+  <data name="Validation.EmployeeNoMaxLength" xml:space="preserve"><value>The employee number cannot exceed 32 characters.</value></data>
+  <data name="Validation.LdapPasswordMaxLength" xml:space="preserve"><value>The password is too long.</value></data>
+  <data name="Validation.ReviewReasonMaxLength" xml:space="preserve"><value>The review note cannot exceed 500 characters.</value></data>
+  <data name="Validation.SecurityVersionRequired" xml:space="preserve"><value>The account security version is missing. Please refresh and try again.</value></data>
+  <data name="Validation.UserRequired" xml:space="preserve"><value>The user identifier is missing.</value></data>
 </root>

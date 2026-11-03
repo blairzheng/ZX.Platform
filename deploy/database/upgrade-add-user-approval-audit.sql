@@ -1,0 +1,45 @@
+-- MOM Oracle 19c / SAJET: UPGRADE.
+-- Run the whole block once after verifying the connected service and login.
+-- Review this generated script before execution; the connected service and login must be checked by the DBA.
+-- DDL commits implicitly; errors can leave partial changes.
+-- On error stop and inspect; do not drop existing objects or rerun automatically.
+DECLARE
+    v_count INTEGER;
+    v_last VARCHAR2(150);
+BEGIN
+    SELECT MAX("MigrationId") INTO v_last FROM "SAJET"."ZX_IDENTITY_MIGRATIONS";
+    IF v_last IS NULL OR v_last <> '20261102111516_AddLdapAccountApproval' THEN
+        RAISE_APPLICATION_ERROR(-20003, 'Unexpected current migration; stop this upgrade.');
+    END IF;
+    EXECUTE IMMEDIATE q'~BEGIN 
+EXECUTE IMMEDIATE 'CREATE TABLE 
+"SAJET"."ZX_IDENTITY_USER_APPROVAL_AUDIT" (
+    "ID" RAW(16) NOT NULL,
+    "TARGET_USER_ID" RAW(16) NOT NULL,
+    "TARGET_ACCOUNT" NVARCHAR2(100) NOT NULL,
+    "TARGET_EMPLOYEE_NO" NVARCHAR2(32) NOT NULL,
+    "ACTION" NVARCHAR2(32) NOT NULL,
+    "FROM_STATUS" NVARCHAR2(32) NOT NULL,
+    "TO_STATUS" NVARCHAR2(32) NOT NULL,
+    "ACTOR_USER_ID" RAW(16) NOT NULL,
+    "REASON" NVARCHAR2(500),
+    "ROLE_IDS" NVARCHAR2(2000),
+    "SBU_IDS" NVARCHAR2(2000),
+    "TRACE_ID" NVARCHAR2(64),
+    "CREATED_AT_UTC" TIMESTAMP(7) WITH TIME ZONE NOT NULL,
+    "CREATED_BY_USER_ID" RAW(16),
+    "UPDATED_AT_UTC" TIMESTAMP(7) WITH TIME ZONE,
+    "UPDATED_BY_USER_ID" RAW(16),
+    CONSTRAINT "PK_ZX_IDENTITY_USER_APPROVAL_AUDIT" PRIMARY KEY ("ID")
+)';
+END;~';
+
+    EXECUTE IMMEDIATE q'~CREATE INDEX "SAJET"."IX_ZX_IDENTITY_USER_APPROVAL_AUDIT_CREATED_AT_UTC" ON "SAJET"."ZX_IDENTITY_USER_APPROVAL_AUDIT" ("CREATED_AT_UTC")~';
+
+    EXECUTE IMMEDIATE q'~CREATE INDEX "SAJET"."IX_ZX_IDENTITY_USER_APPROVAL_AUDIT_TARGET_USER_ID_CREATED_AT_UTC" ON "SAJET"."ZX_IDENTITY_USER_APPROVAL_AUDIT" ("TARGET_USER_ID", "CREATED_AT_UTC")~';
+
+    EXECUTE IMMEDIATE q'~INSERT INTO "SAJET"."ZX_IDENTITY_MIGRATIONS" ("MigrationId", "ProductVersion")
+VALUES (N'20261102144318_AddUserApprovalAudit', N'10.0.12')~';
+    COMMIT;
+END;
+/

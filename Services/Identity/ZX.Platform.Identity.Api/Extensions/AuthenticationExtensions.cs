@@ -33,6 +33,16 @@ public static class AuthenticationExtensions
         redisConfiguration.BacklogPolicy = BacklogPolicy.FailFast;
         services.AddSingleton(redis);
         services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConfiguration));
+
+        // LDAP 只做本地配置校验，不在启动时连接远端；目录不可达不能阻止 Identity 启动。
+        var ldap = configuration.GetSection("AuthenticationLdap").Get<LdapOptions>() ?? new LdapOptions();
+        Validator.ValidateObject(ldap, new ValidationContext(ldap), validateAllProperties: true);
+        ldap.Validate();
+        services.AddSingleton(ldap);
+        services.AddSingleton<LdapAuthenticationService>();
+        services.AddSingleton<ILdapAuthenticator>(provider => provider.GetRequiredService<LdapAuthenticationService>());
+        services.AddSingleton<ILdapDirectory>(provider => provider.GetRequiredService<LdapAuthenticationService>());
+        services.AddSingleton<ILdapLoginGuard, RedisLdapLoginGuard>();
         var jwt = configuration.GetSection("AuthenticationJwt").Get<JwtOptions>() ?? new JwtOptions();
         Validator.ValidateObject(jwt, new ValidationContext(jwt), validateAllProperties: true);
         var validation = jwt.CreateValidationParameters();

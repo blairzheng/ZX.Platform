@@ -34,6 +34,7 @@
 | 增加中英文提示      | [API 多语言](localization.md)    | Accept-Language、资源、DTO 校验与异常消息键   |
 | 调整请求频率        | [接口限流](rate-limiting.md)     | 配置、分段窗口、可信代理与计数边界            |
 | 联调登录与会话      | [登录与会话](authentication.md) | Redis、Cookie、接管、强制下线及并发边界 |
+| 开发 OA 登录与开通审批 | [OA / LDAP 登录实施方案](oa-ldap-login-implementation.md) | 待开发契约：两类账号、LDAP 配置、首次申请、审批、迁移和验收 |
 | 管理角色与权限 | [角色与权限](authorization.md) | 管理员 SQL、权限目录、菜单树授权、动态菜单及缓存失效 |
 | 设计下一阶段        | [后续规划与设计取舍](roadmap.md) | 认证、SBU权限、幂等、日志和基础设施          |
 | 并行推进 SBU / MES 与低代码 | [两条工作线交接](sbu-mes-lowcode-handoff.md) | 当前契约、实施顺序、分工、验收和待提供资料 |

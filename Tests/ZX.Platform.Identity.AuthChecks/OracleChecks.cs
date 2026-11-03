@@ -26,7 +26,7 @@ internal static class OracleChecks
         await using var transaction = await db.Database.BeginTransactionAsync();
         var suffix = Guid.NewGuid().ToString("N");
         var account = suffix[..8];
-        var user = User.Create(account, "Oracle 中文校验", "integration-check-never-used-for-login");
+        var user = User.CreateLocal(account, "Oracle 中文校验", "integration-check-never-used-for-login");
         var sbu = Sbu.Create("check-" + suffix, "Oracle 测试SBU");
         var role = Role.Create("CHECK_" + suffix, "Oracle 测试角色");
         db.AddRange(user, sbu, role);
@@ -60,7 +60,7 @@ internal static class OracleChecks
         Check.That((await repository.GetUsersAsync([user.Id, Guid.NewGuid()], default)).Single().Id == user.Id,
             "Oracle must translate Guid collection membership.");
 
-        await DuplicateAsync(User.Create(account.ToUpperInvariant(), "重复账号", "test-only"));
+        await DuplicateAsync(User.CreateLocal(account.ToUpperInvariant(), "重复账号", "test-only"));
         await DuplicateAsync(Page("duplicate-page", path));
         await DuplicateAsync(Action("duplicate-action"));
 
@@ -72,7 +72,7 @@ internal static class OracleChecks
         await db.SaveChangesAsync();
         Check.That(!await db.Menus.AnyAsync(item => item.Id == page.Id) &&
             !await db.Users.AnyAsync(item => item.Id == user.Id), "Oracle must apply soft-delete filters.");
-        await DuplicateAsync(User.Create(account, "删除后仍不可复用账号", "test-only"));
+        await DuplicateAsync(User.CreateLocal(account, "删除后仍不可复用账号", "test-only"));
         db.AddRange(Page("reused-page", path), Action("reused-action"));
         await db.SaveChangesAsync();
         loadedPage.Restore();

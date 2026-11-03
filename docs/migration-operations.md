@@ -122,6 +122,67 @@ python3 deploy/docker/export-oracle19-sql.py \
 
 全新正式库没有迁移历史时，不使用上述增量命令；首次初始化和首个管理员创建按[数据库初始化与重建](database-initialization.md)执行。
 
+## OA 登录升级（已生成）
+
+`20261102111516_AddLdapAccountApproval` 的增量脚本已生成并纳入仓库：`deploy/database/upgrade-add-ldap-account-approval.sql`。目标 schema `SAJET`，起点 `20261030100000_AddMenuLauncherMetadata`，终点 `20261102111516_AddLdapAccountApproval`，采用 `--session-agnostic`，执行前由 DBA 在同一会话确认库、登录账号与当前版本。
+
+只在该迁移代码未变化时复用这份文件；迁移文件、目标 schema 或起点版本任何一项变化都要重新生成，不能机械重发。重新生成命令：
+
+```bash
+cd /Users/luxshare-ict/Desktop/project/ZX.Platform
+FROM_MIGRATION='20261030100000_AddMenuLauncherMetadata'
+TO_MIGRATION='20261102111516_AddLdapAccountApproval'
+
+dotnet ef migrations script "$FROM_MIGRATION" "$TO_MIGRATION" \
+  --context PlatformIdentityDbContext \
+  --project Services/Identity/ZX.Platform.Identity.Infrastructure \
+  --startup-project Services/Identity/ZX.Platform.Identity.Api \
+  --output output/mom-deploy/ldap-upgrade.generated.sql
+
+python3 deploy/docker/export-oracle19-sql.py \
+  output/mom-deploy/ldap-upgrade.generated.sql \
+  deploy/database/upgrade-add-ldap-account-approval.sql \
+  SAJET --session-agnostic \
+  --from-migration "$FROM_MIGRATION" \
+  --to-migration "$TO_MIGRATION"
+```
+
+执行前必须核对的三点：
+
+- 脚本按 `FROM_MIGRATION` 校验迁移历史，当前版本不符会直接 `RAISE_APPLICATION_ERROR(-20003)` 停止，不要改这段校验来绕过。
+- 会先重命名账号唯一索引为 `UX_ZID_USER_ACCOUNT`。该索引不存在或已被改名时，说明库不在预期状态，停止并核实，不要手工补建。
+- 迁移不删除任何表或列，只加列、加索引、加 CHECK 约束并放宽 `PASSWORD_HASH` 可空；存量用户按 `LOCAL / Approved / SECURITY_VERSION=1` 补齐，密码哈希、角色和 SBU 不动。
+
+执行后重新查询迁移历史，应出现 `20261102111516_AddLdapAccountApproval`；并确认 `ZX_IDENTITY_USER` 上有四个 `CK_ZID_USER_*` 约束与四个新索引。升级会让已存在的登录会话在刷新时失效，用户需重新登录一次，属于预期行为。
+
+## 审批审计表（已生成）
+
+`20261102144318_AddUserApprovalAudit` 的增量脚本：`deploy/database/upgrade-add-user-approval-audit.sql`。目标 schema `SAJET`，起点 `20261102111516_AddLdapAccountApproval`，终点 `20261102144318_AddUserApprovalAudit`，同样采用 `--session-agnostic`。
+
+这条迁移只建 `ZX_IDENTITY_USER_APPROVAL_AUDIT` 和两个索引，不改任何既有表或行，可以在 OA 登录已上线后单独执行。前置校验会要求迁移历史停在 `20261102111516`；如果目标库还没执行上一条，先执行账号审批脚本。重新生成时把 `FROM_MIGRATION` / `TO_MIGRATION` 换成上面两个版本，输出文件名改为 `upgrade-add-user-approval-audit.sql`。
+
+执行后确认表与索引存在，并抽查一条预开通或审批记录能写入 `ACTION`、`FROM_STATUS`、`TO_STATUS`、`ACTOR_USER_ID` 和 `TRACE_ID`。审计表只追加，运维不应手工 `UPDATE` 或 `DELETE`；需要清理只能按保留期整批归档。
+
+## 审计快照容量（已生成）
+
+`20261102150741_WidenApprovalAuditSnapshot` 的增量脚本：`deploy/database/upgrade-widen-approval-audit-snapshot.sql`。目标 schema `SAJET`，起点 `20261102144318_AddUserApprovalAudit`，终点 `20261102150741_WidenApprovalAuditSnapshot`。
+
+`ROLE_IDS` / `SBU_IDS` 存逗号分隔的 32 位 GUID，61 个不同 GUID 拼接后为 2012 字符，超过原 `NVARCHAR2(2000)`，会让一次合法审批因为写审计而整笔失败。**Oracle 不允许把字符列直接 `MODIFY` 成 `CLOB`（ORA-22858）**，所以迁移按“新增 `*_CLOB` 列 → `TO_CLOB` 复制原值 → 删除旧列 → `RENAME COLUMN` 改名”执行。复制而不是截断，既有审计证据原样保留；列顺序会变化，但所有访问都按列名，不影响应用。
+
+**执行前提（2026-11-03 补充）：迁移期间审计表必须没有并发写入。**当前脚本的复制、删列和改名不是一个原子操作；Oracle DDL 会隐式提交。复制后新增的审批记录可能没有写入临时 CLOB 列，删除旧列会丢失这些记录的快照。本轮保留现有迁移与 SQL 实现，以以下发布顺序控制该风险：
+
+1. 首次上线 OA 功能时，在启动支持 OA 的新版 Identity 前完成三条增量迁移。按实际迁移历史依次执行账号审批、审批审计、快照扩容脚本；先确认目标库确实没有支持 OA 审批的运行实例或其他审计表写入者。
+2. 若目标库已经有 OA 审批功能在运行，先停止全部相关 Identity 实例及其他写入者，等待在途审批、预开通事务结束。仅关闭一个页面或停止一个节点不足以满足停写条件。涉及该表的回退同样需要停写。
+3. 确认服务、schema、起点版本，备份审计表，并保存迁移前行数及逐行 `ROLE_IDS` / `SBU_IDS` 快照。
+4. 执行扩容脚本；失败时保持停写，核对实际列与迁移历史，按已完成步骤处理，不能直接重跑或依赖事务回滚撤销全部 DDL。
+5. 核对终点版本为 `20261102150741_WidenApprovalAuditSnapshot`、两列为 `CLOB`、行数和既有快照内容与备份一致，再启动相应应用版本、恢复审批与预开通入口，并验收一条完整写入流程。
+
+若不能保证整个窗口无写入，应先安排维护窗口或另行设计支持并发写入的迁移方式；本脚本不支持在线并发审批扩容。此项操作约束属于本次发布要求，其他延期事项见[实施方案 10.7 节](oa-ldap-login-implementation.md#107-本轮延期决定与联调安排2026-11-03)。
+
+- 前置校验要求迁移历史停在 `20261102144318`；未执行审计表脚本时先执行上一条。
+- 回退（`Down`）会先检查是否有超过 2000 字符的快照，有则 `RAISE_APPLICATION_ERROR(-20010)` 停止，不会截断数据。
+- 执行后确认 `ROLE_IDS`、`SBU_IDS` 的 `DATA_TYPE` 为 `CLOB`；本地 Oracle 19c 已用 SQL 探针插入 2012 字符并回滚，并用 EF 以 80 个角色 + 80 个 SBU（各 2639 字符）写入后读回一致，探针数据已删除。
+
 ## 常见错误
 
 | 现象 | 原因与处理 |

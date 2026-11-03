@@ -79,6 +79,17 @@ namespace ZX.Platform.Identity.Api.ErrorHandling
                     "数据库唯一约束冲突。TraceId={TraceId}",
                     traceId);
             }
+            else if (exception is ConcurrencyConflictException)
+            {
+                statusCode = StatusCodes.Status409Conflict;
+                code = ErrorCodes.InvalidState;
+                message = _messages["Error.ConcurrentUpdate"].Value;
+
+                _logger.LogWarning(
+                    exception,
+                    "数据库并发令牌冲突。TraceId={TraceId}",
+                    traceId);
+            }
             else
             {
                 _logger.LogError(
@@ -141,6 +152,10 @@ namespace ZX.Platform.Identity.Api.ErrorHandling
 
                 ErrorCodes.TooManyRequests =>
                     StatusCodes.Status429TooManyRequests,
+
+                // 依赖服务（Redis、LDAP）不可用必须映射为 503，不能落到 500。
+                ErrorCodes.ServiceUnavailable =>
+                    StatusCodes.Status503ServiceUnavailable,
 
                 _ =>
                     StatusCodes.Status500InternalServerError

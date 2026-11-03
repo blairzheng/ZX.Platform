@@ -1,6 +1,7 @@
 using ZX.Platform.Identity.Application.Authentication;
 using ZX.Platform.Identity.Application.Authentication.Dtos;
 using ZX.Platform.Identity.Application.Exceptions;
+using ZX.Platform.Identity.Application.Errors;
 using ZX.Platform.Identity.Application.Persistence;
 using ZX.Platform.Identity.Application.Security;
 using ZX.Platform.Identity.Application.Users;
@@ -55,7 +56,21 @@ internal sealed class TestUsers : IUserRepository
         Task.FromResult(Items.FirstOrDefault(user => user.Id == id));
     public Task<User?> GetByNormalizedAccountAsync(string account, CancellationToken token) =>
         Task.FromResult(Items.FirstOrDefault(user => user.NormalizedAccount == account));
-    public void Add(User user) => Items.Add(user);
+    public void Add(User user)
+    {
+        // 模拟数据库唯一约束：账号、工号和目录身份都不能重复。
+        if (Items.Any(item => item.NormalizedAccount == user.NormalizedAccount ||
+                              (user.EmployeeNo is not null && item.EmployeeNo == user.EmployeeNo) ||
+                              (user.LdapSubject is not null && item.LdapProvider == user.LdapProvider &&
+                               item.LdapSubject == user.LdapSubject)))
+            throw new UniqueConstraintException("duplicate", new InvalidOperationException("duplicate"));
+        Items.Add(user);
+    }
+    public void Detach(User user) => Items.Remove(user);
+    public Task<User?> GetByEmployeeNoAsync(string employeeNo, CancellationToken token) =>
+        Task.FromResult(Items.FirstOrDefault(user => user.EmployeeNo == employeeNo));
+    public Task<User?> GetByLdapIdentityAsync(string provider, string subject, CancellationToken token) =>
+        Task.FromResult(Items.FirstOrDefault(user => user.LdapProvider == provider && user.LdapSubject == subject));
     public Task<List<User>> GetUsersAsync(List<Guid> ids, CancellationToken token) =>
         Task.FromResult(Items.Where(user => ids.Contains(user.Id) && !user.IsDeleted).ToList());
     public Task<(List<User>, int count)> GetPageListAsync(UserQueryDto query, CancellationToken token) =>
@@ -129,8 +144,93 @@ internal sealed class TestSbus : ISbuRepository
     public void Add(Sbu sbu) => Items.Add(sbu);
 }
 
-internal sealed class TestUserSbus : IUserSbuRepository
+/// <summary>
+/// 替代目录适配器：支持按工号查询、错误密码、禁用账号、依赖故障和多条结果。
+/// </summary>
+internal sealed class TestLdap : ILdapAuthenticator, ILdapDirectory
 {
+    public sealed record Entry(string EmployeeNo, string Password, string Account, string DisplayName,
+        string Department, string Provider, string? Subject, string Status);
+
+    public List<Entry> Entries { get; } = [];
+    public bool IsEnabled { get; set; } = true;
+    public bool Unavailable { get; set; }
+    public bool Ambiguous { get; set; }
+    public int AuthenticateCalls { get; private set; }
+
+    public Task<LdapDirectoryUser?> FindByEmployeeNoAsync(string employeeNo, CancellationToken cancellationToken)
+    {
+        if (Unavailable) throw new LdapUnavailableException("LdapUnavailable");
+        if (Ambiguous) throw new LdapAmbiguousResultException("多条目录记录。");
+        var entry = Entries.FirstOrDefault(item => item.EmployeeNo == employeeNo);
+        return Task.FromResult(entry is null ? null : ToUser(entry));
+    }
+
+    public Task<LdapDirectoryUser> AuthenticateAsync(
+        string employeeNo, string password, CancellationToken cancellationToken)
+    {
+        AuthenticateCalls++;
+        if (!IsEnabled) throw new LdapUnavailableException("LdapDisabled");
+        if (Unavailable) throw new LdapUnavailableException("LdapUnavailable");
+        if (Ambiguous) throw new LdapAmbiguousResultException("多条目录记录。");
+        var entry = Entries.FirstOrDefault(item => item.EmployeeNo == employeeNo);
+        if (entry is null || entry.Password != password)
+            throw new LdapInvalidCredentialsException("凭据无效。");
+        return Task.FromResult(ToUser(entry));
+    }
+
+    private static LdapDirectoryUser ToUser(Entry entry) => new(
+        entry.EmployeeNo, entry.Account, entry.DisplayName, entry.Department,
+        entry.Provider, entry.Subject, entry.Status);
+}
+
+/// <summary>
+/// 替代审批审计仓储，行为与数据库版本一致：只追加，按目标账号倒序读取。
+/// </summary>
+internal sealed class TestApprovalAudits : IUserApprovalAuditRepository
+{
+    public List<UserApprovalAudit> Items { get; } = [];
+
+    public void Add(UserApprovalAudit audit) => Items.Add(audit);
+
+    public Task<List<UserApprovalAudit>> GetByTargetUserIdAsync(
+        Guid targetUserId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(Items
+            .Where(audit => audit.TargetUserId == targetUserId)
+            .OrderByDescending(audit => audit.CreatedAtUtc)
+            .ToList());
+}
+
+/// <summary>
+/// 替代工号限频，行为与 Redis 版本一致：超限抛 429。
+/// </summary>
+internal sealed class TestLdapGuard : ILdapLoginGuard
+{
+    public Dictionary<string, int> Failures { get; } = [];
+    public int Limit { get; set; } = 3;
+
+    public Task EnsureAllowedAsync(string employeeNo, CancellationToken cancellationToken)
+    {
+        if (Failures.TryGetValue(employeeNo, out var count) && count >= Limit)
+            throw new BusinessException(ErrorCodes.TooManyRequests, "Auth.LdapTooManyAttempts");
+        return Task.CompletedTask;
+    }
+
+    public Task RecordFailureAsync(string employeeNo, CancellationToken cancellationToken)
+    {
+        Failures[employeeNo] = Failures.TryGetValue(employeeNo, out var count) ? count + 1 : 1;
+        return Task.CompletedTask;
+    }
+
+    public Task ResetAsync(string employeeNo, CancellationToken cancellationToken)
+    {
+        Failures.Remove(employeeNo);
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class TestUserSbus : IUserSbuRepository{
     public List<UserSbu> Items { get; } = [];
     public List<Sbu> Sbus { get; } = [];
     public Task<List<UserSbu>> GetByUserIdAsync(Guid id, CancellationToken token) =>
@@ -156,9 +256,12 @@ internal sealed class Fixture : IDisposable
     public TestMenus Menus { get; } = new();
     public TestSbus Sbus { get; } = new();
     public TestUserSbus UserSbus { get; } = new();
+    public TestLdap Ldap { get; } = new();
+    public TestLdapGuard LdapGuard { get; } = new();
     public RedisPermissionCache PermissionCache { get; }
     public TestUnitOfWork Unit { get; } = new();
     public RedisSessionOptions RedisOptions { get; } = new() { KeyPrefix = $"zx:identity:checks:{Guid.NewGuid():N}:" };
+    public TestApprovalAudits ApprovalAudits { get; } = new();
     public RedisAuthSessionStore Sessions { get; }
     public AuthService Auth { get; }
     public UserService UserService { get; }
@@ -172,9 +275,10 @@ internal sealed class Fixture : IDisposable
         PermissionCache = new(TestRedis.Connection, RedisOptions);
         DefaultMenus.AddMissing(Menus.Items, Menus.Add);
         Auth = new(Users, Unit, Passwords, Sessions, Options, Clock, new PermissionService(Roles, PermissionCache),
-            new MenuService(Menus, Unit), UserSbus, Sbus);
-        UserService = new(Users, Unit, Passwords, Sbus, UserSbus, Sessions, PermissionCache);
-        User = User.Create("ADMIN", "Administrator", Passwords.Hash("Example123!"));
+            new MenuService(Menus, Unit), UserSbus, Sbus, Ldap, LdapGuard);
+        UserService = new(Users, Unit, Passwords, Sbus, UserSbus, Sessions, PermissionCache, Roles,
+            new PermissionService(Roles, PermissionCache), Ldap, ApprovalAudits, Clock);
+        User = User.CreateLocal("ADMIN", "Administrator", Passwords.Hash("Example123!"));
         Users.Add(User);
         var administrator = Role.CreateAdministrator();
         Roles.Add(administrator);

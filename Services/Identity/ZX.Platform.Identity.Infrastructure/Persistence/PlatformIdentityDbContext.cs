@@ -65,6 +65,11 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
         public DbSet<Menu> Menus => Set<Menu>();
 
+        /// <summary>
+        /// OA 账号审批事件，只追加不修改。
+        /// </summary>
+        public DbSet<UserApprovalAudit> UserApprovalAudits => Set<UserApprovalAudit>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -80,6 +85,11 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence
             try
             {
                 return await base.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException exception)
+            {
+                // 并发令牌（安全版本）不一致：记录已被其他请求修改。
+                throw new ConcurrencyConflictException("保存数据时发生并发冲突。", exception);
             }
             catch (DbUpdateException exception)
             {

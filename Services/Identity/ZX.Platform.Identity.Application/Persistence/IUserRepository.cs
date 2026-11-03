@@ -30,9 +30,30 @@ namespace ZX.Platform.Identity.Application.Persistence
             CancellationToken cancellationToken);
 
         /// <summary>
+        /// 按工号查询用户，包含已经逻辑删除的用户。
+        /// 已删除或已拒绝的工号仍然占位，不能因为查不到未删除记录就重新建档。
+        /// </summary>
+        Task<User?> GetByEmployeeNoAsync(
+            string employeeNo,
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// 按目录来源和目录唯一标识查询用户，包含已经逻辑删除的用户。
+        /// </summary>
+        Task<User?> GetByLdapIdentityAsync(
+            string provider,
+            string subject,
+            CancellationToken cancellationToken);
+
+        /// <summary>
         /// 登记一个待新增用户，调用后不会立即写入数据库。
         /// </summary>
         void Add(User user);
+
+        /// <summary>
+        /// 取消对实体的跟踪，用于唯一约束冲突后重新读取真实记录。
+        /// </summary>
+        void Detach(User user);
 
         /// <summary>
         /// 获取用户分页列表

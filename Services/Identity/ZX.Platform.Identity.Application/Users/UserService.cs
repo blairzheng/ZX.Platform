@@ -1,4 +1,5 @@
-﻿using ZX.Platform.Identity.Application.Errors;
+﻿using System.Diagnostics;
+using ZX.Platform.Identity.Application.Errors;
 using ZX.Platform.Identity.Application.Exceptions;
 using ZX.Platform.Identity.Application.Authentication;
 using ZX.Platform.Identity.Application.Authorization;
@@ -14,13 +15,20 @@ namespace ZX.Platform.Identity.Application.Users
         private readonly IUserRepository _userRepository;
         private readonly IUserSbuRepository _userSbuRepository;
         private readonly ISbuRepository _sbuRepository;
+        private readonly IRoleRepository _roleRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IAuthSessionStore _sessions;
         private readonly IPermissionCache _permissionCache;
+        private readonly IPermissionService _permissions;
+        private readonly ILdapDirectory _ldapDirectory;
+        private readonly IUserApprovalAuditRepository _approvalAudits;
+        private readonly TimeProvider _timeProvider;
 
         public UserService(IUserRepository userRepository, IUnitOfWork unitOfWork, IPasswordHasher passwordHasher,
-            ISbuRepository sbuRepository, IUserSbuRepository userSbuRepository, IAuthSessionStore sessions, IPermissionCache permissionCache)
+            ISbuRepository sbuRepository, IUserSbuRepository userSbuRepository, IAuthSessionStore sessions,
+            IPermissionCache permissionCache, IRoleRepository roleRepository, IPermissionService permissions,
+            ILdapDirectory ldapDirectory, IUserApprovalAuditRepository approvalAudits, TimeProvider timeProvider)
         {
             _userRepository = userRepository;
             _unitOfWork = unitOfWork;
@@ -29,7 +37,13 @@ namespace ZX.Platform.Identity.Application.Users
             _userSbuRepository = userSbuRepository;
             _sessions = sessions;
             _permissionCache = permissionCache;
+            _roleRepository = roleRepository;
+            _permissions = permissions;
+            _ldapDirectory = ldapDirectory;
+            _approvalAudits = approvalAudits;
+            _timeProvider = timeProvider;
         }
+
         public async Task<Guid> CreateAsync(CreateUserDto createUser, CancellationToken cancellationToken)
         {
             var account = createUser.Account.Trim();
@@ -62,7 +76,7 @@ namespace ZX.Platform.Identity.Application.Users
                    );
             }
             var passwordHash = _passwordHasher.Hash(createUser.Password);
-            var user = User.Create(account, createUser.DisplayName, passwordHash);
+            var user = User.CreateLocal(account, createUser.DisplayName, passwordHash);
             await GetValidatedSbusAsync(createUser.SbuIds, cancellationToken);
             if (createUser.SbuIds.Count > 0)
             {
@@ -84,16 +98,7 @@ namespace ZX.Platform.Identity.Application.Users
 
             if (data == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
             var userSbus = await _userSbuRepository.GetByUserIdAsync(data.Id, cancellationToken);
-            return new UserDetailDto
-            {
-                Account = data.Account,
-                DisplayName = data.DisplayName,
-                Id = data.Id,
-                IsEnabled = data.IsEnabled,
-                CreatedAtUtc = data.CreatedAtUtc,
-                UpdatedAtUtc = data.UpdatedAtUtc,
-                SbuIds = userSbus.Select(f => f.SbuId).ToList()
-            };
+            return ToDetail(data, userSbus.Select(f => f.SbuId));
         }
 
         public async Task<(List<UserDetailDto>, int count)> GetPageListAsync(UserQueryDto userQuery, CancellationToken cancellationToken)
@@ -104,22 +109,20 @@ namespace ZX.Platform.Identity.Application.Users
                 throw new BusinessException(ErrorCodes.ValidationFailed, "User.CreatedAtRangeInvalid");
             }
 
+            if (!string.IsNullOrWhiteSpace(userQuery.AuthType) && !UserAuthType.IsValid(userQuery.AuthType.Trim()))
+                throw new BusinessException(ErrorCodes.ValidationFailed, "User.AuthTypeInvalid");
+
+            if (!string.IsNullOrWhiteSpace(userQuery.ApprovalStatus) &&
+                !UserApprovalStatus.IsValid(userQuery.ApprovalStatus.Trim()))
+                throw new BusinessException(ErrorCodes.ValidationFailed, "User.ApprovalStatusInvalid");
+
             var (list, count) = await _userRepository.GetPageListAsync(userQuery, cancellationToken);
             var userSbus = await _userSbuRepository.GetByUserIdsAsync(list.Select(user => user.Id).ToList(), cancellationToken);
             var sbuIdsByUser = userSbus.ToLookup(relation => relation.UserId, relation => relation.SbuId);
             var users = new List<UserDetailDto>(list.Count);
             foreach (var user in list)
             {
-                users.Add(new UserDetailDto
-                {
-                    Account = user.Account,
-                    DisplayName = user.DisplayName,
-                    Id = user.Id,
-                    IsEnabled = user.IsEnabled,
-                    CreatedAtUtc = user.CreatedAtUtc,
-                    UpdatedAtUtc = user.UpdatedAtUtc,
-                    SbuIds = sbuIdsByUser[user.Id].ToList()
-                });
+                users.Add(ToDetail(user, sbuIdsByUser[user.Id]));
             }
             return (users, count);
         }
@@ -143,6 +146,7 @@ namespace ZX.Platform.Identity.Application.Users
         {
             var user = await _userRepository.GetByIdAsync(id, cancellationToken);
             if (user == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
+            // OA 账号必须先审批通过；启用接口不能替代审批流程。
             user.Enable();
             try { await _unitOfWork.SaveChangesAsync(cancellationToken); }
             finally { await _permissionCache.InvalidateAsync(CancellationToken.None); }
@@ -183,6 +187,7 @@ namespace ZX.Platform.Identity.Application.Users
             var user = await _userRepository.GetByIdIncludeDeletedAsync(id, cancellationToken);
             if (user == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
             if (!user.IsDeleted) throw new BusinessException(ErrorCodes.Conflict, "User.NotDeleted");
+            // 只恢复原有身份和审批状态，OA 账号不会因为恢复而自动开通。
             user.Restore();
             try { await _unitOfWork.SaveChangesAsync(cancellationToken); }
             finally { await _permissionCache.InvalidateAsync(CancellationToken.None); }
@@ -197,25 +202,7 @@ namespace ZX.Platform.Identity.Application.Users
 
             // 校验传入的SBU数据是否有效，并获取新列表中的SBU信息
             var sbus = await GetValidatedSbusAsync(updateUserSbu.SbuIds, cancellationToken);
-
-            // 新增SBU
-            foreach (var sbu in sbus)
-            {
-                if (!userSbus.Select(e => e.SbuId).Contains(sbu.Id))
-                {
-                    var userSbu = UserSbu.Create(updateUserSbu.UserId, sbu.Id, false);
-                    _userSbuRepository.Add(userSbu);
-                }
-            }
-
-            // 删除SBU
-            foreach (var item in userSbus)
-            {
-                if (!sbus.Select(e => e.Id).Contains(item.SbuId))
-                {
-                    _userSbuRepository.Remove(item);
-                }
-            }
+            ApplySbuRelations(updateUserSbu.UserId, sbus, userSbus);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
@@ -242,6 +229,222 @@ namespace ZX.Platform.Identity.Application.Users
             }
         }
 
+        #region OA 账号查询、预开通与审批
+
+        public async Task<LdapUserLookupResultDto> LdapLookupAsync(
+            LdapUserLookupQueryDto query, CancellationToken cancellationToken)
+        {
+            var employeeNo = NormalizeEmployeeNo(query.EmployeeNo);
+            if (!_ldapDirectory.IsEnabled)
+                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapDisabled",
+                    new { Reason = LdapProvisionReasons.LdapDisabled });
+
+            LdapDirectoryUser? directoryUser;
+            try
+            {
+                directoryUser = await _ldapDirectory.FindByEmployeeNoAsync(employeeNo, cancellationToken);
+            }
+            catch (LdapUnavailableException)
+            {
+                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapUnavailable",
+                    new { Reason = LdapProvisionReasons.LdapUnavailable });
+            }
+            catch (LdapAmbiguousResultException)
+            {
+                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapUnavailable",
+                    new { Reason = LdapProvisionReasons.LdapAmbiguousResult });
+            }
+
+            if (directoryUser is null)
+            {
+                return new LdapUserLookupResultDto
+                {
+                    Found = false,
+                    EmployeeNo = employeeNo,
+                    CanProvision = false,
+                    Reason = LdapProvisionReasons.LdapUserNotFound
+                };
+            }
+
+            var (canProvision, reason) = await EvaluateProvisionAsync(directoryUser, cancellationToken);
+            return new LdapUserLookupResultDto
+            {
+                Found = true,
+                EmployeeNo = directoryUser.EmployeeNo,
+                DisplayName = directoryUser.DisplayName,
+                Department = directoryUser.Department,
+                DirectoryStatus = directoryUser.Status,
+                CanProvision = canProvision,
+                Reason = reason
+            };
+        }
+
+        public async Task<LdapUserCreatedDto> CreateLdapAsync(
+            Guid actorId, CreateLdapUserDto input, CancellationToken cancellationToken)
+        {
+            var employeeNo = NormalizeEmployeeNo(input.EmployeeNo);
+            if (!_ldapDirectory.IsEnabled)
+                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapDisabled",
+                    new { Reason = LdapProvisionReasons.LdapDisabled });
+
+            if (!input.OpenImmediately && (input.RoleIds.Count > 0 || input.SbuIds.Count > 0))
+                throw new BusinessException(ErrorCodes.ValidationFailed, "User.PendingCannotAssignGrants");
+
+            // 一次创建并开通需要审批、角色和 SBU 分配权限，缺少任一项都拒绝。
+            if (input.OpenImmediately)
+            {
+                await EnsurePermissionsAsync(actorId, cancellationToken,
+                    IdentityPermissions.UserApprove,
+                    IdentityPermissions.UserAssignRoles,
+                    IdentityPermissions.UserAssignSbus);
+            }
+
+            // 提交时重新查目录，不信任前端预览结果。
+            var directoryUser = await RequireDirectoryUserAsync(employeeNo, cancellationToken);
+            var (canProvision, reason) = await EvaluateProvisionAsync(directoryUser, cancellationToken);
+            if (!canProvision)
+                throw ProvisionConflict(reason ?? LdapProvisionReasons.DirectoryIdentityIncomplete);
+
+            // 目录登录名（sAMAccountName）只用于目录认证；ZX 账号按约定固定取工号，
+            // 这样“本地账号已占用该工号”的冲突才能被下面的检查拦到。
+            var user = User.CreateLdap(
+                directoryUser.EmployeeNo, directoryUser.EmployeeNo, directoryUser.DisplayName,
+                directoryUser.Provider, directoryUser.Subject!);
+
+            var roles = input.OpenImmediately
+                ? await GetValidatedRolesAsync(actorId, input.RoleIds, cancellationToken)
+                : [];
+            var sbus = input.OpenImmediately
+                ? await GetApprovalSbusAsync(input.SbuIds, cancellationToken)
+                : [];
+
+            if (input.OpenImmediately)
+                user.ApproveLdap(actorId, _timeProvider.GetUtcNow(), input.Reason);
+
+            _userRepository.Add(user);
+            foreach (var role in roles)
+                _roleRepository.AddUserRole(UserRole.Create(user.Id, role.Id));
+            foreach (var sbu in sbus)
+                _userSbuRepository.Add(UserSbu.Create(user.Id, sbu.Id, false));
+
+            // 预开通同样要留痕：一次开通和“先建待审批”是两种不同的授权动作。
+            _approvalAudits.Add(UserApprovalAudit.CreateForNoneStatus(
+                user,
+                UserApprovalActions.Provisioned,
+                actorId,
+                input.Reason,
+                roles.Select(role => role.Id),
+                sbus.Select(sbu => sbu.Id),
+                CurrentTraceId()));
+
+            try
+            {
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (UniqueConstraintException)
+            {
+                _userRepository.Detach(user);
+                var existing = await FindExistingForProvisionAsync(directoryUser, cancellationToken);
+                throw ProvisionConflict(existing is null
+                    ? LdapProvisionReasons.IdentityConflict
+                    : existing.IsLdap ? LdapProvisionReasons.AccountExists : LdapProvisionReasons.AccountTypeConflict,
+                    existing?.Id);
+            }
+            finally
+            {
+                if (input.OpenImmediately)
+                    await _permissionCache.InvalidateAsync(CancellationToken.None);
+            }
+
+            return new LdapUserCreatedDto
+            {
+                Id = user.Id,
+                ApprovalStatus = user.ApprovalStatus,
+                IsEnabled = user.IsEnabled,
+                SecurityVersion = user.SecurityVersion
+            };
+        }
+
+        public async Task ApproveLdapAsync(
+            Guid actorId, ApproveLdapUserDto input, CancellationToken cancellationToken)
+        {
+            await EnsurePermissionsAsync(actorId, cancellationToken,
+                IdentityPermissions.UserApprove,
+                IdentityPermissions.UserAssignRoles,
+                IdentityPermissions.UserAssignSbus);
+
+            var user = await _userRepository.GetByIdIncludeDeletedAsync(input.Id, cancellationToken)
+                ?? throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
+            if (!user.IsLdap || user.IsDeleted)
+                throw new BusinessException(ErrorCodes.InvalidState, "User.NotReviewable",
+                    new { Reason = "StateChanged" });
+            // 已通过的账号不能再走审批：否则被禁用的账号可以借审批重新启用，
+            // 绕过 identity.user.status。重新启用请走原启用接口。
+            if (user.ApprovalStatus == UserApprovalStatus.Approved)
+                throw ChangedState();
+
+            EnsureExpectedVersion(user, input.ExpectedSecurityVersion);
+
+            var roles = await GetValidatedRolesAsync(actorId, input.RoleIds, cancellationToken);
+            var sbus = await GetApprovalSbusAsync(input.SbuIds, cancellationToken);
+            var existingRoles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
+            // 审批会整体替换角色，必须复用角色接口的完整保护：
+            // 目标是现任管理员时只有管理员能改，也不能移除自己的管理员身份。
+            await EnsureRoleChangeAllowedAsync(actorId, user.Id, roles, cancellationToken);
+
+            // 记录审批前状态，重新审核与被拒绝后通过要能和首次审批区分开。
+            var fromStatus = user.ApprovalStatus;
+            user.ApproveLdap(actorId, _timeProvider.GetUtcNow(), input.Reason);
+            ApplyRoleRelations(user.Id, roles, existingRoles);
+            var existingSbus = await _userSbuRepository.GetByUserIdAsync(user.Id, cancellationToken);
+            ApplySbuRelations(user.Id, sbus, existingSbus);
+
+            _approvalAudits.Add(UserApprovalAudit.Create(
+                user,
+                fromStatus == UserApprovalStatus.Rejected
+                    ? UserApprovalActions.ReApproved
+                    : UserApprovalActions.Approved,
+                fromStatus,
+                actorId,
+                input.Reason,
+                roles.Select(role => role.Id),
+                sbus.Select(sbu => sbu.Id),
+                CurrentTraceId()));
+
+            await SaveReviewAsync(user.Id, cancellationToken);
+        }
+
+        public async Task RejectLdapAsync(
+            Guid actorId, RejectLdapUserDto input, CancellationToken cancellationToken)
+        {
+            await EnsurePermissionsAsync(actorId, cancellationToken, IdentityPermissions.UserApprove);
+
+            var user = await _userRepository.GetByIdIncludeDeletedAsync(input.Id, cancellationToken)
+                ?? throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
+            if (!user.IsLdap || user.IsDeleted || user.ApprovalStatus == UserApprovalStatus.Approved)
+                throw new BusinessException(ErrorCodes.InvalidState, "User.NotReviewable",
+                    new { Reason = "StateChanged" });
+
+            EnsureExpectedVersion(user, input.ExpectedSecurityVersion);
+
+            var fromStatus = user.ApprovalStatus;
+            user.RejectLdap(actorId, _timeProvider.GetUtcNow(), input.Reason);
+
+            _approvalAudits.Add(UserApprovalAudit.Create(
+                user,
+                UserApprovalActions.Rejected,
+                fromStatus,
+                actorId,
+                input.Reason,
+                [],
+                [],
+                CurrentTraceId()));
+
+            await SaveReviewAsync(user.Id, cancellationToken);
+        }
+
+        #endregion
+
         #region 校验并获取传入的SBU数据
         private async Task<List<Sbu>> GetValidatedSbusAsync(List<Guid> sbuIds, CancellationToken cancellationToken)
         {
@@ -252,6 +455,211 @@ namespace ZX.Platform.Identity.Application.Users
             }
             return sbus;
         }
+
+        /// <summary>
+        /// 审批开通至少需要一个有效 SBU；空 SBU 不能解释成全部数据范围。
+        /// </summary>
+        private async Task<List<Sbu>> GetApprovalSbusAsync(List<Guid> sbuIds, CancellationToken cancellationToken)
+        {
+            var ids = sbuIds.Distinct().ToList();
+            if (ids.Count == 0)
+                throw new BusinessException(ErrorCodes.ValidationFailed, "User.ApprovalSbuRequired");
+            return await GetValidatedSbusAsync(ids, cancellationToken);
+        }
+
+        private async Task<List<Role>> GetValidatedRolesAsync(
+            Guid actorId, List<Guid> roleIds, CancellationToken cancellationToken)
+        {
+            var ids = roleIds.Distinct().ToHashSet();
+            if (ids.Count == 0)
+                throw new BusinessException(ErrorCodes.ValidationFailed, "User.ApprovalRoleRequired");
+
+            var roles = await _roleRepository.GetByIdsAsync(ids, cancellationToken);
+            if (roles.Count != ids.Count || roles.Any(role => !role.IsEnabled))
+                throw new BusinessException(ErrorCodes.ValidationFailed, "Access.RoleUnavailable");
+
+            // 不能通过创建或审批默认获得管理员能力。
+            if (roles.Any(role => role.IsBuiltIn && role.Code == Role.AdministratorCode) &&
+                !(await _permissions.GetAsync(actorId, cancellationToken)).IsAdministrator)
+                throw new BusinessException(ErrorCodes.Forbidden, "Auth.Forbidden");
+
+            return roles;
+        }
+
+        /// <summary>
+        /// 审批会整体替换目标账号的角色，因此复用角色接口的保护规则：
+        /// 目标是现任管理员或将被设为管理员时，只有管理员能执行；也不能移除自己的管理员身份。
+        /// </summary>
+        private async Task EnsureRoleChangeAllowedAsync(
+            Guid actorId, Guid targetUserId, IReadOnlyCollection<Role> roles, CancellationToken cancellationToken)
+        {
+            var wasAdministrator =
+                (await _roleRepository.GetAdministratorUserIdsAsync([targetUserId], cancellationToken)).Count != 0;
+            var becomesAdministrator =
+                roles.Any(role => role.IsBuiltIn && role.Code == Role.AdministratorCode);
+            if (!wasAdministrator && !becomesAdministrator)
+                return;
+
+            if (!(await _permissions.GetAsync(actorId, cancellationToken)).IsAdministrator)
+                throw new BusinessException(ErrorCodes.Forbidden, "Auth.Forbidden");
+            if (actorId == targetUserId && wasAdministrator && !becomesAdministrator)
+                throw new BusinessException(ErrorCodes.InvalidState, "Access.CannotRemoveOwnAdministrator");
+        }
+
+        private void ApplyRoleRelations(Guid userId, List<Role> roles, List<UserRole> existing)
+        {
+            var target = roles.Select(role => role.Id).ToHashSet();
+            foreach (var relation in existing.Where(item => !target.Contains(item.RoleId)))
+                _roleRepository.RemoveUserRole(relation);
+            var current = existing.Select(item => item.RoleId).ToHashSet();
+            foreach (var id in target.Where(id => !current.Contains(id)))
+                _roleRepository.AddUserRole(UserRole.Create(userId, id));
+        }
+
+        private void ApplySbuRelations(Guid userId, List<Sbu> sbus, List<UserSbu> existing)
+        {
+            var target = sbus.Select(sbu => sbu.Id).ToHashSet();
+            var current = existing.Select(item => item.SbuId).ToHashSet();
+            foreach (var sbu in sbus.Where(sbu => !current.Contains(sbu.Id)))
+                _userSbuRepository.Add(UserSbu.Create(userId, sbu.Id, false));
+            foreach (var relation in existing.Where(item => !target.Contains(item.SbuId)))
+                _userSbuRepository.Remove(relation);
+        }
+
+        private async Task SaveReviewAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (ConcurrencyConflictException)
+            {
+                // 并发的审批、拒绝或禁用已经改动状态，后一请求不能静默覆盖。
+                throw ChangedState();
+            }
+            finally
+            {
+                // 数据库可能已提交；Redis 失败由 API 返回 503，不假报整体成功。
+                await Task.WhenAll(
+                    _sessions.RevokeUserAsync(userId, CancellationToken.None),
+                    _permissionCache.InvalidateAsync(CancellationToken.None));
+            }
+        }
+
+        private static void EnsureExpectedVersion(User user, long? expected)
+        {
+            if (expected.HasValue && expected.Value != user.SecurityVersion)
+                throw ChangedState();
+        }
+
+        private static BusinessException ChangedState() =>
+            new(ErrorCodes.InvalidState, "User.StateChanged", new { Reason = "StateChanged" });
+
+        /// <summary>当前调用链标识；无活动 Activity 时返回 null，不影响审计落库。</summary>
+        private static string? CurrentTraceId() => Activity.Current?.TraceId.ToHexString();
+
+        private static BusinessException ProvisionConflict(string reason, Guid? userId = null) =>
+            new(ErrorCodes.Conflict, reason switch
+            {
+                LdapProvisionReasons.AccountTypeConflict => "User.AccountTypeConflict",
+                LdapProvisionReasons.AccountExists => "User.AccountExists",
+                _ => "User.LdapIdentityConflict"
+            }, new { Reason = reason, UserId = userId });
+
+        private async Task<LdapDirectoryUser> RequireDirectoryUserAsync(
+            string employeeNo, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await _ldapDirectory.FindByEmployeeNoAsync(employeeNo, cancellationToken)
+                    ?? throw new BusinessException(ErrorCodes.NotFound, "User.LdapUserNotFound",
+                        new { Reason = LdapProvisionReasons.LdapUserNotFound });
+            }
+            catch (LdapUnavailableException)
+            {
+                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapUnavailable",
+                    new { Reason = LdapProvisionReasons.LdapUnavailable });
+            }
+            catch (LdapAmbiguousResultException)
+            {
+                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapUnavailable",
+                    new { Reason = LdapProvisionReasons.LdapAmbiguousResult });
+            }
+        }
+
+        /// <summary>
+        /// 判断目录身份是否可以开通：目录状态、必要身份字段和本地账号冲突。
+        /// </summary>
+        private async Task<(bool CanProvision, string? Reason)> EvaluateProvisionAsync(
+            LdapDirectoryUser directoryUser, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(directoryUser.EmployeeNo) ||
+                string.IsNullOrWhiteSpace(directoryUser.Subject) ||
+                string.IsNullOrWhiteSpace(directoryUser.Account) ||
+                string.IsNullOrWhiteSpace(directoryUser.DisplayName))
+                return (false, LdapProvisionReasons.DirectoryIdentityIncomplete);
+
+            if (directoryUser.Status == LdapDirectoryStatus.Disabled)
+                return (false, LdapProvisionReasons.DirectoryDisabled);
+            if (directoryUser.Status != LdapDirectoryStatus.Enabled)
+                return (false, LdapProvisionReasons.DirectoryStateUnknown);
+
+            var existing = await FindExistingForProvisionAsync(directoryUser, cancellationToken);
+            if (existing is not null)
+            {
+                if (!existing.IsLdap)
+                    return (false, LdapProvisionReasons.AccountTypeConflict);
+                if (!string.Equals(existing.EmployeeNo, directoryUser.EmployeeNo, StringComparison.Ordinal) ||
+                    !string.Equals(existing.LdapSubject, directoryUser.Subject, StringComparison.OrdinalIgnoreCase))
+                    return (false, LdapProvisionReasons.IdentityConflict);
+                // 已存在同工号记录，转入审批维护而不是新建。
+                return (false, LdapProvisionReasons.AccountExists);
+            }
+
+            // ZX 账号就是工号：冲突检查必须按工号执行，而不是目录登录名。
+            var byAccount = await _userRepository.GetByNormalizedAccountAsync(
+                directoryUser.EmployeeNo.Trim().ToUpperInvariant(), cancellationToken);
+            if (byAccount is not null)
+                return (false, byAccount.IsLdap
+                    ? LdapProvisionReasons.AccountExists
+                    : LdapProvisionReasons.AccountTypeConflict);
+
+            return (true, null);
+        }
+
+        private async Task<User?> FindExistingForProvisionAsync(
+            LdapDirectoryUser directoryUser, CancellationToken cancellationToken) =>
+            await _userRepository.GetByLdapIdentityAsync(
+                directoryUser.Provider, directoryUser.Subject ?? string.Empty, cancellationToken)
+            ?? await _userRepository.GetByEmployeeNoAsync(directoryUser.EmployeeNo, cancellationToken);
+
+        private async Task EnsurePermissionsAsync(
+            Guid actorId, CancellationToken cancellationToken, params string[] permissions)
+        {
+            foreach (var permission in permissions)
+                if (!await _permissions.HasAsync(actorId, permission, cancellationToken))
+                    throw new BusinessException(ErrorCodes.Forbidden, "Auth.Forbidden");
+        }
+
+        private static string NormalizeEmployeeNo(string employeeNo) => employeeNo.Trim();
+
+        private static UserDetailDto ToDetail(User user, IEnumerable<Guid> sbuIds) => new()
+        {
+            Account = user.Account,
+            DisplayName = user.DisplayName,
+            Id = user.Id,
+            IsEnabled = user.IsEnabled,
+            CreatedAtUtc = user.CreatedAtUtc,
+            UpdatedAtUtc = user.UpdatedAtUtc,
+            SbuIds = sbuIds.ToList(),
+            AuthType = user.AuthType,
+            EmployeeNo = user.EmployeeNo,
+            ApprovalStatus = user.ApprovalStatus,
+            ReviewedByUserId = user.ReviewedByUserId,
+            ReviewedAtUtc = user.ReviewedAtUtc,
+            ReviewReason = user.ReviewReason,
+            SecurityVersion = user.SecurityVersion
+        };
 
         #endregion
     }

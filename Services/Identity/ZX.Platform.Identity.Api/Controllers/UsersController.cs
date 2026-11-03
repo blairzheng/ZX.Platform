@@ -187,5 +187,75 @@ namespace ZX.Platform.Identity.Api.Controllers
             return StatusCode(StatusCodes.Status200OK, response);
         }
         private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
+
+        /// <summary>
+        /// 管理员按工号只读查询目录，用于预开通前核对。不接收员工密码、不创建用户。
+        /// </summary>
+        [HttpGet("ldapLookup")]
+        [Authorize(Policy = IdentityPermissions.UserCreate)]
+        public async Task<IActionResult> LdapLookupAsync([FromQuery] LdapUserLookupQueryDto query, CancellationToken cancellationToken)
+        {
+            var result = await _userService.LdapLookupAsync(query, cancellationToken);
+            // 个人目录资料不缓存。
+            Response.Headers.CacheControl = "no-store";
+            var response = new ApiResponse<LdapUserLookupResultDto>
+            {
+                Code = 0,
+                Message = _messages[result.Found ? "User.LdapUserFound" : "User.LdapUserNotFound"].Value,
+                Data = result
+            };
+            return StatusCode(StatusCodes.Status200OK, response);
+        }
+
+        /// <summary>
+        /// 预开通 OA 用户：仅创建待审批记录，或一次完成创建、审批和授权。
+        /// </summary>
+        [HttpPost("addLdap")]
+        [Authorize(Policy = IdentityPermissions.UserCreate)]
+        public async Task<IActionResult> AddLdapAsync([FromBody] CreateLdapUserDto input, CancellationToken cancellationToken)
+        {
+            var created = await _userService.CreateLdapAsync(CurrentUserId, input, cancellationToken);
+            var response = new ApiResponse<LdapUserCreatedDto>
+            {
+                Code = 0,
+                Message = _messages[created.ApprovalStatus == ZX.Platform.Identity.Domain.Entities.UserApprovalStatus.Approved
+                    ? "User.LdapUserProvisioned"
+                    : "User.LdapUserPendingCreated"].Value,
+                Data = created
+            };
+            return StatusCode(StatusCodes.Status201Created, response);
+        }
+
+        /// <summary>
+        /// 审批通过 OA 账号，并在同一事务中分配角色和 SBU。
+        /// </summary>
+        [HttpPut("approveLdap")]
+        [Authorize(Policy = IdentityPermissions.UserApprove)]
+        public async Task<IActionResult> ApproveLdapAsync([FromBody] ApproveLdapUserDto input, CancellationToken cancellationToken)
+        {
+            await _userService.ApproveLdapAsync(CurrentUserId, input, cancellationToken);
+            var response = new ApiResponse
+            {
+                Code = 0,
+                Message = _messages["User.LdapUserApproved"].Value
+            };
+            return StatusCode(StatusCodes.Status200OK, response);
+        }
+
+        /// <summary>
+        /// 拒绝 OA 开通申请。已开通账号必须走禁用流程。
+        /// </summary>
+        [HttpPut("rejectLdap")]
+        [Authorize(Policy = IdentityPermissions.UserApprove)]
+        public async Task<IActionResult> RejectLdapAsync([FromBody] RejectLdapUserDto input, CancellationToken cancellationToken)
+        {
+            await _userService.RejectLdapAsync(CurrentUserId, input, cancellationToken);
+            var response = new ApiResponse
+            {
+                Code = 0,
+                Message = _messages["User.LdapUserRejected"].Value
+            };
+            return StatusCode(StatusCodes.Status200OK, response);
+        }
     }
 }

@@ -30,9 +30,51 @@ public sealed class AuthController(IAuthService auth, IAuthSessionStore sessions
         return TokenResponse(tokens, "Auth.LoggedIn");
     }
 
+    /// <summary>
+    /// OA 员工登录。认证成功且账号已开通时才写入 Refresh Cookie；
+    /// 待审批是匿名请求的业务结果，不签发任何可访问业务的令牌。
+    /// </summary>
     [AllowAnonymous]
-    [HttpPost("refresh")]
-    public async Task<IActionResult> RefreshAsync(CancellationToken cancellationToken)
+    [HttpPost("ldapLogin")]
+    public async Task<IActionResult> LdapLoginAsync([FromBody] LdapLoginDto input, CancellationToken cancellationToken)
+    {
+        var outcome = await auth.LdapLoginAsync(input, cancellationToken);
+        if (outcome.Tokens is { } tokens)
+        {
+            SetRefreshCookie(tokens);
+            return Ok(new ApiResponse<LdapLoginResultDto>
+            {
+                Code = 0,
+                Message = messages["Auth.LoggedIn"].Value,
+                Data = new LdapLoginResultDto
+                {
+                    Status = outcome.Status,
+                    Created = outcome.Created,
+                    Tokens = new AccessTokenDto
+                    {
+                        AccessToken = tokens.AccessToken,
+                        AccessTokenExpiresAtUtc = tokens.AccessTokenExpiresAtUtc,
+                        RefreshTokenExpiresAtUtc = tokens.RefreshTokenExpiresAtUtc
+                    }
+                }
+            });
+        }
+
+        // 待审批不写 Cookie，也不覆盖另一个有效登录的 Cookie。
+        return Ok(new ApiResponse<LdapLoginResultDto>
+        {
+            Code = 0,
+            Message = messages[outcome.Created == true ? "Auth.LdapPendingCreated" : "Auth.LdapPendingExists"].Value,
+            Data = new LdapLoginResultDto
+            {
+                Status = outcome.Status,
+                Created = outcome.Created
+            }
+        });
+    }
+
+    [AllowAnonymous]
+    [HttpPost("refresh")]    public async Task<IActionResult> RefreshAsync(CancellationToken cancellationToken)
     {
         try
         {

@@ -35,6 +35,7 @@ public static class DefaultMenus
             (users, IdentityPermissions.UserAssignSbus, "分配用户SBU", "Assign user SBUs"),
             (users, IdentityPermissions.UserAssignRoles, "分配用户角色", "Assign user roles"),
             (users, IdentityPermissions.UserForceLogout, "强制用户下线", "Force users offline"),
+            (users, IdentityPermissions.UserApprove, "审批OA账号", "Approve OA accounts"),
             (sbus, IdentityPermissions.SbuRead, "查看SBU", "View SBUs"),
             (sbus, IdentityPermissions.SbuCreate, "新增SBU", "Create SBUs"),
             (sbus, IdentityPermissions.SbuRename, "修改SBU名称", "Rename SBUs"),

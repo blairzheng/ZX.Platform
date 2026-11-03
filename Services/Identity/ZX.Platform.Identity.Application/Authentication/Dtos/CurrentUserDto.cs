@@ -7,6 +7,17 @@ public sealed class CurrentUserDto
     public Guid Id { get; init; }
     public required string Account { get; init; }
     public required string DisplayName { get; init; }
+
+    /// <summary>
+    /// 认证类型，LOCAL 或 LDAP。
+    /// </summary>
+    public required string AuthType { get; init; }
+
+    /// <summary>
+    /// 是否允许在 ZX 修改密码；OA 账号为 false，需要前往 OA 修改。
+    /// </summary>
+    public bool CanChangePassword { get; init; }
+
     public bool IsAdministrator { get; init; }
     public string[] Roles { get; init; } = [];
     public string[] Permissions { get; init; } = [];

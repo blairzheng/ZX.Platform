@@ -25,5 +25,25 @@ namespace ZX.Platform.Identity.Application.Users
         Task UpdateUserSbusAsync(UpdateUserSbuDto updateUserSbu, CancellationToken cancellationToken);
 
         Task BatchDeleteAsync(List<Guid> guids, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// 管理员按工号只读查询目录，返回核对信息，不创建用户。
+        /// </summary>
+        Task<LdapUserLookupResultDto> LdapLookupAsync(LdapUserLookupQueryDto query, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// 预开通 OA 用户：仅创建待审批记录，或一次完成创建、审批和授权。
+        /// </summary>
+        Task<LdapUserCreatedDto> CreateLdapAsync(Guid actorId, CreateLdapUserDto input, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// 审批通过 OA 账号，并在同一事务中分配角色和 SBU。
+        /// </summary>
+        Task ApproveLdapAsync(Guid actorId, ApproveLdapUserDto input, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// 拒绝 OA 开通申请。
+        /// </summary>
+        Task RejectLdapAsync(Guid actorId, RejectLdapUserDto input, CancellationToken cancellationToken);
     }
 }

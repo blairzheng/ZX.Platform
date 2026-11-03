@@ -29,9 +29,10 @@ internal static class Oracle19Checks
             "Oracle 19c business tables must resolve explicitly to ZX_IDENTITY even when another account logs in.");
         CheckNumericBooleans(db);
         var migrations = db.Database.GetMigrations().ToArray();
-        Check.That(migrations.Length == 2 && migrations[0] == "20261027000000_InitialIdentitySchema" &&
-            migrations[1] == "20261028084818_ReplaceFactoriesWithSbus",
-            "The project must have one Oracle 19c migration chain starting at its new baseline.");
+        Check.That(migrations.Length >= 2 && migrations[0] == "20261027000000_InitialIdentitySchema" &&
+            migrations.Contains("20261028084818_ReplaceFactoriesWithSbus") &&
+            migrations[^1] == "20261102150741_WidenApprovalAuditSnapshot",
+            "The project must have one Oracle 19c migration chain starting at its new baseline and ending at the current migration.");
 
         var migrator = db.GetService<IMigrator>();
         var baselineSql = migrator.GenerateScript(toMigration: migrations[0]);
@@ -52,6 +53,50 @@ internal static class Oracle19Checks
             upgradeSql.Contains("\"ZX_IDENTITY\".\"ZX_IDENTITY_USER_SBU\"") &&
             upgradeSql.Contains("20261028084818_ReplaceFactoriesWithSbus"),
             "The SBU upgrade must replace only the former factory tables and record its migration.");
+
+        // OA 登录迁移：新增账号状态列、可空密码、唯一身份索引和校验约束。
+        var approvalSql = migrator.GenerateScript(
+            fromMigration: "20261030100000_AddMenuLauncherMetadata",
+            toMigration: "20261102111516_AddLdapAccountApproval");
+        Check.That(approvalSql.Contains("\"AUTH_TYPE\"") && approvalSql.Contains("\"APPROVAL_STATUS\"") &&
+            approvalSql.Contains("\"SECURITY_VERSION\"") && approvalSql.Contains("\"EMPLOYEE_NO\"") &&
+            approvalSql.Contains("UX_ZID_USER_EMPLOYEE_NO") && approvalSql.Contains("UX_ZID_USER_LDAP_IDENTITY") &&
+            approvalSql.Contains("CK_ZID_USER_PASSWORD"),
+            "The LDAP approval migration must add account state columns, identity indexes and password constraints.");
+        Check.That(!approvalSql.Contains("WHERE \"EMPLOYEE_NO\"", StringComparison.Ordinal) &&
+            !approvalSql.Contains("WHERE \"LDAP_PROVIDER\"", StringComparison.Ordinal),
+            "Oracle does not support filtered indexes; unique identity indexes must rely on NULL semantics.");
+
+        // 审批审计迁移：只追加表与索引，不改动既有用户数据、不混入业务逻辑。
+        var auditSql = migrator.GenerateScript(
+            fromMigration: "20261102111516_AddLdapAccountApproval",
+            toMigration: "20261102144318_AddUserApprovalAudit");
+        Check.That(auditSql.Contains("\"ZX_IDENTITY\".\"ZX_IDENTITY_USER_APPROVAL_AUDIT\"") &&
+            auditSql.Contains("\"ACTION\"") && auditSql.Contains("\"FROM_STATUS\"") &&
+            auditSql.Contains("\"TO_STATUS\"") && auditSql.Contains("\"TRACE_ID\"") &&
+            auditSql.Contains("\"ACTOR_USER_ID\""),
+            "The approval audit migration must persist actor, action, before/after status and trace id.");
+        Check.That(!auditSql.Contains("INSERT INTO \"ZX_IDENTITY\".\"ZX_IDENTITY_USER\"", StringComparison.Ordinal) &&
+            !auditSql.Contains("UPDATE \"ZX_IDENTITY\".\"ZX_IDENTITY_USER\"", StringComparison.Ordinal) &&
+            !auditSql.Contains("DELETE FROM \"ZX_IDENTITY\".\"ZX_IDENTITY_USER\"", StringComparison.Ordinal),
+            "The audit migration must not rewrite existing user rows.");
+
+        // 审计快照容量迁移：Oracle 不能直接 MODIFY 成 CLOB，必须新增列后复制、删旧列再改名；
+        // 复制时不能截断，回退前要先确认放得下 2000 字符。
+        var widenSql = migrator.GenerateScript(
+            fromMigration: "20261102144318_AddUserApprovalAudit",
+            toMigration: "20261102150741_WidenApprovalAuditSnapshot");
+        Check.That(widenSql.Contains("add (\"ROLE_IDS_CLOB\" CLOB)") &&
+            widenSql.Contains("add (\"SBU_IDS_CLOB\" CLOB)") &&
+            widenSql.Contains("set \"ROLE_IDS_CLOB\" = to_clob(\"ROLE_IDS\")") &&
+            widenSql.Contains("rename column \"ROLE_IDS_CLOB\" to \"ROLE_IDS\""),
+            "Audit snapshot columns must be widened to CLOB by copy-and-rename so no evidence is lost.");
+        Check.That(!widenSql.Contains("MODIFY \"ROLE_IDS\"", StringComparison.Ordinal) &&
+            !widenSql.Contains("MODIFY \"SBU_IDS\"", StringComparison.Ordinal),
+            "Oracle rejects MODIFY to CLOB with ORA-22858; the migration must not emit it.");
+        Check.That(!widenSql.Contains("substr", StringComparison.OrdinalIgnoreCase) &&
+            !widenSql.Contains("DELETE FROM \"ZX_IDENTITY\".\"ZX_IDENTITY_USER_APPROVAL_AUDIT\"", StringComparison.Ordinal),
+            "Widening the audit snapshot must keep existing evidence intact instead of truncating or deleting it.");
 
         var query = db.Users.Where(user => user.IsEnabled).OrderBy(user => user.Id).Take(10)
             .Select(user => new { user.Id, HasSbu = db.UserSbus.Any(link => link.UserId == user.Id) })
