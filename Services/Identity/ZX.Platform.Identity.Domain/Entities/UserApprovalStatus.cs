@@ -6,12 +6,12 @@ namespace ZX.Platform.Identity.Domain.Entities
     public static class UserApprovalStatus
     {
         /// <summary>
-        /// 已提交申请或由管理员仅创建待审批，尚未开通。
+        /// 待业务授权。已启用时可登录系统，但没有有效角色、权限、菜单和 SBU。
         /// </summary>
         public const string Pending = "Pending";
 
         /// <summary>
-        /// 审批通过，可以登录。
+        /// 业务审批通过，分配的角色和 SBU 可以生效；登录仍受启停用状态控制。
         /// </summary>
         public const string Approved = "Approved";
 

@@ -194,3 +194,16 @@ python3 deploy/docker/export-oracle19-sql.py \
 | `ORA-01031` | 执行账号缺少目标 schema 的 DDL 权限；找测试库管理员或正式库 DBA 核对，不给正式应用账号临时加建表权限。 |
 
 不要把连接密码、`dotnet user-secrets list` 输出或带密码的终端截图发到群里。连接字符串中的 IP、端口和服务名只是目标数据库位置；本机为 `127.0.0.1:1521/FREEPDB1`，测试/正式库按各自实际地址填写。
+
+## 待业务审批 OA 登录（2026-11-03，新增未执行）
+
+新迁移 `20261103090000_AllowPendingLdapLogin`，起点 `20261102150741_WidenApprovalAuditSnapshot`，交付脚本 `deploy/database/upgrade-allow-pending-ldap-login.sql`（SAJET）。只替换 `CK_ZID_USER_LDAP_ENABLED`，允许 Pending 启用，继续禁止 Rejected 启用。不更新任何用户行、角色、SBU 或菜单。
+
+1. 核对目标库、schema、迁移历史与备份；若尚未完成旧迁移，按历史顺序补齐，不能跳过审计 CLOB 扩容。
+2. 停止全部 Identity 实例及直接写入者，等在途请求结束。Oracle DROP / ADD 约束会隐式提交，替换期间不能有写入。
+3. 由部署流程/DBA 执行此增量脚本或等效 EF 升级。检查新 CHECK 已 ENABLED / VALIDATED、历史终点正确，用户启停用状态及关联未变化。
+4. 统一部署新后端及匹配的前端后再启动。启动权限/菜单初始化不承担迁移，也不批量开通用户；旧前端把 Pending 当作未登录，旧后端拒绝 Pending 的 me/刷新，不能混跑。
+5. 存量 Pending / Disabled 保留禁用；业务确认后用启用接口逐个恢复（仍无业务权限），或先审批再显式启用。Rejected 不能直接启用，需显式重新审核。
+6. 验收新 OA 首次登录、无业务菜单、直调业务接口 403、伪造 SBU 拒绝、刷新/退出，以及批准/拒绝后旧会话撤销。回退需先停写；Down 在有启用 Pending 时会报 `ORA-20011`，须人工制定兼容处置，不能直接执行旧应用或自动禁用账号。
+
+本轮只交付迁移与脚本，未对本地或目标 Oracle 执行。已有历史迁移不修改，后续仅在模型改变时生成新的迁移。

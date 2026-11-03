@@ -1,5 +1,6 @@
 using ZX.Platform.Identity.Application.Authentication;
 using ZX.Platform.Identity.Application.Authentication.Dtos;
+using ZX.Platform.Identity.Application.Authorization;
 using ZX.Platform.Identity.Application.Errors;
 using ZX.Platform.Identity.Application.Exceptions;
 using ZX.Platform.Identity.Application.Users.Dtos;
@@ -23,6 +24,8 @@ internal static class LdapChecks
     {
         await FirstLoginCreatesPendingAsync();
         await RepeatLoginKeepsPendingAsync();
+        await PendingCannotUsePreassignedGrantsAsync();
+        await DisabledPendingCannotBeReenabledByLoginOrApprovalAsync();
         await ApprovalEnablesLoginAsync();
         await RejectionAndDisableBlockLoginAsync();
         await AccountConflictIsRejectedAsync();
@@ -46,16 +49,25 @@ internal static class LdapChecks
         using var fixture = CreateFixture();
         var result = await fixture.Auth.LdapLoginAsync(Login(), default);
 
-        Check.That(result.Status == LdapLoginStatus.PendingApproval, "首次 OA 认证应返回待审批。");
+        Check.That(result.Status == LdapLoginStatus.Authenticated, "首次 OA 认证即应登录成功。");
         Check.That(result.Created == true, "首次 OA 认证应标记为新建。");
-        Check.That(result.Tokens is null, "待审批不能签发令牌。");
+        Check.That(result.Tokens is not null, "待业务审批也应签发会话令牌。");
 
         var user = SingleLdapUser(fixture);
-        Check.That(!user.IsEnabled && user.ApprovalStatus == UserApprovalStatus.Pending, "待审批账号必须禁用。");
+        Check.That(user.IsEnabled && user.ApprovalStatus == UserApprovalStatus.Pending, "新 OA 账号应允许登录且待业务审批。");
         Check.That(user.PasswordHash is null, "OA 账号不能有本地密码哈希。");
         Check.That(user.AuthType == UserAuthType.Ldap, "认证类型应为 LDAP。");
         Check.That(!fixture.Roles.UserRoles.Any(item => item.UserId == user.Id), "待审批账号不能分配角色。");
         Check.That(!fixture.UserSbus.Items.Any(item => item.UserId == user.Id), "待审批账号不能分配 SBU。");
+
+        var current = await fixture.Auth.GetCurrentUserAsync(user.Id, default);
+        Check.That(!current.HasBusinessAccess && current.ApprovalStatus == UserApprovalStatus.Pending &&
+            !current.IsAdministrator && current.Roles.Length == 0 && current.Permissions.Length == 0 &&
+            current.Sbus.Count == 0 && current.Menus.Count == 0,
+            "待授权会话只能读取自己的基本信息，不能得到业务能力。");
+        var refreshed = await fixture.Auth.RefreshAsync(result.Tokens!.RefreshToken, default);
+        Check.That(await fixture.FindAccessAsync(refreshed.AccessToken, default) is not null,
+            "待授权用户应可刷新并维持有效登录。");
 
         // OA 账号不能改用本地密码入口登录。
         await Check.ErrorAsync(
@@ -70,19 +82,74 @@ internal static class LdapChecks
         var user = SingleLdapUser(fixture);
         var version = user.SecurityVersion;
 
-        var second = await fixture.Auth.LdapLoginAsync(Login(), default);
-        Check.That(second.Status == LdapLoginStatus.PendingApproval, "重复登录仍为待审批。");
+        await Check.ErrorAsync(() => fixture.Auth.LdapLoginAsync(Login(), default), ErrorCodes.Conflict);
+        var takeover = Login();
+        takeover.ReplaceExistingSession = true;
+        var second = await fixture.Auth.LdapLoginAsync(takeover, default);
+        Check.That(second.Status == LdapLoginStatus.Authenticated, "待业务审批用户可重复认证并接管会话。");
         Check.That(second.Created == false, "重复登录不能重复创建账号。");
-        Check.That(second.Tokens is null, "待审批不能签发令牌。");
+        Check.That(second.Tokens is not null, "待业务审批也应签发令牌。");
+        Check.That(await fixture.FindAccessAsync(first.Tokens!.AccessToken, default) is null,
+            "待授权会话也必须遵守单会话接管规则。");
         Check.That(fixture.Users.Items.Count(item => item.IsLdap) == 1, "重复登录只能有一条 OA 账号。");
         Check.That(user.SecurityVersion == version, "待审批重复登录不能改变安全版本。");
         Check.That(first.Created == true, "第一次登录应创建账号。");
     }
 
-    private static async Task ApprovalEnablesLoginAsync()
+    private static async Task PendingCannotUsePreassignedGrantsAsync()
     {
         using var fixture = CreateFixture();
         await fixture.Auth.LdapLoginAsync(Login(), default);
+        var user = SingleLdapUser(fixture);
+        var administrator = fixture.Roles.Items.Single(role => role.IsBuiltIn);
+        var (_, sbu) = SeedGrants(fixture);
+        fixture.Roles.AddUserRole(UserRole.Create(user.Id, administrator.Id));
+        fixture.UserSbus.Add(UserSbu.Create(user.Id, sbu.Id, false));
+        fixture.UserSbus.Sbus.Add(sbu);
+        var cached = await fixture.PermissionCache.ReadAsync(user.Id, default);
+        await fixture.PermissionCache.StoreAsync(user.Id, cached.Version,
+            new AuthorizationSnapshot(true, [Role.AdministratorCode], IdentityPermissions.All.ToArray()), default);
+
+        var permissions = new PermissionService(fixture.Roles, fixture.PermissionCache, fixture.Users);
+        Check.That(!await permissions.HasAsync(user.Id, IdentityPermissions.UserRead, default),
+            "待审批账号的预分配管理员角色和旧缓存均不得授权。");
+        var current = await fixture.Auth.GetCurrentUserAsync(user.Id, default);
+        Check.That(!current.IsAdministrator && current.Permissions.Length == 0 && current.Menus.Count == 0 &&
+            current.Roles.Length == 0 && current.Sbus.Count == 0, "me 必须强制屏蔽预分配的所有关联。");
+        Check.That(await fixture.UserSbus.GetEnabledSbuForUserAsync(user.Id, sbu.Id, default) is null,
+            "伪造 X-SBU-ID 也不能使用待审批账号的预分配 SBU。");
+    }
+
+    private static async Task DisabledPendingCannotBeReenabledByLoginOrApprovalAsync()
+    {
+        using var fixture = CreateFixture();
+        var initial = await fixture.Auth.LdapLoginAsync(Login(), default);
+        var user = SingleLdapUser(fixture);
+        await fixture.UserService.SetUserDisableAsync(user.Id, default);
+        var version = user.SecurityVersion;
+        await Check.ErrorAsync(() => fixture.Auth.LdapLoginAsync(Login(), default), ErrorCodes.Forbidden);
+        await Check.ErrorAsync(() => fixture.Auth.RefreshAsync(initial.Tokens!.RefreshToken, default), ErrorCodes.Unauthorized);
+        await Check.ErrorAsync(() => fixture.Auth.GetCurrentUserAsync(user.Id, default), ErrorCodes.Unauthorized);
+        Check.That(!user.IsEnabled && user.SecurityVersion == version, "重新 OA 认证不得恢复禁用账号。");
+
+        // 与历史 Pending/Disabled 用户相同：迁移或审批不得推断禁用原因并恢复启用。
+        var (role, sbu) = SeedGrants(fixture);
+        await fixture.UserService.ApproveLdapAsync(fixture.User.Id, new ApproveLdapUserDto
+        {
+            Id = user.Id, RoleIds = [role.Id], SbuIds = [sbu.Id], ExpectedSecurityVersion = version
+        }, default);
+        Check.That(!user.IsEnabled && user.ApprovalStatus == UserApprovalStatus.Approved,
+            "审批不能顺带恢复被禁用的待审批用户。");
+        await Check.ErrorAsync(() => fixture.Auth.LdapLoginAsync(Login(), default), ErrorCodes.Forbidden);
+        await fixture.UserService.SetUserEnableAsync(user.Id, default);
+        Check.That((await fixture.Auth.LdapLoginAsync(Login(), default)).Tokens is not null,
+            "显式启用后方可恢复登录。");
+    }
+
+    private static async Task ApprovalEnablesLoginAsync()
+    {
+        using var fixture = CreateFixture();
+        var initial = await fixture.Auth.LdapLoginAsync(Login(), default);
         var user = SingleLdapUser(fixture);
         var (role, sbu) = SeedGrants(fixture);
         var versionBefore = user.SecurityVersion;
@@ -101,6 +168,9 @@ internal static class LdapChecks
         Check.That(user.SecurityVersion > versionBefore, "审批必须递增安全版本。");
         Check.That(fixture.Roles.UserRoles.Any(item => item.UserId == user.Id && item.RoleId == role.Id), "审批应写入角色。");
         Check.That(fixture.UserSbus.Items.Any(item => item.UserId == user.Id && item.SbuId == sbu.Id), "审批应写入 SBU。");
+        Check.That(await fixture.FindAccessAsync(initial.Tokens!.AccessToken, default) is null,
+            "业务审批通过必须撤销待授权会话。");
+        await Check.ErrorAsync(() => fixture.Auth.RefreshAsync(initial.Tokens.RefreshToken, default), ErrorCodes.Unauthorized);
 
         var login = await fixture.Auth.LdapLoginAsync(Login(), default);
         Check.That(login.Status == LdapLoginStatus.Authenticated, "已开通账号应能登录。");
@@ -115,12 +185,14 @@ internal static class LdapChecks
 
         var current = await fixture.Auth.GetCurrentUserAsync(user.Id, default);
         Check.That(current.AuthType == UserAuthType.Ldap && !current.CanChangePassword, "当前用户应标记为不可改密。");
+        Check.That(current.HasBusinessAccess && current.Permissions.Contains(IdentityPermissions.UserRead) &&
+            current.Sbus.Any(item => item.Id == sbu.Id), "审批后的新会话应得到明确分配的业务权限和 SBU。");
     }
 
     private static async Task RejectionAndDisableBlockLoginAsync()
     {
         using var fixture = CreateFixture();
-        await fixture.Auth.LdapLoginAsync(Login(), default);
+        var initial = await fixture.Auth.LdapLoginAsync(Login(), default);
         var user = SingleLdapUser(fixture);
 
         await fixture.UserService.RejectLdapAsync(fixture.User.Id, new RejectLdapUserDto
@@ -130,6 +202,9 @@ internal static class LdapChecks
             Reason = "工号不属于本部门"
         }, default);
         Check.That(user.ApprovalStatus == UserApprovalStatus.Rejected && !user.IsEnabled, "拒绝后应保持禁用。");
+        Check.That(await fixture.FindAccessAsync(initial.Tokens!.AccessToken, default) is null,
+            "拒绝必须立即撤销待授权会话。");
+        await Check.ErrorAsync(() => fixture.Auth.RefreshAsync(initial.Tokens.RefreshToken, default), ErrorCodes.Unauthorized);
 
         await Check.ErrorAsync(() => fixture.Auth.LdapLoginAsync(Login(), default), ErrorCodes.Forbidden);
 
@@ -207,6 +282,14 @@ internal static class LdapChecks
             OpenImmediately = false,
             RoleIds = [role.Id]
         }, default), ErrorCodes.ValidationFailed);
+
+        using var pendingFixture = CreateFixture();
+        var pending = await pendingFixture.UserService.CreateLdapAsync(pendingFixture.User.Id,
+            new CreateLdapUserDto { EmployeeNo = EmployeeNo, OpenImmediately = false }, default);
+        Check.That(pending.IsEnabled && pending.ApprovalStatus == UserApprovalStatus.Pending,
+            "管理员仅创建待授权账号时，也允许员工用 OA 登录。");
+        Check.That((await pendingFixture.Auth.LdapLoginAsync(Login(), default)).Tokens is not null,
+            "预创建的待授权账号应能建立受限会话。");
     }
 
     private static async Task StaleVersionIsRejectedAsync()
@@ -580,6 +663,7 @@ internal static class LdapChecks
         var role = Role.Create("OPERATOR", "现场操作员");
         var sbu = Sbu.Create("SBU1", "第一事业部");
         fixture.Roles.Add(role);
+        fixture.Roles.AddPermission(RolePermission.Create(role.Id, IdentityPermissions.UserRead));
         fixture.Sbus.Items.Add(sbu);
         return (role, sbu);
     }

@@ -27,6 +27,8 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Repositories
         {
             return _dbContext.Sbus.AsNoTracking()
                 .Where(sbu => sbu.Id == sbuId && sbu.IsEnabled && !sbu.IsDeleted &&
+                    _dbContext.Users.Any(user => user.Id == userId && user.IsEnabled &&
+                        user.ApprovalStatus == UserApprovalStatus.Approved) &&
                     _dbContext.UserSbus.Any(link => link.UserId == userId && link.SbuId == sbu.Id))
                 .FirstOrDefaultAsync(cancellationToken);
         }

@@ -20,8 +20,6 @@
   <data name="Auth.LdapDisabled" xml:space="preserve"><value>OA sign-in is not available yet. Please use your system account.</value></data>
   <data name="Auth.LdapUnavailable" xml:space="preserve"><value>The OA directory service is temporarily unavailable. Please try again later.</value></data>
   <data name="Auth.LdapTooManyAttempts" xml:space="preserve"><value>Too many attempts. Please try again later or contact your administrator.</value></data>
-  <data name="Auth.LdapPendingCreated" xml:space="preserve"><value>Your account request has been submitted and is waiting for approval. After approval, continue signing in with your OA account and password.</value></data>
-  <data name="Auth.LdapPendingExists" xml:space="preserve"><value>Your account request is still being reviewed. After approval, continue signing in with your OA account and password.</value></data>
   <data name="Auth.ApprovalRejected" xml:space="preserve"><value>Your account request was not approved. Please contact your administrator.</value></data>
   <data name="Auth.AccountUnavailable" xml:space="preserve"><value>This account is disabled or currently unavailable. Please contact your administrator.</value></data>
   <data name="Auth.PasswordChangeNotAllowedForLdap" xml:space="preserve"><value>OA account passwords are managed by the OA system. Please change your password there.</value></data>

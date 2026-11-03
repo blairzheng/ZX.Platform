@@ -16,7 +16,7 @@
 | POST | `/api/Auth/ldapLogin` | JSON `{ employeeNo, password, replaceExistingSession? }`，匿名可调用 | `LdapLoginResultDto`，仅已开通账号设置 Refresh Cookie |
 | POST | `/api/Auth/refresh` | Refresh Cookie，Access 可过期 | `AccessTokenDto`，轮换 Cookie |
 | POST | `/api/Auth/logout` | Refresh Cookie 或有效 Bearer；无凭据也成功 | 无，删除 Cookie |
-| GET | `/api/Auth/me` | 有效 Bearer | `{ id, account, displayName, authType, canChangePassword, isAdministrator, roles, permissions, sbus, menus }` |
+| GET | `/api/Auth/me` | 有效 Bearer | `{ id, account, displayName, authType, approvalStatus, hasBusinessAccess, canChangePassword, isAdministrator, roles, permissions, sbus, menus }` |
 | PUT | `/api/Auth/changePassword` | 有效 Bearer，JSON `{ currentPassword, newPassword }` | 无，撤销会话并删除 Cookie |
 
 Auth 的 POST / PUT 均须请求头 `X-Identity-CSRF: 1`，缺少或不匹配返回 `403 / 600005`。登录账号必填、最多 8 字符，密码必填、最多 72 UTF-8 字节；当前密码同样最多 72 字节，新密码至少 8 字符且最多 72 UTF-8 字节。参数错误返回 `400 / 600001`。密码不 Trim。
@@ -44,15 +44,14 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 
 ### OA 登录
 
-`/api/Auth/ldapLogin` 与本地登录并行存在，账号体系互不相通：本地账号只能用 `/login`，OA 账号只能用 `/ldapLogin`。工号必填、最多 32 字符并按字符串原样 Trim，密码必填、最多 1024 字符，不套用本地密码强度规则。响应 `data` 只有 `status`、可空 `created` 和可空 `tokens`：
+`/api/Auth/ldapLogin` 与本地登录并行存在，账号体系互不相通：本地账号只能用 `/login`，OA 账号只能用 `/ldapLogin`。工号必填、最多 32 字符并按字符串原样 Trim，密码必填、最多 1024 字符，不套用本地密码强度规则。成功响应 `data` 为 `status`、布尔 `created` 和必填 `tokens`；待业务审批账号也会登录成功：
 
 | `status` | `created` | `tokens` | 含义与副作用 |
 | --- | --- | --- | --- |
-| `Authenticated` | 省略 | `AccessTokenDto` | 目录认证通过、账号已审批且启用，已建立会话并设置 Refresh Cookie |
-| `PendingApproval` | `true` | 省略 | 首次申请，已生成待审批账号和 UserId，未建立会话、不写 Cookie |
-| `PendingApproval` | `false` | 省略 | 已有待审批记录，本次仍不建立会话、不写 Cookie |
+| `Authenticated` | `true` | `AccessTokenDto` | 首次认证建档为 Pending / Enabled，建立受限会话并设置 Refresh Cookie |
+| `Authenticated` | `false` | `AccessTokenDto` | 已有且允许登录的 OA 账号，建立会话并设置 Refresh Cookie |
 
-`PendingApproval` 使用 HTTP 200 与 `code=0`，用 `status` 区分，前端不能只凭 HTTP 状态判断登录成功。待审批时不会覆盖浏览器里另一个有效登录的 Cookie。
+不再返回旧的 `PendingApproval` 分支。`Auth/me` 返回 `approvalStatus` 与 `hasBusinessAccess`；Pending 时后者为 false，且 `isAdministrator=false`、`roles/permissions/sbus/menus=[]`。业务接口仍返回 403；待授权会话可调用 me、刷新及退出。审批通过/拒绝会撤销旧会话。前后端需同步部署。
 
 | 情况 | HTTP / code | 说明 |
 | --- | --- | --- |
@@ -139,7 +138,7 @@ Refresh 不在 JSON 中返回，使用 `zx_identity_refresh` 的 HttpOnly Cookie
 
 `CreateLdapUserDto`：`employeeNo` 必填、最多 32 字符；`openImmediately` 决定一次完成开通还是只建待审批记录；`roleIds`、`sbuIds` 为 Guid 数组；可空 `reason` 最多 500 字符。`openImmediately=true` 要求至少一个有效角色和至少一个启用 SBU，一次完成创建、审批和授权；`openImmediately=false` 不能携带角色或 SBU，否则返回 `400 / 600001`。账号的姓名与唯一标识一律由服务端查询目录得出，客户端传了也不采纳。返回 `LdapUserCreatedDto`：`id`、`approvalStatus`、`isEnabled`、`securityVersion`。
 
-`ApproveLdapUserDto`：`id`、`roleIds`、`sbuIds`、必填 `expectedSecurityVersion`、可空 `reason`。审批在同一事务中完成状态变更、角色与 SBU 分配；`expectedSecurityVersion` 与库中不一致说明列表已过期，返回 `409 / 600004` 且不覆盖，需刷新后重试。审批只接受 `Pending` 和 `Rejected`；`Approved` 一律返回 `409 / 600004`，已通过后被禁用的账号必须走 `setUserEnable`，不能借审批恢复启用（那会绕过 `identity.user.status`）。角色替换同时受管理员保护约束：目标是现任管理员或将被设为管理员时，只有管理员能执行。`RejectLdapUserDto` 结构相同但不含角色和 SBU，拒绝后该工号再登录仍显示待审批，不自动重建账号；被拒绝的账号可以在之后重新审批。
+`ApproveLdapUserDto`：`id`、`roleIds`、`sbuIds`、必填 `expectedSecurityVersion`、可空 `reason`。审批在同一事务中完成状态变更、角色与 SBU 分配；`expectedSecurityVersion` 与库中不一致说明列表已过期，返回 `409 / 600004` 且不覆盖，需刷新后重试。审批只接受 `Pending` 和 `Rejected`；`Approved` 一律返回 `409 / 600004`，已通过后被禁用的账号必须走 `setUserEnable`，不能借审批恢复启用（那会绕过 `identity.user.status`）。角色替换同时受管理员保护约束：目标是现任管理员或将被设为管理员时，只有管理员能执行。`RejectLdapUserDto` 结构相同但不含角色和 SBU，拒绝后再次登录返回 `403 / 600005`（`ApprovalRejected`），不自动重建账号；被拒绝的账号可以显式重新审批。Pending 若已被禁用，批准保留禁用；启用需 `identity.user.status`。Rejected 的显式重新批准会恢复启用。
 
 预开通和审批失败时的冲突沿用统一业务码：目录不可用 `503 / 600503`、账号或身份重复 `409 / 600003`、状态不允许（例如账号已删除、已通过后再次审批、已通过后重复拒绝、本地账号走 OA 审批）`409 / 600004`、并发版本冲突 `409 / 600004`。
 

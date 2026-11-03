@@ -21,15 +21,17 @@
 - `LOCAL` 账号必须保存本地密码哈希，只能用 `Auth/login` 登录，密码由 ZX 维护。
 - `LDAP` 账号不保存密码哈希（数据库以 CHECK 约束保证），只能用 `Auth/ldapLogin` 由目录验证密码；角色、权限、菜单和 SBU 仍完全由 ZX 管理，不从目录继承。
 - `LDAP` 账号的 `ACCOUNT` / `NORMALIZED_ACCOUNT` 固定取工号，目录登录名（如 `sAMAccountName`）只用于目录认证。首次登录建档和预开通两条路径一致，冲突检查也按工号执行，所以“本地账号已占用该工号”一定返回冲突，不会因为目录登录名不同而漏检。
-- 账号是否可用由 `ApprovalStatus` 和 `IsEnabled` 共同决定：只有 `Approved` 且启用的账号能登录。`Pending` 账号不能启用，数据库同样以 CHECK 约束拒绝“未审批却启用”的写入。
+- 账号是否可用由 `ApprovalStatus` 和 `IsEnabled` 共同决定：Pending / Approved OA 账号在启用且未删除、未锁定时均能登录；Pending 没有业务授权资格，角色/菜单/权限/SBU 强制为空。Rejected 不能启用，数据库 CHECK 保证已拒绝 OA 账号禁用。
 - 存量用户迁移后为 `LOCAL` / `Approved`，Id、密码哈希、角色和 SBU 都不改变。
 
 开通路径只有两条，结果都以同一个 UserId 继续使用：
 
 1. **管理员预开通**：先 `ldapLookup` 按工号只读核对姓名、部门和目录状态，再 `addLdap`。`openImmediately=true` 一次完成创建、审批、角色和 SBU 分配；`openImmediately=false` 只建待审批记录。
-2. **首次登录申请**：未预开通的员工在 `ldapLogin` 中通过目录认证后，服务端自动生成 `Pending` 账号和 UserId，不发放任何令牌。审批前再次登录仍返回待审批，不会重复建档。
+2. **首次登录申请**：未预开通的员工在 `ldapLogin` 中通过目录认证后，服务端自动生成 `Pending / Enabled` 账号和 UserId，签发受限会话进入应用中心。审批前再次登录沿用同一账号及单会话接管规则，不会重复建档。
 
-审批通过时角色和 SBU 在同一事务中写入，`SecurityVersion` 做乐观并发校验，两人同时审批只有一人成功，另一人收到 `409` 而不是静默覆盖。拒绝后账号保持 `Rejected`，该工号再次登录仍显示待审批，不会被自动重建；`Rejected` 可以在之后重新审核通过。
+审批通过时角色和 SBU 在同一事务中写入，`SecurityVersion` 做乐观并发校验，两人同时审批只有一人成功，另一人收到 `409` 而不是静默覆盖。拒绝后账号保持 `Rejected`，该工号再次登录返回拒绝（403），不会被自动重建；`Rejected` 可以在之后重新审核通过。
+
+存量 Pending / Disabled 不会被此次迁移批量启用；需管理员显式启用。Pending 被禁用后，批准只改变业务资格和授权，仍保留禁用；Rejected 的显式重新审核通过会恢复启用。
 
 审批不是万能的启用开关：`ApproveLdap` 只接受 `Pending` 和 `Rejected`，任何 `Approved` 状态都直接拒绝。已通过后被禁用的账号必须走 `setUserEnable`，这样“审批 + 角色 + SBU”三项权限不能代替 `identity.user.status`，也不能借审批顺手改写现任管理员的角色。角色替换复用角色接口的完整保护：目标原本是管理员或将被设为管理员时，只有管理员能执行，且不能移除自己的管理员身份。
 

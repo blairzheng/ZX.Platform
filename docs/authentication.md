@@ -10,7 +10,7 @@
 
 Access Token 使用标准 JWT，由 `System.IdentityModel.Tokens.Jwt` 签发，ASP.NET Core `AddJwtBearer()` 验证签名、Issuer、Audience、有效期、HS256 算法及 `typ=at+jwt`，不自行解析和验证 Access Token。Refresh Token 继续使用密码学安全随机凭据。业务请求只接受 `Authorization: Bearer <accessToken>`，不接受 URL Token 或用 Refresh Cookie 代替业务请求认证。
 
-数据库保存用户、BCrypt 密码哈希、账号状态及角色授权；Redis 保存当前会话与权限缓存。JWT 标准验证通过后，每个需要认证的请求查询 Redis 核对用户、SessionId 和当前 Access `jti`。功能权限检查再使用一次 MGET，缓存未命中才查询授权表，不逐请求 HTTP 调用 Identity。多个实例必须使用相同 JWT 配置和密钥、数据库、Redis、键前缀、Token 生命周期及权限目录版本。连接通过单例 `IConnectionMultiplexer` 复用，无跨请求本机缓存或内存降级。权限缓存规则见[角色与权限](authorization.md)。
+数据库保存用户、BCrypt 密码哈希、账号状态及角色授权；Redis 保存当前会话与权限缓存。JWT 标准验证通过后，每个需要认证的请求查询 Redis 核对用户、SessionId 和当前 Access `jti`。功能权限检查先读取用户状态，确认已启用且业务审批通过，再使用 MGET 权限缓存；缓存未命中才查询角色授权表，不逐请求 HTTP 调用 Identity。多个实例必须使用相同 JWT 配置和密钥、数据库、Redis、键前缀、Token 生命周期及权限目录版本。连接通过单例 `IConnectionMultiplexer` 复用，无跨请求本机缓存或内存降级。权限缓存规则见[角色与权限](authorization.md)。
 
 存储接口为 `Application/Authentication/IAuthSessionStore`，实现为 `Infrastructure/Security/RedisAuthSessionStore`；`JwtAccessTokenIssuer` 负责调用标准库签发 JWT，API 的 `JwtSessionEvents.TokenValidated` 在 `JwtBearer` 校验成功后检查共享会话，并统一 401 / 403 响应。旧的 `SessionAuthenticationHandler`、随机 Access 格式、Access 哈希匹配已移除。JSON 会话使用新键名，与旧 `zx:identity:auth:user:{userId}` Hash 隔离，避免 Redis 类型冲突。旧随机 Token 及旧 Hash 会话均不兼容，更新后需重新登录；旧键按原 TTL 到期，不需要清空 Redis。多实例更新时需统一切换版本，不能让仍认可旧 Hash 会话的实例继续提供服务。
 
@@ -40,17 +40,17 @@ JWT 包含 `sub`（用户 ID）、`name`（账号）、`sid`（会话 ID）、`j
 
 上述事务只覆盖 Redis，数据库保存与 Redis 撤销不构成一个事务。一般情况下撤销完成后新开始的认证拒绝旧 Token，已经通过认证的请求不会自动中断。若登录已读到旧账号状态、但在撤销之后才写入会话，它仍可能短暂成功；强制下线与新登录同时发生时，以 Redis 实际执行顺序为准。
 
-没有逐请求查用户表，因此上述竞争产生的会话不会被“下一次请求”自动发现。Access 最长可继续有效一个 Access 生命周期（默认 15 分钟）；刷新会重新检查数据库的删除、禁用状态和密码指纹，拒绝旧会话继续刷新。需要缩短容忍时间可调整 Access 有效期；未来若重新要求严格立即失效，应重新设计协调，不能把当前实现当作强一致。
+认证层本身不逐请求查用户表；权限服务和 me 会读取用户状态阻止禁用/待授权账号取得业务能力，但仅标注登录的其他端点仍可能接受竞争产生的 Access。该 Access 最长可继续有效一个 Access 生命周期（默认 15 分钟）；刷新会重新检查数据库的删除、禁用状态和密码指纹，拒绝旧会话继续刷新。需要缩短容忍时间可调整 Access 有效期；未来若重新要求严格立即失效，应重新设计协调，不能把当前实现当作强一致。
 
 撤销不使用客户端请求取消令牌，即使提交结果不确定也尝试下线。Redis 失败返回 503，数据库变更可能已经提交，旧会话在 Redis 恢复后也可能仍存在；调用方需查询状态、恢复依赖后重试下线。系统不会自动回滚数据库或假报成功。直接改数据库同样不触发撤销，运维应使用对应接口。
 
 ## OA 登录与会话
 
-`Auth/ldapLogin` 的会话分支只有一条：`status=Authenticated` 时才签发 Access、写 Refresh Cookie。`status=PendingApproval` 表示身份已在目录侧验证通过但 ZX 侧未审批，接口返回成功语义（HTTP 200 / `code=0`），但不发令牌、不写 Cookie、不覆盖浏览器中另一个有效登录，前端必须按 `status` 判断而不是按 HTTP 状态。
+`Auth/ldapLogin` 认证通过且账号状态允许登录即返回 `status=Authenticated`、`created` 和 `tokens`，写 Refresh Cookie。首次建档为 Pending / Enabled，无角色和 SBU；已启用的 Pending 用户可以进入系统外壳。不再返回无令牌的 `PendingApproval` 结果。禁用、删除和拒绝仍阻止登录；既有禁用行不自动启用。
 
 会话与本地登录共用同一套 Redis 结构和单会话规则：同一用户只允许一处会话、接管需 `replaceExistingSession=true`、刷新轮换与重放检测一致。差别在凭据指纹：OA 账号没有密码哈希，指纹完全依赖 `SecurityVersion`。因此审批通过、拒绝、禁用、删除、恢复都必须递增该版本，否则旧会话仍能刷新；这套约束由 `User` 实体的方法保证，新增状态变更时不要绕过实体直接改字段。
 
-刷新和 `Auth/me` 都要求 `ApprovalStatus=Approved` 且账号启用。审批前若有人拿到了有效会话（正常流程不会发生），审批状态变化会让指纹和状态检查同时失效。禁用 OA 账号走与本地账号相同的撤销逻辑，不额外需要下线。
+刷新和 `Auth/me` 接受已启用且未删除的 Pending / Approved OA 用户。Pending 的 me 强制返回空角色、权限、菜单和 SBU，管理员标记为 false；权限服务在读取 Redis 快照前检查业务资格，SBU 查询同时检查 Approved，误写关联或旧缓存不能放行。审批通过或拒绝仍递增版本并撤销旧会话，用户需重新登录。Pending 的显式禁用不会被后续登录或批准恢复；Rejected 显式重新审批可恢复启用。禁用 OA 账号沿用会话撤销逻辑。
 
 OA 登录使用 Redis 键 `{KeyPrefix}ldap-fail:{SHA256(工号)[..32]}` 记录按工号共享的失败次数，键里只有工号摘要，没有密码。默认同工号 5 分钟内失败 10 次后返回 `429 / 600429`。正常的凭据失败处理还会对已建档且未删除的 OA 账号累计数据库失败次数并执行锁定；本地登录使用原有数据库失败次数与锁定时间。递增与补 TTL 在同一段 Lua 脚本中原子执行；**检查入口也同样原子地补齐缺失的 TTL**，因此旧版本遗留的“已达阈值但没有过期时间”的键会在下一次检查时自动恢复，而不是永久 429。目录连接故障、超时、结果不唯一等依赖故障不计入失败次数，也不会返回 401。Redis 不可用时该接口返回 `503 / 600503`，与本地登录的 Redis 故障行为一致。
 

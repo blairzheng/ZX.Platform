@@ -26,14 +26,13 @@
   <data name="User.LdapUserFound" xml:space="preserve"><value>OA user found in the directory. Review the details before provisioning.</value></data>
   <data name="User.LdapUserNotFound" xml:space="preserve"><value>No user with this employee number was found in LDAP.</value></data>
   <data name="User.LdapUserProvisioned" xml:space="preserve"><value>The OA user was created and provisioned.</value></data>
-  <data name="User.LdapUserPendingCreated" xml:space="preserve"><value>A pending OA user was created and is waiting for approval.</value></data>
-  <data name="User.LdapUserApproved" xml:space="preserve"><value>The OA account was approved and provisioned.</value></data>
+  <data name="User.LdapUserPendingCreated" xml:space="preserve"><value>The OA user was created and can sign in. Business access is awaiting administrator approval.</value></data>
+  <data name="User.LdapUserApproved" xml:space="preserve"><value>Business access was approved. A disabled pending account still needs to be enabled separately.</value></data>
   <data name="User.LdapUserRejected" xml:space="preserve"><value>The OA account request was rejected.</value></data>
   <data name="User.AccountTypeConflict" xml:space="preserve"><value>This employee number or account is used by a different account type. Please contact an administrator.</value></data>
   <data name="User.LdapIdentityConflict" xml:space="preserve"><value>The directory identity does not match the existing account. Please contact an administrator.</value></data>
   <data name="User.NotLdapAccount" xml:space="preserve"><value>This user is not an OA account and cannot be used for this operation.</value></data>
   <data name="User.AlreadyApproved" xml:space="preserve"><value>This OA account is already approved.</value></data>
-  <data name="User.PendingCannotEnable" xml:space="preserve"><value>The OA account has not been approved yet and cannot be enabled directly.</value></data>
   <data name="User.RejectedCannotEnable" xml:space="preserve"><value>This OA account request was rejected and cannot be enabled directly.</value></data>
   <data name="User.DeletedCannotReview" xml:space="preserve"><value>Deleted accounts cannot be reviewed. Restore the account first.</value></data>
   <data name="User.NotReviewable" xml:space="preserve"><value>The current account state does not allow this review action.</value></data>

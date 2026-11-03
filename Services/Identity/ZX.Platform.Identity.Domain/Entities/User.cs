@@ -126,6 +126,14 @@ namespace ZX.Platform.Identity.Domain.Entities
         /// </summary>
         public bool CanChangePassword => AuthType == UserAuthType.Local;
 
+        /// <summary>账号状态允许维持登录；待审批 OA 账号只有系统外壳访问权。</summary>
+        public bool CanUseSession => !IsDeleted && IsEnabled &&
+            (ApprovalStatus == UserApprovalStatus.Approved ||
+             (IsLdap && ApprovalStatus == UserApprovalStatus.Pending));
+
+        /// <summary>业务授权资格；待审批账号即使存在角色或 SBU 关联也不得生效。</summary>
+        public bool HasBusinessAccess => !IsDeleted && IsEnabled && ApprovalStatus == UserApprovalStatus.Approved;
+
         /// <summary>
         /// 创建本地管理账号。本地账号必须有密码哈希，审批状态固定为通过。
         /// </summary>
@@ -149,7 +157,7 @@ namespace ZX.Platform.Identity.Domain.Entities
         }
 
         /// <summary>
-        /// 创建待审批的 OA 员工账号。不保存密码、不分配角色和 SBU、默认禁用。
+        /// 创建待业务审批的 OA 员工账号。允许登录，不保存密码、不分配角色和 SBU。
         /// </summary>
         /// <param name="account">
         /// ZX 账号，固定使用工号；目录登录名（如 sAMAccountName）只用于目录认证，不作为 ZX 账号。
@@ -174,7 +182,7 @@ namespace ZX.Platform.Identity.Domain.Entities
                 null,
                 UserAuthType.Ldap,
                 UserApprovalStatus.Pending,
-                false);
+                true);
             user.EmployeeNo = employeeNo.Trim();
             user.LdapProvider = provider.Trim();
             user.LdapSubject = subject.Trim();
@@ -182,7 +190,8 @@ namespace ZX.Platform.Identity.Domain.Entities
         }
 
         /// <summary>
-        /// 审批通过 OA 账号并启用。角色和 SBU 由调用方在同一事务中写入。
+        /// 审批通过 OA 业务访问。角色和 SBU 由调用方在同一事务中写入。
+        /// Pending 的禁用状态保留；Rejected 的显式重新审批恢复启用。
         /// </summary>
         /// <param name="reviewerUserId">审批人；匿名的首次申请由管理员后续审批，不能为空。</param>
         /// <param name="reviewedAtUtc">审批时间，统一使用 UTC。</param>
@@ -196,8 +205,9 @@ namespace ZX.Platform.Identity.Domain.Entities
             if (ApprovalStatus == UserApprovalStatus.Approved)
                 throw new DomainException("User.AlreadyApproved");
 
+            if (ApprovalStatus == UserApprovalStatus.Rejected)
+                IsEnabled = true;
             ApprovalStatus = UserApprovalStatus.Approved;
-            IsEnabled = true;
             ReviewedByUserId = reviewerUserId;
             ReviewedAtUtc = reviewedAtUtc;
             ReviewReason = NormalizeReason(reason);
@@ -246,7 +256,7 @@ namespace ZX.Platform.Identity.Domain.Entities
         }
 
         /// <summary>
-        /// 启用用户。OA 账号必须先审批通过，不能用启用绕过审批。
+        /// 启用用户。待审批 OA 账号可登录但没有业务权限；已拒绝账号必须重新审批。
         /// </summary>
         public void Enable()
         {
@@ -254,10 +264,8 @@ namespace ZX.Platform.Identity.Domain.Entities
                 throw new DomainException("User.RestoreBeforeEnable");
             if (IsEnabled)
                 return;
-            if (IsLdap && ApprovalStatus != UserApprovalStatus.Approved)
-                throw new DomainException(ApprovalStatus == UserApprovalStatus.Rejected
-                    ? "User.RejectedCannotEnable"
-                    : "User.PendingCannotEnable");
+            if (IsLdap && ApprovalStatus == UserApprovalStatus.Rejected)
+                throw new DomainException("User.RejectedCannotEnable");
 
             IsEnabled = true;
             IncrementSecurityVersion();
@@ -282,10 +290,10 @@ namespace ZX.Platform.Identity.Domain.Entities
             LockoutEndUtc.HasValue && LockoutEndUtc.Value > now;
 
         /// <summary>
-        /// 判断用户当前是否允许登录：未删除、已启用、审批通过且未被锁定。
+        /// 判断用户当前是否允许登录：状态允许维持会话且未被锁定。
         /// </summary>
         public bool CanLogin(DateTimeOffset now) =>
-            !IsDeleted && IsEnabled && ApprovalStatus == UserApprovalStatus.Approved && !IsLocked(now);
+            CanUseSession && !IsLocked(now);
 
         /// <summary>
         /// 记录一次登录失败，达到限制后锁定账户

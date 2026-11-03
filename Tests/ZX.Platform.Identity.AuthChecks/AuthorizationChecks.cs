@@ -27,9 +27,9 @@ internal static class AuthorizationChecks
         using var fixture = new Fixture();
         using var otherConnection = TestRedis.Connect();
         var otherCache = new RedisPermissionCache(otherConnection, fixture.RedisOptions);
-        PermissionService Reader() => new(fixture.Roles, otherCache);
+        PermissionService Reader() => new(fixture.Roles, otherCache, fixture.Users);
         var service = new RoleService(fixture.Roles, fixture.Users, fixture.Unit,
-            new PermissionService(fixture.Roles, fixture.PermissionCache), fixture.PermissionCache);
+            new PermissionService(fixture.Roles, fixture.PermissionCache, fixture.Users), fixture.PermissionCache);
         var target = User.CreateLocal("VIEWER", "Viewer", fixture.Passwords.Hash("Example123!"));
         fixture.Users.Add(target);
         var activeSbu = Sbu.Create("SBU1", "SBU 1");

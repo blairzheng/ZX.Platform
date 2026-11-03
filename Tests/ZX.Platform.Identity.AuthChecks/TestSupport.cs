@@ -108,7 +108,7 @@ internal sealed class TestRoles(TestUsers users) : IRoleRepository
         UserRoles.Where(item => ids.Contains(item.UserId) && Items.Any(role => role.Id == item.RoleId && role.IsBuiltIn && role.IsEnabled && !role.IsDeleted)).Select(item => item.UserId).ToList());
     public Task<AuthorizationSnapshot> GetAuthorizationAsync(Guid userId, CancellationToken token)
     {
-        if (!users.Items.Any(user => user.Id == userId && user.IsEnabled && !user.IsDeleted))
+        if (!users.Items.Any(user => user.Id == userId && user.HasBusinessAccess))
             return Task.FromResult(new AuthorizationSnapshot(false, [], []));
         var roles = Items.Where(role => role.IsEnabled && !role.IsDeleted && UserRoles.Any(item => item.UserId == userId && item.RoleId == role.Id)).ToList();
         var administrator = roles.Any(role => role.IsBuiltIn && role.Code == Role.AdministratorCode);
@@ -230,13 +230,14 @@ internal sealed class TestLdapGuard : ILdapLoginGuard
     }
 }
 
-internal sealed class TestUserSbus : IUserSbuRepository{
+internal sealed class TestUserSbus(TestUsers users) : IUserSbuRepository{
     public List<UserSbu> Items { get; } = [];
     public List<Sbu> Sbus { get; } = [];
     public Task<List<UserSbu>> GetByUserIdAsync(Guid id, CancellationToken token) =>
         Task.FromResult(Items.Where(item => item.UserId == id).ToList());
     public Task<Sbu?> GetEnabledSbuForUserAsync(Guid userId, Guid sbuId, CancellationToken token) =>
         Task.FromResult(Sbus.FirstOrDefault(sbu => sbu.Id == sbuId && !sbu.IsDeleted && sbu.IsEnabled &&
+            users.Items.Any(user => user.Id == userId && user.HasBusinessAccess) &&
             Items.Any(item => item.UserId == userId && item.SbuId == sbu.Id)));
     public Task<List<UserSbu>> GetByUserIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken token) =>
         Task.FromResult(Items.Where(item => ids.Contains(item.UserId)).ToList());
@@ -255,7 +256,7 @@ internal sealed class Fixture : IDisposable
     public TestRoles Roles { get; }
     public TestMenus Menus { get; } = new();
     public TestSbus Sbus { get; } = new();
-    public TestUserSbus UserSbus { get; } = new();
+    public TestUserSbus UserSbus { get; }
     public TestLdap Ldap { get; } = new();
     public TestLdapGuard LdapGuard { get; } = new();
     public RedisPermissionCache PermissionCache { get; }
@@ -272,12 +273,13 @@ internal sealed class Fixture : IDisposable
         AccessTokens = new(Jwt);
         Sessions = new(TestRedis.Connection, Options, RedisOptions, AccessTokens, Clock);
         Roles = new(Users);
+        UserSbus = new(Users);
         PermissionCache = new(TestRedis.Connection, RedisOptions);
         DefaultMenus.AddMissing(Menus.Items, Menus.Add);
-        Auth = new(Users, Unit, Passwords, Sessions, Options, Clock, new PermissionService(Roles, PermissionCache),
+        Auth = new(Users, Unit, Passwords, Sessions, Options, Clock, new PermissionService(Roles, PermissionCache, Users),
             new MenuService(Menus, Unit), UserSbus, Sbus, Ldap, LdapGuard);
         UserService = new(Users, Unit, Passwords, Sbus, UserSbus, Sessions, PermissionCache, Roles,
-            new PermissionService(Roles, PermissionCache), Ldap, ApprovalAudits, Clock);
+            new PermissionService(Roles, PermissionCache, Users), Ldap, ApprovalAudits, Clock);
         User = User.CreateLocal("ADMIN", "Administrator", Passwords.Hash("Example123!"));
         Users.Add(User);
         var administrator = Role.CreateAdministrator();

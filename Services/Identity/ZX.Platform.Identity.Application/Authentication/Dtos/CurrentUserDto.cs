@@ -13,6 +13,12 @@ public sealed class CurrentUserDto
     /// </summary>
     public required string AuthType { get; init; }
 
+    /// <summary>业务审批状态；Pending 可以登录，但不能访问业务功能。</summary>
+    public required string ApprovalStatus { get; init; }
+
+    /// <summary>是否具备业务授权资格；具体操作仍由角色权限和 SBU 独立决定。</summary>
+    public bool HasBusinessAccess { get; init; }
+
     /// <summary>
     /// 是否允许在 ZX 修改密码；OA 账号为 false，需要前往 OA 修改。
     /// </summary>

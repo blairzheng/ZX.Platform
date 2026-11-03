@@ -46,7 +46,7 @@ public sealed class RoleRepository(PlatformIdentityDbContext db) : IRoleReposito
                 role => role.Id,
                 (relation, role) => new { relation.UserId, role.Id, role.Code, role.IsBuiltIn })
             .Join(
-                db.Users.Where(user => user.IsEnabled),
+                db.Users.Where(user => user.IsEnabled && user.ApprovalStatus == UserApprovalStatus.Approved),
                 role => role.UserId,
                 user => user.Id,
                 (role, user) => new { role.Id, role.Code, role.IsBuiltIn })

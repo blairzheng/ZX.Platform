@@ -14,10 +14,13 @@ internal static class SbuScopeChecks
 {
     public static async Task RunAsync()
     {
-        var userId = Guid.NewGuid();
+        var users = new TestUsers();
+        var user = User.CreateLocal("SBU_USER", "SBU user", "test-hash");
+        users.Add(user);
+        var userId = user.Id;
         var sbu = Sbu.Create("SBU2", "SBU 2");
         var sbuId = sbu.Id;
-        var repository = new TestUserSbus();
+        var repository = new TestUserSbus(users);
 
         async Task<(bool Called, CurrentSbuContext Selection)> ExecuteAsync(string? header, Guid? user = null)
         {
@@ -54,6 +57,14 @@ internal static class SbuScopeChecks
         var (called, selection) = await ExecuteAsync(sbuId.ToString());
         Check.That(called && selection.SbuId == sbuId && selection.SbuCode == "SBU2",
             "Only an enabled, assigned SBU may reach the action with its server-side code.");
+
+        var pending = User.CreateLdap("10001", "10001", "Pending", "corp", Guid.NewGuid().ToString());
+        users.Add(pending);
+        repository.Items.Add(UserSbu.Create(pending.Id, sbuId, false));
+        await Check.ErrorAsync(async () => await ExecuteAsync(sbuId.ToString(), pending.Id), ErrorCodes.Forbidden);
+        user.Disable();
+        await Check.ErrorAsync(async () => await ExecuteAsync(sbuId.ToString()), ErrorCodes.Forbidden);
+        user.Enable();
 
         sbu.MarkDeleted();
         await Check.ErrorAsync(async () => await ExecuteAsync(sbuId.ToString()), ErrorCodes.Forbidden);

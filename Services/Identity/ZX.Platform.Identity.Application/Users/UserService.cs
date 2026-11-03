@@ -146,7 +146,7 @@ namespace ZX.Platform.Identity.Application.Users
         {
             var user = await _userRepository.GetByIdAsync(id, cancellationToken);
             if (user == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
-            // OA 账号必须先审批通过；启用接口不能替代审批流程。
+            // 启用只恢复登录资格；待审批 OA 账号仍没有业务授权，已拒绝账号必须重新审批。
             user.Enable();
             try { await _unitOfWork.SaveChangesAsync(cancellationToken); }
             finally { await _permissionCache.InvalidateAsync(CancellationToken.None); }

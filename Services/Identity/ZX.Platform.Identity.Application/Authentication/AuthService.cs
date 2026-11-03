@@ -90,12 +90,7 @@ public sealed class AuthService(
         await ldapGuard.ResetAsync(employeeNo, cancellationToken);
 
         var (user, created) = await ResolveOrCreateLdapUserAsync(identity, cancellationToken);
-        if (created)
-            return new LdapLoginOutcome(LdapLoginStatus.PendingApproval, true, null);
-
         EnsureLdapUserCanLogin(user, identity);
-        if (user.ApprovalStatus == UserApprovalStatus.Pending)
-            return new LdapLoginOutcome(LdapLoginStatus.PendingApproval, false, null);
 
         var now = timeProvider.GetUtcNow();
         // 已启用但处于锁定期时不泄露具体原因，与本地登录保持一致。
@@ -112,7 +107,7 @@ public sealed class AuthService(
             ?? throw new BusinessException(ErrorCodes.Conflict, "Auth.AlreadyOnline",
                 new { Reason = "AlreadyOnline" });
 
-        return new LdapLoginOutcome(LdapLoginStatus.Authenticated, null, tokens);
+        return new LdapLoginOutcome(LdapLoginStatus.Authenticated, created, tokens);
     }
 
     public async Task<AuthTokens> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
@@ -122,8 +117,8 @@ public sealed class AuthService(
             throw InvalidSession();
 
         var user = await users.GetByIdAsync(session.UserId, cancellationToken);
-        // 刷新同样要求审批通过且安全版本一致；OA 账号没有密码也不影响该判断。
-        if (user is null || !user.IsEnabled || user.ApprovalStatus != UserApprovalStatus.Approved ||
+        // Pending 可以维持受限会话；禁用、删除、拒绝及安全版本变化仍令会话失效。
+        if (user is null || !user.CanUseSession ||
             session.CredentialStamp != CredentialStamp(user))
         {
             await sessions.RevokeAsync(session.UserId, session.SessionId, CancellationToken.None);
@@ -136,8 +131,26 @@ public sealed class AuthService(
     public async Task<CurrentUserDto> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         var user = await users.GetByIdAsync(userId, cancellationToken);
-        if (user is null || !user.IsEnabled || user.ApprovalStatus != UserApprovalStatus.Approved)
+        if (user is null || !user.CanUseSession)
             throw InvalidSession();
+
+        // 不依赖“新账号碰巧没有关联”：待授权时强制清空所有业务能力和数据范围。
+        if (!user.HasBusinessAccess)
+            return new CurrentUserDto
+            {
+                Id = user.Id,
+                Account = user.Account,
+                DisplayName = user.DisplayName,
+                AuthType = user.AuthType,
+                ApprovalStatus = user.ApprovalStatus,
+                HasBusinessAccess = false,
+                CanChangePassword = user.CanChangePassword,
+                IsAdministrator = false,
+                Roles = [],
+                Permissions = [],
+                Sbus = [],
+                Menus = []
+            };
 
         var authorization = await permissions.GetAsync(userId, cancellationToken);
         var relations = await userSbus.GetByUserIdAsync(userId, cancellationToken);
@@ -151,6 +164,8 @@ public sealed class AuthService(
             Account = user.Account,
             DisplayName = user.DisplayName,
             AuthType = user.AuthType,
+            ApprovalStatus = user.ApprovalStatus,
+            HasBusinessAccess = user.HasBusinessAccess,
             CanChangePassword = user.CanChangePassword,
             IsAdministrator = authorization.IsAdministrator,
             Roles = authorization.Roles,

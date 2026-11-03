@@ -465,7 +465,7 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_ZID_USER_AUTH_TYPE", "AUTH_TYPE IN ('LOCAL', 'LDAP')");
 
-                            t.HasCheckConstraint("CK_ZID_USER_LDAP_ENABLED", "AUTH_TYPE <> 'LDAP' OR APPROVAL_STATUS = 'Approved' OR IS_ENABLED = 0");
+                            t.HasCheckConstraint("CK_ZID_USER_LDAP_ENABLED", "AUTH_TYPE <> 'LDAP' OR APPROVAL_STATUS <> 'Rejected' OR IS_ENABLED = 0");
 
                             t.HasCheckConstraint("CK_ZID_USER_PASSWORD", "(AUTH_TYPE = 'LDAP' AND PASSWORD_HASH IS NULL) OR (AUTH_TYPE = 'LOCAL' AND PASSWORD_HASH IS NOT NULL)");
                         });

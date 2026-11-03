@@ -21,13 +21,15 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Configurations
                 table.HasCheckConstraint(
                     "CK_ZID_USER_PASSWORD",
                     "(AUTH_TYPE = 'LDAP' AND PASSWORD_HASH IS NULL) OR (AUTH_TYPE = 'LOCAL' AND PASSWORD_HASH IS NOT NULL)");
-                // 未审批通过的 OA 账号不能处于启用状态。
+                // 待审批 OA 账号允许登录；已拒绝的 OA 账号必须禁用。
                 table.HasCheckConstraint(
                     "CK_ZID_USER_LDAP_ENABLED",
-                    "AUTH_TYPE <> 'LDAP' OR APPROVAL_STATUS = 'Approved' OR IS_ENABLED = 0");
+                    "AUTH_TYPE <> 'LDAP' OR APPROVAL_STATUS <> 'Rejected' OR IS_ENABLED = 0");
             });
 
             builder.HasKey(x => x.Id);
+            builder.Ignore(x => x.CanUseSession);
+            builder.Ignore(x => x.HasBusinessAccess);
 
             builder.Property(x => x.Id)
                 .HasColumnName("ID")

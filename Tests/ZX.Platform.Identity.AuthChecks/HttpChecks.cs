@@ -21,6 +21,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using ZX.Platform.Identity.Infrastructure.Persistence;
+using Role = ZX.Platform.Identity.Domain.Entities.Role;
 
 namespace ZX.Platform.Identity.AuthChecks;
 
@@ -60,6 +61,8 @@ internal static class HttpChecks
         builder.Services.AddSingleton<IPermissionCache>(fixture.PermissionCache);
         builder.Services.AddSingleton<IUnitOfWork>(fixture.Unit);
         builder.Services.AddSingleton<IPasswordHasher>(fixture.Passwords);
+        builder.Services.AddSingleton<ILdapAuthenticator>(fixture.Ldap);
+        builder.Services.AddSingleton<ILdapLoginGuard>(fixture.LdapGuard);
         builder.Services.AddScoped<IUserService>(_ => fixture.UserService);
         builder.Services.AddApiLocalization();
         builder.Services.AddEndpointsApiExplorer();
@@ -201,6 +204,35 @@ internal static class HttpChecks
             "Ordinary user may change their own name.");
         Check.That((await SendAsync(HttpMethod.Put, "/api/Users/updateDisplayName", new { id = fixture.User.Id, displayName = "Other name" }, userAccess)).Status == HttpStatusCode.Forbidden,
             "Ordinary user cannot change another user's name.");
+
+        // 待授权会话必须能读取 me，但即使误有关联或缓存也不能调用业务接口。
+        fixture.Ldap.Entries.Add(new TestLdap.Entry("10001", "Oa#Test123", "employee", "Pending OA",
+            "Department", "test", Guid.NewGuid().ToString(), LdapDirectoryStatus.Enabled));
+        var oaLogin = await SendAsync(HttpMethod.Post, "/api/Auth/ldapLogin",
+            new { employeeNo = "10001", password = "Oa#Test123" });
+        Check.That(oaLogin.Status == HttpStatusCode.OK && oaLogin.SetCookie is not null && oaLogin.NoStore,
+            "First OA login must create a session and a refresh cookie even while pending business approval.");
+        var oaData = oaLogin.Json.GetProperty("data");
+        Check.That(oaData.GetProperty("status").GetString() == "Authenticated" &&
+            oaData.GetProperty("created").GetBoolean(), "First OA login must return the new session contract.");
+        var oaAccess = oaData.GetProperty("tokens").GetProperty("accessToken").GetString()!;
+        var pendingOa = fixture.Users.Items.Single(user => user.EmployeeNo == "10001");
+        var administrator = fixture.Roles.Items.Single(role => role.IsBuiltIn);
+        fixture.Roles.AddUserRole(UserRole.Create(pendingOa.Id, administrator.Id));
+        var cachedOa = await fixture.PermissionCache.ReadAsync(pendingOa.Id, default);
+        await fixture.PermissionCache.StoreAsync(pendingOa.Id, cachedOa.Version,
+            new AuthorizationSnapshot(true, [Role.AdministratorCode], IdentityPermissions.All.ToArray()), default);
+        var oaMe = await SendAsync(HttpMethod.Get, "/api/Auth/me", access: oaAccess);
+        var oaCurrent = oaMe.Json.GetProperty("data");
+        Check.That(oaMe.Status == HttpStatusCode.OK &&
+            oaCurrent.GetProperty("approvalStatus").GetString() == "Pending" &&
+            !oaCurrent.GetProperty("hasBusinessAccess").GetBoolean() &&
+            !oaCurrent.GetProperty("isAdministrator").GetBoolean() &&
+            new[] { "roles", "permissions", "sbus", "menus" }.All(key => oaCurrent.GetProperty(key).GetArrayLength() == 0),
+            "Pending me must contain identity details and no effective business grants.");
+        foreach (var path in new[] { "/api/Users/getUserList", "/api/Menus/getMenuTree", "/api/Roles/permissionTree" })
+            Check.That((await SendAsync(HttpMethod.Get, path, access: oaAccess)).Status == HttpStatusCode.Forbidden,
+                "Pending session must be rejected by management authorization, even with an old administrator cache.");
 
         var roleCreated = await SendAsync(HttpMethod.Post, "/api/Roles/add", new { code = "HTTP_READER", name = "HTTP reader" }, access);
         Check.That(roleCreated.Status == HttpStatusCode.Created, "An administrator may create roles.");

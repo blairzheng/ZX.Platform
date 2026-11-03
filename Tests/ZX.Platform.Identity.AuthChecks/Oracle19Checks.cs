@@ -31,7 +31,7 @@ internal static class Oracle19Checks
         var migrations = db.Database.GetMigrations().ToArray();
         Check.That(migrations.Length >= 2 && migrations[0] == "20261027000000_InitialIdentitySchema" &&
             migrations.Contains("20261028084818_ReplaceFactoriesWithSbus") &&
-            migrations[^1] == "20261102150741_WidenApprovalAuditSnapshot",
+            migrations[^1] == "20261103090000_AllowPendingLdapLogin",
             "The project must have one Oracle 19c migration chain starting at its new baseline and ending at the current migration.");
 
         var migrator = db.GetService<IMigrator>();
@@ -97,6 +97,22 @@ internal static class Oracle19Checks
         Check.That(!widenSql.Contains("substr", StringComparison.OrdinalIgnoreCase) &&
             !widenSql.Contains("DELETE FROM \"ZX_IDENTITY\".\"ZX_IDENTITY_USER_APPROVAL_AUDIT\"", StringComparison.Ordinal),
             "Widening the audit snapshot must keep existing evidence intact instead of truncating or deleting it.");
+
+        var pendingLoginSql = migrator.GenerateScript(
+            fromMigration: "20261102150741_WidenApprovalAuditSnapshot",
+            toMigration: "20261103090000_AllowPendingLdapLogin");
+        Check.That(pendingLoginSql.Contains("DROP CONSTRAINT \"CK_ZID_USER_LDAP_ENABLED\"") &&
+            pendingLoginSql.Contains("APPROVAL_STATUS <> 'Rejected'") &&
+            !pendingLoginSql.Contains("UPDATE ", StringComparison.OrdinalIgnoreCase) &&
+            !pendingLoginSql.Contains("DELETE FROM", StringComparison.OrdinalIgnoreCase),
+            "Pending login migration must only relax the constraint, without enabling users or modifying grants.");
+        var pendingRollbackSql = migrator.GenerateScript(
+            fromMigration: "20261103090000_AllowPendingLdapLogin",
+            toMigration: "20261102150741_WidenApprovalAuditSnapshot");
+        Check.That(pendingRollbackSql.Contains("raise_application_error(-20011") &&
+            pendingRollbackSql.IndexOf("raise_application_error", StringComparison.Ordinal) <
+                pendingRollbackSql.IndexOf("DROP CONSTRAINT", StringComparison.Ordinal),
+            "Rollback must check enabled Pending accounts before any implicitly committed DDL.");
 
         var query = db.Users.Where(user => user.IsEnabled).OrderBy(user => user.Id).Take(10)
             .Select(user => new { user.Id, HasSbu = db.UserSbus.Any(link => link.UserId == user.Id) })

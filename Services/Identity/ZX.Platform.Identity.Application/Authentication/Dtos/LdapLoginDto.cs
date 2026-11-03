@@ -29,14 +29,14 @@ public sealed class LdapLoginResultDto
     public required string Status { get; init; }
 
     /// <summary>
-    /// 本次请求是否新建了待审批账号；正常登录时为 null。
+    /// 本次请求是否新建了待业务审批账号。
     /// </summary>
-    public bool? Created { get; init; }
+    public bool Created { get; init; }
 
     /// <summary>
-    /// 登录成功时返回的访问令牌；待审批时不返回任何令牌。
+    /// 登录成功时返回的访问令牌；待业务审批账号也会建立受限会话。
     /// </summary>
-    public AccessTokenDto? Tokens { get; init; }
+    public required AccessTokenDto Tokens { get; init; }
 }
 
 /// <summary>
@@ -48,9 +48,4 @@ public static class LdapLoginStatus
     /// 认证通过并已建立会话。
     /// </summary>
     public const string Authenticated = "Authenticated";
-
-    /// <summary>
-    /// 首次申请已提交或仍在等待审批，未建立会话。
-    /// </summary>
-    public const string PendingApproval = "PendingApproval";
 }

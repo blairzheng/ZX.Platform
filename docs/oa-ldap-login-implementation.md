@@ -2,7 +2,7 @@
 
 [文档导航](README.md) · [现有登录与会话](authentication.md) · [角色与权限](authorization.md) · [数据库迁移操作](migration-operations.md)
 
-确认日期：2026-11-02；延期决定更新于 2026-11-03。状态：后端与前端已实现主要流程，当前进入联调，已知限制与本轮延期决定见 10.7 节，实施结果、验证范围和未联调项见第 10 节。文中产品规则、数据模型和接口契约仍是当前实现依据；LDAP 凭据验证结果只代表目录可达，不代表 ZX 已在目标环境完成全部联调。
+确认日期：2026-11-02；登录/业务授权规则更新于 2026-11-03（10.8 节）。状态：后端与前端已实现主要流程，当前进入联调，已知限制与本轮延期决定见 10.7 节，实施结果、验证范围和未联调项见第 10 节。文中产品规则、数据模型和接口契约仍是当前实现依据；LDAP 凭据验证结果只代表目录可达，不代表 ZX 已在目标环境完成全部联调。
 
 ## 1. 已确定的产品规则
 
@@ -38,13 +38,13 @@
 
 1. 员工选择“OA 登录”，输入工号和 OA 密码。
 2. LDAP 认证成功后，ZX 查找对应的 OA 本地用户。
-3. 工号不存在时，创建 `LDAP + Pending + IsEnabled=false` 用户，记录可信工号、目录唯一标识和姓名；没有密码、角色或 SBU。
-4. 返回“账号开通申请已提交，等待管理员审核。审核通过后，请继续使用 OA 账号密码登录。”不创建 Redis 登录会话，不签发 Access / Refresh，不设置新的 Refresh Cookie。
-5. 再次登录且仍待审批时，返回同一条申请的状态，不重复创建、不刷新申请时间、不清空已预分配的角色或 SBU。
-6. 管理员在用户管理中审批并分配角色、SBU。审批通过后启用账号。
-7. 员工再次使用 OA 密码登录，ZX 才创建正常会话。
+3. 工号不存在时，创建 `LDAP + Pending + IsEnabled=true` 用户，记录可信工号、目录唯一标识和姓名；没有密码、角色或 SBU。
+4. 建立 Redis 会话，签发 Access / Refresh 并设置 HttpOnly Cookie，进入应用中心。提示“账号已创建，请联系管理员分配访问权限。”；不默认分配任何业务能力。
+5. 再次登录且仍待业务审批时，沿用同一 UserId 和单会话接管规则，不重复创建，不自动恢复禁用或拒绝状态。
+6. 管理员审批并分配角色、SBU，业务授权开始生效。Pending 若已禁用则批准仍保留禁用，需要显式启用；Rejected 的显式重新批准恢复启用。
+7. 审批通过/拒绝会递增安全版本并撤销旧会话。员工批准后重新 OA 登录，加载业务权限。
 
-待审批用户无需注册、设置 ZX 密码或记忆第二套密码。等待页面留在公开登录页内，不向待审批用户开放正常系统页面或申请查询接口。
+待审批用户无需注册、设置 ZX 密码或记忆第二套密码。待业务授权用户可以访问系统外壳、me、刷新和退出；应用中心显示空状态，不开放业务页面或业务接口。
 
 ### 1.3 预分配、冲突与离职
 
@@ -176,7 +176,7 @@
 - `EMPLOYEE_NO` 建唯一索引；本地用户为 NULL。包含已软删除的 OA 用户，不允许登录时绕过软删除重新建档。
 - `(LDAP_PROVIDER, LDAP_SUBJECT)` 建唯一索引；两列同时有值或同时为空。所有新 OA 申请在目录查询并成功 bind 后写入两列。
 - 校验 `AUTH_TYPE` / `APPROVAL_STATUS` 合法值；LDAP 账号必须有工号且 `ACCOUNT` 与规范化工号一致。
-- `LDAP + Pending/Rejected` 必须 `IsEnabled=false`；`Approved` 可以启用或被管理员禁用。
+- `LDAP + Pending` 新建时 `IsEnabled=true`，可被管理员禁用；`Rejected` 必须 `IsEnabled=false`；`Approved` 可以启用或禁用。
 - 数据库唯一索引负责最终并发兜底，不能只靠“先查再插”。Oracle B-tree 唯一索引允许全 NULL 的键，不能给空标识统一写占位字符串。
 - 索引和约束名使用显式短名称，兼容现有 Oracle 环境的标识符长度限制。
 
@@ -185,7 +185,8 @@
 | 认证类型 / 状态 | IsEnabled | 登录结果 | 状态变化来源 |
 | --- | --- | --- | --- |
 | `LOCAL + Approved` | 保留原值 | 原本地登录规则 | 原用户管理 |
-| `LDAP + Pending` | false | 显示待审批，不发会话 | 首次 OA 认证或管理员选择仅创建待审批 |
+| `LDAP + Pending` | true | 建立受限会话，无业务能力 | 首次 OA 认证或管理员仅创建待授权 |
+| `LDAP + Pending` | false | 拒绝登录，不自动启用 | 管理员禁用或历史待审批记录 |
 | `LDAP + Rejected` | false | 显示未获批准，不发会话 | 有权限管理员拒绝 |
 | `LDAP + Approved` | true | LDAP 认证通过后发会话 | 管理员审批或创建并开通 |
 | `LDAP + Approved` | false | 禁用，不发会话 | 管理员禁用 |
@@ -193,7 +194,7 @@
 
 新建、待审批重复登录不改变 `SecurityVersion`。审批、拒绝、启用、禁用、删除、恢复、本地改密等会改变登录资格的操作递增版本，并按现有规则撤销会话、使权限缓存失效。改显示名不需要递增。
 
-`CanLogin`、刷新和 `/me` 均检查未删除、启用、审批通过；新登录还检查锁定。`Enable()` 必须拒绝 OA 的 `Pending/Rejected`，防止旧 `setUserEnable` 绕过审批。恢复软删除只恢复原有身份，保持原审批状态，不能自动开通。
+`CanLogin`、刷新和 `/me` 均检查未删除、启用和状态允许维持会话（OA 为 Pending/Approved）；新登录还检查锁定。`Enable()` 可以启用 Pending 以恢复外壳访问，但必须拒绝 Rejected。业务授权额外要求 Approved，不能借启用获得角色或数据范围。恢复软删除只恢复原有身份，保持原审批状态，不能自动开通。
 
 审核接口携带 `expectedSecurityVersion`，数据库条件更新并递增该版本。并发审批、拒绝或禁用冲突返回 409，禁止后一请求静默覆盖前一状态。不能仅在 Controller 比较版本后执行无条件更新。
 
@@ -224,10 +225,10 @@ LDAP 认证通过后：
 
 1. 按 Provider + Subject 查现有身份，并核对工号与账号；再按工号、规范账号检查冲突。查找必须覆盖软删除记录。
 2. 命中 `LOCAL`、已删除、身份不一致时拒绝，不更改原记录。
-3. 命中 OA 用户时检查审批、启用和锁定状态。`Pending` 返回等待，`Rejected` 返回未通过，已禁用返回受控错误；均不自动分配权限。
-4. 未命中时创建待审批用户并提交数据库。此路径无角色 / SBU 写入，也不调用正常会话创建。
+3. 命中 OA 用户时检查身份、启用和锁定状态；启用的 Pending 可以建立受限会话，Rejected 和禁用账号仍拒绝，均不自动分配权限。
+4. 未命中时创建 Pending / Enabled 用户并提交数据库，无角色 / SBU 写入，然后走正常会话创建。
 5. 并发首次登录触发唯一冲突时，回滚 / 清理失败的 EF 跟踪状态，再读已创建用户并核对身份，返回其实际状态。本项目 DbContext 已把 Oracle ORA-00001 转换成 `UniqueConstraintException`，应在此业务路径处理，不能吞掉全部数据库异常。
-6. 对 `Approved + Enabled` 用户，复用现有 Redis 会话、接管确认、JWT 与 Refresh Cookie 逻辑。
+6. 对 `Pending/Approved + Enabled` OA 用户复用现有 Redis 会话、接管确认、JWT 与 Refresh Cookie。有效业务能力仅对 Approved 开放。
 
 匿名首次建档的 `CreatedByUserId` 可以为空；现有审计拦截器负责 UTC 时间。日志标识这是 LDAP 首次建档，不伪造管理员操作者。
 
@@ -240,7 +241,7 @@ LDAP 认证通过后：
 - 校验全部角色、SBU 存在且启用，沿用内置管理员授权保护；禁止创建时默认赋管理员。
 - 审批 / 拒绝提交后，执行权限缓存失效和会话撤销；Redis 失败返回 503，明确数据库可能已提交，不假报整体成功。
 - “创建并开通”在一次后端请求、一个数据库事务中写用户、角色、SBU、审批信息和启用状态。与已有用户审批复用同一套授权校验和领域逻辑；不要让前端串联创建和审批两个请求来模拟原子开通。UserId 在创建时生成，用户首次登录继续使用该 ID。
-- “仅创建待审批”只要求用户创建权限，产生 Pending / Disabled 用户，不分配角色 / SBU。后续由有审核和授权权限的管理员开通。
+- “仅创建待审批”只要求用户创建权限，产生 Pending / Enabled 用户，不分配角色 / SBU，可登录外壳。后续由有审核和授权权限的管理员开通。
 - 预开通命中已有 OA 用户时返回结构化冲突，保留现有数据；待审批用户转到审核，已开通用户转到现有角色 / SBU 维护。不能无提示覆盖预分配，也不能重复新建。与首次自助申请同时创建发生唯一冲突时，返回已存在的真实状态，由管理员明确处理。
 - LDAP 登录不覆盖管理员维护的角色、SBU、审批和启用状态；姓名仅首次从目录填充，后续先保留现有显示名维护方式，不每次登录覆盖。
 
@@ -269,7 +270,7 @@ LDAP 认证通过后：
 - 保留 JWT 标准验证、Redis 会话、单账号一会话、接管确认、刷新轮换、重放检测、退出和强制下线。
 - `/me` 返回 `authType`、`canChangePassword`；OA 用户为 false。前端隐藏本地改密表单或提示“请前往 OA 修改密码”；后端改密接口同样拒绝 OA 用户。
 - 本地登录只接受 `LOCAL`；OA 登录只接受 `LDAP`。不存在账号、类型错误等本地失败继续使用统一凭据错误提示。
-- 待审批是匿名请求的业务结果，不是弱权限登录，不能签发可访问 `/me` 或业务接口的临时普通 JWT。
+- 待业务授权使用同一套 JWT / Redis 会话；me 强制清空角色、权限、管理员标记、菜单和 SBU。权限服务先查用户业务资格再读取缓存，SBU 取数同样要求 Approved，不能只隐藏前端按钮。
 
 **已有会话兼容：**上线前统一确定切换窗口。本方案选择让旧 `CredentialStamp` 会话重新登录，不增加长期双格式兼容；旧会话最迟刷新时因指纹变化失效。JWT 请求目前只核对 Redis，并不逐请求查用户表，因此不能宣称安全版本改变会瞬间阻止所有旧请求。若要求上线时全部立即重新登录，应在所有节点切换后执行受控会话撤销；数据库 Migration 不清 Redis。
 
@@ -285,7 +286,7 @@ LDAP 认证通过后：
 
 | 方法 / 路径 | 输入 | 权限 / 结果 |
 | --- | --- | --- |
-| `POST /api/Auth/ldapLogin` | `employeeNo`、`password`、`replaceExistingSession` | 匿名 + CSRF + 限频；返回待审批结果或正常登录结果 |
+| `POST /api/Auth/ldapLogin` | `employeeNo`、`password`、`replaceExistingSession` | 匿名 + CSRF + 限频；成功统一返回 Authenticated + created + tokens |
 | `GET /api/Users/ldapLookup` | 查询参数 `employeeNo` | 已登录且具备 `identity.user.create`；按工号只读查询 LDAP，返回核对信息，不接收员工密码、不创建用户 |
 | `POST /api/Users/addLdap` | `employeeNo`、`openImmediately`，立即开通时还传 `roleIds`、`sbuIds`、可选 `reason` | 创建权限；立即开通还要求审批、角色与 SBU 分配权限；服务器查 LDAP，不接收密码 / Subject |
 | `PUT /api/Users/approveLdap` | `id`、`roleIds`、`sbuIds`、`expectedSecurityVersion`、可选 `reason` | 审批 + 分配角色 + 分配 SBU 权限；原子审批开通 |
@@ -329,22 +330,27 @@ OA 登录请求示例：
 
 OA 登录使用独立 `LdapLoginDto`，不复用带 BCrypt 72 字节限制的 `LoginDto`。工号最大长度建议 32，真实格式待目录确认；密码只做必填和防止过大请求的合理上限，例如 1024 字符，不套用本地新密码强度规则，不 Trim。
 
-待审批返回 HTTP 200、`code=0`，业务结果如下，不带任何 Token：
+成功统一返回 HTTP 200 / `code=0`，包括首次创建或已有 Pending 用户：
 
 ```json
 {
   "code": 0,
-  "message": "账号开通申请已提交，等待管理员审核。审核通过后，请继续使用 OA 账号密码登录。",
+  "message": "登录成功。",
   "data": {
-    "status": "PendingApproval",
-    "created": true
+    "status": "Authenticated",
+    "created": true,
+    "tokens": {
+      "accessToken": "<signed-jwt>",
+      "accessTokenExpiresAtUtc": "<UTC>",
+      "refreshTokenExpiresAtUtc": "<UTC>"
+    }
   }
 }
 ```
 
-重复登录待审批用户返回 `created=false` 和相应等待提示。正常 OA 登录同样 HTTP 200 / `code=0`，`data={"status":"Authenticated","tokens":{...}}`，`tokens` 与现有 `AccessTokenDto` 字段一致；Refresh 仅通过 HttpOnly Cookie 返回。前端按 `status` 分支，只有 `Authenticated` 调用正常 Token 存储和工作区初始化。
+已有用户 `created=false`。不再返回旧的 `PendingApproval` 分支；Refresh 仅通过 HttpOnly Cookie 返回。`GET /api/Auth/me` 新增 `approvalStatus`、`hasBusinessAccess`。Pending 返回 `hasBusinessAccess=false`、`isAdministrator=false` 和空 `roles/permissions/sbus/menus`，前端只允许进入应用中心，不能用 URL 进入固定工作台或演示页。
 
-原 `POST /api/Auth/login` 的正常成功响应保持原契约，不统一改成上述包装。OA 新接口的请求必须带 `X-Identity-CSRF: 1`，响应 `Cache-Control: no-store`。Cookie、SameSite 与当前认证控制器一致；待审批响应不覆盖另一有效登录的 Cookie。
+原本地登录契约不变。OA 新接口须带 `X-Identity-CSRF: 1`、响应 `Cache-Control: no-store`。未建业务权限也建立会话并按正常逻辑写 Cookie，前后端必须同步发布。
 
 ### 6.2 错误与依赖故障
 
@@ -361,18 +367,18 @@ OA 登录使用独立 `LdapLoginDto`，不复用带 BCrypt 72 字节限制的 `L
 
 匿名 OA 登录只有在 LDAP 认证成功后才返回用户具体开通状态；不能用一个匿名“查工号是否注册”接口泄露员工状态。管理员查询接口必须已登录并通过用户创建权限校验，才可以查看用于预开通的目录信息。AD 原始错误、DN、内部地址和异常栈只进入经过控制的服务端诊断，不直接返回前端。
 
-本项目 `GlobalExceptionHandler.GetStatusCode` 目前没有通用 `ServiceUnavailable` 分支，虽然个别认证依赖有专门处理。新增 LDAP 依赖异常须明确映射到 HTTP 503，不能只抛业务码 `600503` 最后变成 500。
+`GlobalExceptionHandler.GetStatusCode` 已将 `ServiceUnavailable` 映射为 HTTP 503；新增 LDAP 依赖异常沿用该分支，不把业务码 `600503` 映射为 500。
 
 沿用全局 IP / 方法 / 路由限频，并对 LDAP 增加按规范工号的共享限频和每实例并发上限；新增用户尚无数据库失败计数，也需要保护。账号限频键使用规范工号摘要和有界 TTL，不记录密码，不产生无限维度指标。LDAP 用户借用本地失败计数时，只有明确凭据错误才累计；连接故障不能计作密码错误或锁死用户。
 
 ### 6.3 扩展现有接口
 
-- `GET /api/Auth/me`：增加 `authType`、`canChangePassword`。
+- `GET /api/Auth/me`：增加 `authType`、`canChangePassword`、`approvalStatus`、`hasBusinessAccess`；Pending 的全部业务能力强制为空。
 - `PUT /api/Auth/changePassword`：仅 LOCAL 可调用，OA 返回结构化类型错误；不修改 OA 凭据。
 - `GET /api/Users/getUserList`：增加 `authType`、`approvalStatus` 筛选；`getUserList` / `getUser` DTO 增加认证类型、工号、审批状态、最近审批信息和 `securityVersion`。
-- `PUT /api/Users/setUserEnable`：只能启用审批通过的 OA 账号，不能替代审批。
+- `PUT /api/Users/setUserEnable`：可启用 Pending / Approved OA 账号，但不能启用 Rejected；启用不等于业务授权。
 - 禁用、删除、批量删除、恢复：维护审批不变、递增安全版本、按规则撤销会话，防止自动重新建档。
-- `PUT /api/Roles/updateUserRoles` 和 `PUT /api/Users/updateUserSbus`：继续作为授权维护入口；给待审批用户预分配关系不能让用户绕过审批登录。
+- `PUT /api/Roles/updateUserRoles` 和 `PUT /api/Users/updateUserSbus`：继续作为授权维护入口；给待审批用户预分配关系也不产生有效业务权限和数据范围。
 
 ## 7. 开发文件清单
 
@@ -390,7 +396,7 @@ OA 登录使用独立 `LdapLoginDto`，不复用带 BCrypt 72 字节限制的 `L
 | 修改 | `Services/Identity/ZX.Platform.Identity.Infrastructure/Persistence/Repositories/UserRepository.cs` | 身份查找、筛选、并发建档复查 |
 | 修改 | `Services/Identity/ZX.Platform.Identity.Application/Authentication/AuthService.cs`、`IAuthService.cs` | 本地类型校验、OA 编排、刷新资格、安全版本、OA 禁止改密 |
 | 新增 | `Services/Identity/ZX.Platform.Identity.Application/Authentication/ILdapAuthenticator.cs`、`ILdapDirectory.cs`、`LdapIdentity.cs` | 认证及 `GetByEmployeeNoAsync` 只读查询、目录结果对象、受控错误 |
-| 新增 | `Services/Identity/ZX.Platform.Identity.Application/Authentication/Dtos/LdapLoginDto.cs`、`LdapLoginResultDto.cs` | OA 请求和登录 / 待审批联合结果 |
+| 新增 | `Services/Identity/ZX.Platform.Identity.Application/Authentication/Dtos/LdapLoginDto.cs`、`LdapLoginResultDto.cs` | OA 请求和建立会话结果 |
 | 修改 | `Services/Identity/ZX.Platform.Identity.Application/Authentication/Dtos/CurrentUserDto.cs` | `authType`、`canChangePassword` |
 | 新增 | `Services/Identity/ZX.Platform.Identity.Infrastructure/Security/LdapOptions.cs`、`LdapAuthenticationService.cs` | 配置、LDAP 查询 / bind、主备、超时、证书 |
 | 修改 | `Services/Identity/ZX.Platform.Identity.Infrastructure/ZX.Platform.Identity.Infrastructure.csproj` | LDAP 客户端包依赖 |
@@ -419,7 +425,7 @@ OA 登录使用独立 `LdapLoginDto`，不复用带 BCrypt 72 字节限制的 `L
 | --- | --- | --- |
 | 修改 | `src/views/login/components/LoginForm.vue`，必要时 `src/views/login/index.vue` | 系统 / OA 两入口、OA 工号密码、待审批和拒绝提示、独立字段规则 |
 | 修改 | `src/api/identity/auth.ts` | OA 请求、判别结果类型、当前用户能力字段 |
-| 修改 | `src/stores/auth.ts` | 只有 Authenticated 才存会话；Pending 不调用现有 `requireTokens`，不初始化工作区；保留跨标签锁和接管 |
+| 修改 | `src/stores/auth.ts` | 成功校验并保存 tokens；按 me.hasBusinessAccess 控制空应用中心和业务路由；保留跨标签锁和接管 |
 | 修改 | `src/api/identity/users.ts` | LDAP 工号查询、预建、审批、拒绝、筛选和返回字段 |
 | 修改 | `src/api/identity/permissions.ts` | `UserApprove` 常量 |
 | 修改 | `src/views/system/user/index.vue`、`types.ts`、`components/UserSearch.vue` | 类型与审批列表、操作按钮及权限 |
@@ -443,6 +449,8 @@ OA 登录使用独立 `LdapLoginDto`，不复用带 BCrypt 72 字节限制的 `L
 
 迁移仅负责结构、默认值、存量状态和索引，不连接 LDAP、不注册员工、不审批、不绑定身份、不改角色或菜单授权、不删除 Redis 会话。后续迁移自动沿用 Snapshot 中的列；只有新需求改变模型时才再产生相应差异。
 
+本轮追加 `20261103090000_AllowPendingLdapLogin`，只替换 OA 启用 CHECK，不回填任何用户启停用状态、角色或菜单。先停写迁移，再统一部署匹配前后端；历史 Pending / Disabled 由管理员逐个显式启用。Down 检查启用 Pending 并阻止不兼容回退。
+
 实现完成后同步后端 `docs/api.md`、`authentication.md`、`identity.md`、`database.md`、`authorization.md` 和实际部署配置说明，区分“计划”与“已验证”。
 
 ## 9. 验收清单
@@ -454,9 +462,9 @@ OA 登录使用独立 `LdapLoginDto`，不复用带 BCrypt 72 字节限制的 `L
 | LDAP 关闭 / 主备均故障 | OA 返回可识别状态；本地管理登录继续可用 |
 | 存量本地账号迁移后 | ID、密码、状态、角色、SBU 保留；本地登录 / 改密 / 接管 / 退出正常 |
 | LDAP 错密码、用户不存在、空密码 | 拒绝、不建用户、不分配关系、不发 Token / Cookie；空密码不发送 bind |
-| 新工号首次 OA 认证成功 | 仅创建一条 Pending / Disabled 用户，密码为 NULL、无角色和 SBU；正常显示等待审批 |
+| 新工号首次 OA 认证成功 | 创建一条 Pending / Enabled 用户，密码为 NULL、无角色和 SBU；建立会话并进入空应用中心 |
 | 相同工号重复 / 并发首次登录 | 保持一条记录；状态和已有预分配不被重置，唯一冲突受控 |
-| 待审批用户调用登录 / 刷新 / me / 业务接口 | 无正常会话；不能进入系统；旧启用接口不能绕过审批 |
+| 待审批用户调用登录 / 刷新 / me / 业务接口 | 登录、刷新、me 可用；me 无业务能力，业务接口 403；启用不产生业务授权 |
 | 审批通过 | 角色、SBU、审批与启用同事务提交；用户仍用 OA 密码正常登录 |
 | 无审批 / 角色 / SBU 权限调用审批 | 服务端拒绝；隐藏按钮不能代替接口鉴权 |
 | 两位审核人同时审批 / 拒绝，或审批与禁用竞争 | 一个成功，另一个 409；不静默覆盖 |
@@ -468,7 +476,7 @@ OA 登录使用独立 `LdapLoginDto`，不复用带 BCrypt 72 字节限制的 `L
 | 查询后修改工号或提交前目录状态变化 | 前端旧结果失效；后端重新查目录并阻止无效开通，不信任前端预览状态 |
 | 管理员一次创建并开通 | 用户未登录过也能生成 UserId、角色 / SBU 和审批信息；员工首次登录直接进入并沿用同一 UserId；不需要提交申请 |
 | 预开通权限不足或事务中途失败 | 缺少创建 / 审批 / 角色 / SBU 任一所需权限则拒绝；数据库事务失败不留下部分开通和半套授权 |
-| 管理员仅创建待审批 | 不要求员工先登录；记录为 Pending / Disabled，后续审批开通 |
+| 管理员仅创建待审批 | 不要求员工先登录；记录为 Pending / Enabled，可登录外壳，后续审批业务权限 |
 | 预开通与首次申请并发 / 预开通重复提交 | 一条用户记录；冲突受控，不自动覆盖审批或已有角色 / SBU |
 | 拒绝、禁用、删除后重复 OA 登录 | 不自动重新申请、启用或重建；无权限复活 |
 | 同工号已有 LOCAL 用户 | 冲突并保留原用户、密码、角色；不合并、不改认证来源 |
@@ -481,11 +489,13 @@ OA 登录使用独立 `LdapLoginDto`，不复用带 BCrypt 72 字节限制的 `L
 | 安全版本、刷新与旧会话 | 本地改密仍撤销旧会话；OA 无密码可正常刷新；旧指纹按发布策略要求重新登录 |
 | 用户只获一个 SBU / 一组角色 | 菜单、按钮、后端 API 与 SBU 范围均按本地授权生效 |
 | 177 / 178 最终 Identity 容器 | 目录查询、用户 bind、TLS / 原生依赖、超时和故障切换均实测 |
-| 用户体验 | 两种入口清楚、待审批不跳工作区、无第二套 OA 密码、中英文和深浅主题正常 |
+| 用户体验 | 两种入口清楚、待业务授权进入空应用中心、无第二套 OA 密码、中英文和深浅主题正常 |
 
 交付物包括：代码、一次 Oracle Migration 与经审阅的部署 SQL、无实际密码的配置模板、接口文档、逻辑验证结果、两节点 LDAP 联调结果及浏览器验收记录。记录失败阶段与 TraceId，不附带个人密码、服务账号密码或临时 SSH 凭据。
 
 ## 10. 实施结果与联调状态
+
+第 10.1—10.7 节保留各轮实现与验证的历史记录，其中“Pending 不签发会话”等旧规则已由 10.8 节取代；历史通过结果不代表新规则已经联调。
 
 ### 10.1 已实现
 
@@ -631,8 +641,21 @@ OA 登录使用独立 `LdapLoginDto`，不复用带 BCrypt 72 字节限制的 `L
 **接下来的联调与发布验收**
 
 1. 在 177 / 178 最终 Identity 容器验证服务账号查人、实际工号属性、`objectGUID`、员工 bind、严格 TLS 证书校验与原生依赖。验证主备故障切换和总预算；取消后的失败记账仍按上表作为已知限制记录。
-2. 验证首次 OA 登录只建待审批用户且不发令牌；预开通用户无需先登录；审批通过后复用同一 UserId；拒绝、禁用、删除后不能自动恢复；原 LOCAL 登录与改密仍正常。
+2. 验证首次 OA 登录创建待业务审批用户并签发受限会话；预开通用户无需先登录；审批通过后复用同一 UserId；拒绝、禁用、删除后不能自动恢复；原 LOCAL 登录与改密仍正常。
 3. 浏览器分别使用“仅有创建”“仅有审批”“具备创建、审批、角色和 SBU 分配权限”的账号验收入口与提交结果，并核对菜单、按钮、后端权限和 SBU 数据范围。
 4. 按迁移手册在目标 schema 验证交付 SQL、最终迁移版本与 CLOB 字段，并保存现有快照迁移前后的核对记录。本地 Oracle 验证结果不能替代目标库验收。
 
 本节只记录延期决定、操作前提与待验收事项，未新增构建、测试、真实 LDAP、浏览器或目标库迁移的通过结论。
+
+### 10.8 登录资格与业务授权分离（2026-11-03）
+
+本轮按产品确认调整：OA 认证通过即可登录系统外壳，未开通业务权限也有 UserId 和会话。新建用户为 Pending / Enabled，无默认角色和 SBU；应用中心提示“账号已创建，请联系管理员分配访问权限。”OA 与管理员登录页共用标题、说明和底部帮助文案，不在登录说明中单独强调 OA 或权限分配规则。
+
+- `User.CanUseSession` 与 `HasBusinessAccess` 分开；Pending 可以维持会话，只有 Approved 才有业务资格。禁用、删除、拒绝仍拒绝登录。
+- `AuthService` 的登录/刷新/me 支持受限会话；me 强制清空 Pending 的业务能力。`PermissionService` 在缓存前查询用户状态，`RoleRepository` 和 `UserSbuRepository` 查询均要求 Approved，预分配关系或旧管理员缓存不能放行。此状态查询增加权限判断的数据库读取，不再声称缓存命中完全不查用户表。
+- 管理员预开通保留。审批通过/拒绝仍递增版本、写审计、撤销旧会话并使权限缓存失效；用户需重新登录。Pending 被显式禁用后，批准也保留禁用。Rejected 的显式重新审批恢复启用；Approved 不允许重新审批。
+- 前端 OA 成功统一存会话；根据 me 的业务资格拦截直达地址、固定演示页、工作台和固定标签。应用中心无业务导航，侧栏不补工作台入口，角色及 SBU 分配沿用原有体系。
+- 迁移 `20261103090000_AllowPendingLdapLogin` 只替换启用约束，不改任何用户行或授权，不批量恢复历史 Pending / Disabled。历史用户需要显式启用。Designer / Snapshot 已同步，SAJET 脚本为 `deploy/database/upgrade-allow-pending-ldap-login.sql`。先停止所有写入者、迁移、统一部署前后端、再启动。Down 有启用 Pending 时明确拒绝。
+- 回归检查覆盖首次会话、重复登录接管、Pending 刷新/me、预分配管理员角色和旧缓存拒绝、SBU 拒绝、禁用 Pending 不自动恢复、审批/拒绝撤销会话、预创建 Pending 可登录以及 HTTP 403 与 Oracle 迁移模型。本轮 `dotnet build ZX.Platform.slnx --no-restore --disable-build-servers -m:1 /p:UseSharedCompilation=false` 为 0 警告 0 错误；完整 `AuthChecks` 输出 `All authentication checks passed.`，包含真实本机 Redis / HTTP、LDAP 替代适配器和离线 Oracle 模型/SQL 检查。未配置 Oracle 集成连接，未连接真实 Oracle 或 AD。
+
+本轮未执行 Oracle 迁移，未做真实 AD、Gateway 和浏览器端到端。前端遵守仓库约定仅静态修改，构建、类型检查和浏览器验收由用户执行。

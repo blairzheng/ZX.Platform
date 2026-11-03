@@ -20,8 +20,6 @@
   <data name="Auth.LdapDisabled" xml:space="preserve"><value>OA 登录暂未开放，请使用系统账号登录。</value></data>
   <data name="Auth.LdapUnavailable" xml:space="preserve"><value>OA 目录服务暂时不可用，请稍后重试。</value></data>
   <data name="Auth.LdapTooManyAttempts" xml:space="preserve"><value>尝试次数过多，请稍后再试或联系管理员。</value></data>
-  <data name="Auth.LdapPendingCreated" xml:space="preserve"><value>账号开通申请已提交，等待管理员审核。审核通过后，请继续使用 OA 账号密码登录。</value></data>
-  <data name="Auth.LdapPendingExists" xml:space="preserve"><value>账号开通申请正在审核中，审核通过后请继续使用 OA 账号密码登录。</value></data>
   <data name="Auth.ApprovalRejected" xml:space="preserve"><value>账号开通申请未获批准，请联系管理员。</value></data>
   <data name="Auth.AccountUnavailable" xml:space="preserve"><value>账号已被禁用或暂不可用，请联系管理员。</value></data>
   <data name="Auth.PasswordChangeNotAllowedForLdap" xml:space="preserve"><value>OA 账号的密码由 OA 系统维护，请前往 OA 修改密码。</value></data>
