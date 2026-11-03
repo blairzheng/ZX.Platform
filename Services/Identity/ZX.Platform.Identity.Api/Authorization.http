@@ -1,0 +1,141 @@
+@identity = https://localhost:7075
+@accessToken = <copy-accessToken-from-login>
+@roleId = 00000000-0000-0000-0000-000000000000
+@userId = 00000000-0000-0000-0000-000000000000
+@menuId = 00000000-0000-0000-0000-000000000000
+
+### 当前用户及有效角色/权限
+GET {{identity}}/api/Auth/me
+Authorization: Bearer {{accessToken}}
+
+### 角色列表（不分页）
+GET {{identity}}/api/Roles/getRoleList
+Authorization: Bearer {{accessToken}}
+
+### 新增角色；将返回的 data Guid 填入 roleId
+POST {{identity}}/api/Roles/add
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "code": "USER_VIEWER",
+  "name": "用户查询",
+  "description": "只读用户列表"
+}
+
+### 修改资料（编码不能修改）
+PUT {{identity}}/api/Roles/update
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "id": "{{roleId}}",
+  "name": "用户只读",
+  "description": "允许查询用户，不允许修改"
+}
+
+### 当前权限目录与本地化名称
+GET {{identity}}/api/Roles/permissions
+Authorization: Bearer {{accessToken}}
+Accept-Language: zh-CN
+
+### 按目录/页面/操作组织的角色授权树
+GET {{identity}}/api/Roles/permissionTree
+Authorization: Bearer {{accessToken}}
+
+### 替换角色权限，空数组清空
+PUT {{identity}}/api/Roles/updatePermissions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "roleId": "{{roleId}}",
+  "permissionCodes": ["identity.user.read"]
+}
+
+### 角色选择器
+GET {{identity}}/api/Roles/options
+Authorization: Bearer {{accessToken}}
+
+### 读取用户已绑定角色
+GET {{identity}}/api/Roles/userRoles?userId={{userId}}
+Authorization: Bearer {{accessToken}}
+
+### 替换用户角色，空数组清空；先核对目标用户，避免移除已有角色
+PUT {{identity}}/api/Roles/updateUserRoles
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "roleIds": ["{{roleId}}"]
+}
+
+### 停用角色
+PUT {{identity}}/api/Roles/setRoleDisable?id={{roleId}}
+Authorization: Bearer {{accessToken}}
+
+### 启用角色
+PUT {{identity}}/api/Roles/setRoleEnable?id={{roleId}}
+Authorization: Bearer {{accessToken}}
+
+### 软删除角色（不提供恢复接口）
+PUT {{identity}}/api/Roles/logicDelete?id={{roleId}}
+Authorization: Bearer {{accessToken}}
+
+### 完整菜单管理树；当前用户可见树在 Auth/me 的 menus 中
+GET {{identity}}/api/Menus/getMenuTree
+Authorization: Bearer {{accessToken}}
+
+### 上级菜单选项
+GET {{identity}}/api/Menus/options
+Authorization: Bearer {{accessToken}}
+
+### 可关联的权限代码及本地化名称
+GET {{identity}}/api/Menus/permissions
+Authorization: Bearer {{accessToken}}
+Accept-Language: en-US
+
+### 新增自定义目录；将返回的 data Guid 填入 menuId
+POST {{identity}}/api/Menus/add
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "code": "custom_root",
+  "kind": "directory",
+  "title": "扩展模块",
+  "titleEn": "Extensions",
+  "icon": "ep:Folder",
+  "sort": 90,
+  "keepAlive": false,
+  "showInMenu": true,
+  "showInTags": true,
+  "affix": false
+}
+
+### 修改上面新建的目录；页面/操作需同时提交自身对应的结构字段
+PUT {{identity}}/api/Menus/update
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "id": "{{menuId}}",
+  "kind": "directory",
+  "title": "扩展功能",
+  "titleEn": "Extensions",
+  "icon": "ep:Folder",
+  "sort": 90,
+  "keepAlive": false,
+  "showInMenu": true,
+  "showInTags": true,
+  "affix": false
+}
+
+### 停用自定义菜单；隐藏入口，不撤销接口权限
+PUT {{identity}}/api/Menus/setEnabled?id={{menuId}}&enabled=false
+Authorization: Bearer {{accessToken}}
+
+### 删除自定义叶子；内置菜单和有子节点的菜单不能删除
+PUT {{identity}}/api/Menus/logicDelete?id={{menuId}}
+Authorization: Bearer {{accessToken}}

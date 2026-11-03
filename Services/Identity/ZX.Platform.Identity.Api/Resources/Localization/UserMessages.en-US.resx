@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="User.Created" xml:space="preserve"><value>User created successfully.</value></data>
+  <data name="User.DetailsLoaded" xml:space="preserve"><value>User details retrieved successfully.</value></data>
+  <data name="User.ListLoaded" xml:space="preserve"><value>User list retrieved successfully.</value></data>
+  <data name="User.CreatedAtRangeInvalid" xml:space="preserve"><value>The creation time range must start before it ends.</value></data>
+  <data name="User.DisplayNameUpdated" xml:space="preserve"><value>User display name updated successfully.</value></data>
+  <data name="User.StatusUpdated" xml:space="preserve"><value>User status updated successfully.</value></data>
+  <data name="User.PasswordUpdated" xml:space="preserve"><value>User password updated successfully.</value></data>
+  <data name="User.Deleted" xml:space="preserve"><value>User deleted successfully.</value></data>
+  <data name="User.BatchDeleted" xml:space="preserve"><value>Users deleted successfully.</value></data>
+  <data name="User.BatchDeleteNoIds" xml:space="preserve"><value>Select at least one user to delete.</value></data>
+  <data name="User.Restored" xml:space="preserve"><value>User restored successfully.</value></data>
+  <data name="User.SbusUpdated" xml:space="preserve"><value>User SBUs updated successfully.</value></data>
+  <data name="User.AccountDeleted" xml:space="preserve"><value>This account was deleted and cannot be recreated. Contact an administrator to restore it or use another account.</value></data>
+  <data name="User.AccountDisabled" xml:space="preserve"><value>This account is disabled and cannot be recreated. Contact an administrator.</value></data>
+  <data name="User.AccountExists" xml:space="preserve"><value>This account already exists.</value></data>
+  <data name="User.NotFound" xml:space="preserve"><value>User not found.</value></data>
+  <data name="User.NotDeleted" xml:space="preserve"><value>This user has not been deleted and does not need to be restored.</value></data>
+  <data name="User.SbusUnavailable" xml:space="preserve"><value>Some SBUs do not exist or are disabled.</value></data>
+  <data name="User.RestoreBeforeEnable" xml:space="preserve"><value>Restore the deleted user before enabling it.</value></data>
+  <data name="User.LdapUserFound" xml:space="preserve"><value>OA user found in the directory. Review the details before provisioning.</value></data>
+  <data name="User.LdapUserNotFound" xml:space="preserve"><value>No user with this employee number was found in LDAP.</value></data>
+  <data name="User.LdapUserProvisioned" xml:space="preserve"><value>The OA user was created and provisioned.</value></data>
+  <data name="User.LdapUserPendingCreated" xml:space="preserve"><value>The OA user was created and can sign in. Business access is awaiting administrator approval.</value></data>
+  <data name="User.LdapUserApproved" xml:space="preserve"><value>Business access was approved. A disabled pending account still needs to be enabled separately.</value></data>
+  <data name="User.LdapUserRejected" xml:space="preserve"><value>The OA account request was rejected.</value></data>
+  <data name="User.AccountTypeConflict" xml:space="preserve"><value>This employee number or account is used by a different account type. Please contact an administrator.</value></data>
+  <data name="User.LdapIdentityConflict" xml:space="preserve"><value>The directory identity does not match the existing account. Please contact an administrator.</value></data>
+  <data name="User.NotLdapAccount" xml:space="preserve"><value>This user is not an OA account and cannot be used for this operation.</value></data>
+  <data name="User.AlreadyApproved" xml:space="preserve"><value>This OA account is already approved.</value></data>
+  <data name="User.RejectedCannotEnable" xml:space="preserve"><value>This OA account request was rejected and cannot be enabled directly.</value></data>
+  <data name="User.DeletedCannotReview" xml:space="preserve"><value>Deleted accounts cannot be reviewed. Restore the account first.</value></data>
+  <data name="User.NotReviewable" xml:space="preserve"><value>The current account state does not allow this review action.</value></data>
+  <data name="User.StateChanged" xml:space="preserve"><value>The account state was changed by another operation. Please refresh and try again.</value></data>
+  <data name="User.PendingCannotAssignGrants" xml:space="preserve"><value>Creating a pending account cannot assign roles or SBUs at the same time.</value></data>
+  <data name="User.ApprovalRoleRequired" xml:space="preserve"><value>Approval requires at least one enabled role.</value></data>
+  <data name="User.ApprovalSbuRequired" xml:space="preserve"><value>Approval requires at least one enabled SBU.</value></data>
+  <data name="User.AuthTypeInvalid" xml:space="preserve"><value>The authentication type must be LOCAL or LDAP.</value></data>
+  <data name="User.ApprovalStatusInvalid" xml:space="preserve"><value>The approval status must be Pending, Approved, or Rejected.</value></data>
+</root>

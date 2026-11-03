@@ -1,0 +1,65 @@
+@host = https://localhost:7075
+# 替换为数据库中已有账号和密码；不要提交真实凭据或 Token。
+@account = ZX001
+@password = <password>
+@accessToken = <copy-accessToken-from-login-response>
+# 从最新 Set-Cookie 中取值；每次刷新后都替换，旧值不能重用。
+@refreshToken = <copy-zx_identity_refresh-cookie-value>
+
+### 登录；JSON 返回 JWT Access，随机 Refresh 在 Set-Cookie 中；启动前配置 AuthenticationJwt:SigningKey
+POST {{host}}/api/Auth/login
+Content-Type: application/json
+Accept-Language: zh-CN
+X-Identity-CSRF: 1
+
+{
+  "account": "{{account}}",
+  "password": "{{password}}",
+  "replaceExistingSession": false
+}
+
+### 已返回 AlreadyOnline 且用户确认后接管；重新验密并撤销旧会话
+POST {{host}}/api/Auth/login
+Content-Type: application/json
+X-Identity-CSRF: 1
+
+{
+  "account": "{{account}}",
+  "password": "{{password}}",
+  "replaceExistingSession": true
+}
+
+### 当前用户
+GET {{host}}/api/Auth/me
+Authorization: Bearer {{accessToken}}
+Accept-Language: en-US
+
+### 刷新；Access 可已过期，成功后替换上面的两个 Token 变量
+POST {{host}}/api/Auth/refresh
+Cookie: zx_identity_refresh={{refreshToken}}
+X-Identity-CSRF: 1
+
+### 管理员接口
+GET {{host}}/api/Users/getUserList?page=1&pageSize=20
+Authorization: Bearer {{accessToken}}
+
+### 管理员强制下线；替换目标用户 ID，已离线也成功，账号仍可重新登录
+POST {{host}}/api/Users/forceLogout?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+
+### 本人修改密码；成功后重新登录
+PUT {{host}}/api/Auth/changePassword
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+X-Identity-CSRF: 1
+
+{
+  "currentPassword": "{{password}}",
+  "newPassword": "<new-password>"
+}
+
+### 退出；使用当前 Cookie 或有效 Bearer，重复调用成功
+POST {{host}}/api/Auth/logout
+Authorization: Bearer {{accessToken}}
+Cookie: zx_identity_refresh={{refreshToken}}
+X-Identity-CSRF: 1

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Validation.AccountRequired" xml:space="preserve"><value>账号不能为空。</value></data>
+  <data name="Validation.AccountMaxLength" xml:space="preserve"><value>账号长度不能超过 {1} 个字符。</value></data>
+  <data name="Validation.DisplayNameRequired" xml:space="preserve"><value>显示名称不能为空。</value></data>
+  <data name="Validation.DisplayNameMaxLength" xml:space="preserve"><value>显示名称不能超过 {1} 个字符。</value></data>
+  <data name="Validation.PasswordRequired" xml:space="preserve"><value>密码不能为空。</value></data>
+  <data name="Validation.PasswordMinLength" xml:space="preserve"><value>密码长度不能少于 {1} 个字符。</value></data>
+  <data name="Validation.NewPasswordRequired" xml:space="preserve"><value>新密码不能为空。</value></data>
+  <data name="Validation.NewPasswordMinLength" xml:space="preserve"><value>新密码长度不能少于 {1} 个字符。</value></data>
+  <data name="Validation.NewPasswordMaxLength" xml:space="preserve"><value>新密码不能超过 {1} 个字符。</value></data>
+  <data name="Validation.UserIdRequired" xml:space="preserve"><value>用户标识不能为空。</value></data>
+  <data name="Validation.SbuCodeRequired" xml:space="preserve"><value>SBU编码不能为空。</value></data>
+  <data name="Validation.SbuCodeMaxLength" xml:space="preserve"><value>SBU编码长度不能超过 {1} 个字符。</value></data>
+  <data name="Validation.SbuNameRequired" xml:space="preserve"><value>SBU名称不能为空。</value></data>
+  <data name="Validation.SbuNameMaxLength" xml:space="preserve"><value>SBU名称不能超过 {1} 个字符。</value></data>
+  <data name="Validation.PageRange" xml:space="preserve"><value>页码必须大于 0。</value></data>
+  <data name="Validation.PageSizeRange" xml:space="preserve"><value>每页数量必须介于 {1} 到 {2} 之间。</value></data>
+  <data name="Validation.PaginationOverflow" xml:space="preserve"><value>分页参数超出允许范围。</value></data>
+  <data name="Validation.ParameterInvalid" xml:space="preserve"><value>参数“{0}”格式不正确。</value></data>
+  <data name="Validation.InvalidValue" xml:space="preserve"><value>请求参数格式不正确。</value></data>
+  <data name="Validation.BodyRequired" xml:space="preserve"><value>请求体不能为空。</value></data>
+  <data name="Validation.Failed" xml:space="preserve"><value>请求参数验证失败。</value></data>
+  <data name="Validation.Separator" xml:space="preserve"><value>；</value></data>
+  <data name="Validation.CurrentPasswordRequired" xml:space="preserve"><value>当前密码不能为空。</value></data>
+  <data name="Validation.PasswordMaxBytes" xml:space="preserve"><value>密码的 UTF-8 编码长度不能超过 72 字节。</value></data>
+  <data name="Validation.Required" xml:space="preserve"><value>{0} 不能为空。</value></data>
+  <data name="Validation.StringLength" xml:space="preserve"><value>{0} 不能超过 {1} 个字符。</value></data>
+  <data name="Validation.MaxLength" xml:space="preserve"><value>{0} 最多允许 {1} 项。</value></data>
+  <data name="Validation.RoleCode" xml:space="preserve"><value>角色编码须以字母开头，只能包含字母、数字和下划线。</value></data>
+  <data name="Validation.MenuKind" xml:space="preserve"><value>菜单类型不正确。</value></data>
+  <data name="Validation.MenuSort" xml:space="preserve"><value>排序必须介于 0 到 10000 之间。</value></data>
+  <data name="Validation.MenuLauncherTone" xml:space="preserve"><value>宫格颜色不正确。</value></data>
+  <data name="Validation.MenuCode" xml:space="preserve"><value>菜单编码须以字母开头，只能包含字母、数字、下划线和连字符。</value></data>
+  <data name="Validation.EmployeeNoRequired" xml:space="preserve"><value>请输入工号。</value></data>
+  <data name="Validation.EmployeeNoMaxLength" xml:space="preserve"><value>工号不能超过 32 个字符。</value></data>
+  <data name="Validation.LdapPasswordMaxLength" xml:space="preserve"><value>密码长度超出限制。</value></data>
+  <data name="Validation.ReviewReasonMaxLength" xml:space="preserve"><value>审批说明不能超过 500 个字符。</value></data>
+  <data name="Validation.SecurityVersionRequired" xml:space="preserve"><value>缺少账号安全版本，请刷新后重试。</value></data>
+  <data name="Validation.UserRequired" xml:space="preserve"><value>缺少用户标识。</value></data>
+</root>

@@ -1,0 +1,124 @@
+﻿using Microsoft.EntityFrameworkCore;
+using ZX.Platform.Identity.Application.Persistence;
+using ZX.Platform.Identity.Application.Users.Dtos;
+using ZX.Platform.Identity.Domain.Entities;
+
+namespace ZX.Platform.Identity.Infrastructure.Persistence.Repositories
+{
+    public sealed class UserRepository : IUserRepository
+    {
+        private readonly PlatformIdentityDbContext _dbContext;
+
+        public UserRepository(PlatformIdentityDbContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
+
+        public Task<User?> GetByIdAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            return _dbContext.Users
+                .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        }
+
+        public Task<User?> GetByNormalizedAccountAsync(string normalizedAccount, CancellationToken cancellationToken)
+        {
+            return _dbContext.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.NormalizedAccount == normalizedAccount, cancellationToken);
+        }
+
+        public void Add(User user)
+        {
+            _dbContext.Users.Add(user);
+        }
+
+        public void Detach(User user)
+        {
+            _dbContext.Entry(user).State = EntityState.Detached;
+        }
+
+        public Task<User?> GetByEmployeeNoAsync(string employeeNo, CancellationToken cancellationToken)
+        {
+            return _dbContext.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.EmployeeNo == employeeNo, cancellationToken);
+        }
+
+        public Task<User?> GetByLdapIdentityAsync(string provider, string subject, CancellationToken cancellationToken)
+        {
+            return _dbContext.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.LdapProvider == provider && u.LdapSubject == subject, cancellationToken);
+        }
+
+        public async Task<(List<User>, int count)> GetPageListAsync(UserQueryDto userQuery, CancellationToken cancellationToken)
+        {
+            var users = _dbContext.Users.AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(userQuery.Keyword))
+            {
+                var keyword = userQuery.Keyword.Trim();
+                users = users.Where(e => e.Account.Contains(keyword) || e.DisplayName.Contains(keyword));
+            }
+
+            if (userQuery.IsEnabled.HasValue)
+            {
+                users = users.Where(e => e.IsEnabled == userQuery.IsEnabled.Value);
+            }
+
+            if (userQuery.SbuId.HasValue)
+            {
+                var sbuId = userQuery.SbuId.Value;
+                users = users.Where(user => _dbContext.UserSbus.Any(
+                    relation => relation.UserId == user.Id && relation.SbuId == sbuId));
+            }
+
+            if (!string.IsNullOrWhiteSpace(userQuery.AuthType))
+            {
+                var authType = userQuery.AuthType.Trim();
+                users = users.Where(e => e.AuthType == authType);
+            }
+
+            if (!string.IsNullOrWhiteSpace(userQuery.ApprovalStatus))
+            {
+                var approvalStatus = userQuery.ApprovalStatus.Trim();
+                users = users.Where(e => e.ApprovalStatus == approvalStatus);
+            }
+
+            if (userQuery.CreatedFromUtc.HasValue)
+            {
+                var createdFromUtc = userQuery.CreatedFromUtc.Value.ToUniversalTime();
+                users = users.Where(user => user.CreatedAtUtc >= createdFromUtc);
+            }
+
+            if (userQuery.CreatedToUtc.HasValue)
+            {
+                var createdToUtc = userQuery.CreatedToUtc.Value.ToUniversalTime();
+                users = users.Where(user => user.CreatedAtUtc < createdToUtc);
+            }
+
+            var list = await users.OrderByDescending(e => e.CreatedAtUtc)
+                .ThenBy(e => e.Id)
+                .Skip(userQuery.GetSkip())
+                .Take(userQuery.PageSize)
+                .ToListAsync(cancellationToken);
+
+            var count = await users.CountAsync(cancellationToken);
+            return (list, count);
+        }
+
+        public Task<User?> GetByIdIncludeDeletedAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            return _dbContext.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        }
+
+        public Task<List<User>> GetUsersAsync(List<Guid> userIds, CancellationToken cancellationToken)
+        {
+            return _dbContext.Users
+                .Where(u => userIds.Contains(u.Id))
+                .ToListAsync(cancellationToken);
+        }
+    }
+}

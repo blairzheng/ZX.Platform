@@ -1,0 +1,82 @@
+@ZX.Platform.Identity.Api_HostAddress = https://localhost:7075
+
+@accessToken = <copy-accessToken-from-Authentication.http-login-response>
+
+GET {{ZX.Platform.Identity.Api_HostAddress}}/weatherforecast/
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### 本人修改密码（成功后重新登录）
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Auth/changePassword
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+X-Identity-CSRF: 1
+
+{
+  "currentPassword": "<current-password>",
+  "newPassword": "NewPass123"
+}
+
+###
+
+### 创建SBU
+POST {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/add
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "code": "VNK",
+  "name": "越南工厂"
+}
+
+###
+
+### SBU详情
+GET {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/getSbu?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### SBU列表（不分页，一次返回全部SBU）
+GET {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/getSbuList
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### 修改SBU名称
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/updateName
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "name": "越南工厂（北区）"
+}
+
+###
+
+### 启用 / 禁用SBU
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/setSbuEnable?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+
+###
+
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/setSbuDisable?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 逻辑删除 / 恢复SBU
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/logicDelete?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+
+###
+
+PUT {{ZX.Platform.Identity.Api_HostAddress}}/api/Sbus/restore?id=00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+
+###

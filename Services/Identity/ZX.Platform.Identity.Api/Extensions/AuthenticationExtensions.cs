@@ -1,0 +1,68 @@
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using StackExchange.Redis;
+using ZX.Platform.Identity.Api.Authentication;
+using ZX.Platform.Identity.Api.Options;
+using ZX.Platform.Identity.Application.Authentication;
+using ZX.Platform.Identity.Infrastructure.Security;
+
+namespace ZX.Platform.Identity.Api.Extensions;
+
+public static class AuthenticationExtensions
+{
+    public static IServiceCollection AddIdentityAuthentication(
+        this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
+    {
+        var options = configuration.GetSection("Authentication").Get<AuthOptions>() ?? new AuthOptions();
+        Validator.ValidateObject(options, new ValidationContext(options), validateAllProperties: true);
+
+        var cookie = configuration.GetSection("AuthenticationCookie").Get<AuthCookieOptions>() ?? new AuthCookieOptions();
+        if (!environment.IsDevelopment() && !cookie.Secure && !cookie.AllowInsecureHttp)
+            throw new InvalidOperationException("HTTP 测试需显式配置 AuthenticationCookie:AllowInsecureHttp=true；默认必须启用 Secure 刷新 Cookie。");
+
+        services.AddSingleton(options);
+        services.AddSingleton(cookie);
+        var redis = configuration.GetSection("AuthenticationRedis").Get<RedisSessionOptions>() ?? new RedisSessionOptions();
+        Validator.ValidateObject(redis, new ValidationContext(redis), validateAllProperties: true);
+        var redisConnection = configuration.GetConnectionString("IdentityRedis")
+            ?? throw new InvalidOperationException("未配置 IdentityRedis 连接字符串。");
+        var redisConfiguration = ConfigurationOptions.Parse(redisConnection);
+        redisConfiguration.AbortOnConnectFail = false;
+        // 故障时及时返回 503，不排队等待 Redis 恢复后补执行登录/下线等旧操作。
+        redisConfiguration.BacklogPolicy = BacklogPolicy.FailFast;
+        services.AddSingleton(redis);
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConfiguration));
+
+        // LDAP 只做本地配置校验，不在启动时连接远端；目录不可达不能阻止 Identity 启动。
+        var ldap = configuration.GetSection("AuthenticationLdap").Get<LdapOptions>() ?? new LdapOptions();
+        Validator.ValidateObject(ldap, new ValidationContext(ldap), validateAllProperties: true);
+        ldap.Validate();
+        services.AddSingleton(ldap);
+        services.AddSingleton<LdapAuthenticationService>();
+        services.AddSingleton<ILdapAuthenticator>(provider => provider.GetRequiredService<LdapAuthenticationService>());
+        services.AddSingleton<ILdapDirectory>(provider => provider.GetRequiredService<LdapAuthenticationService>());
+        services.AddSingleton<ILdapLoginGuard, RedisLdapLoginGuard>();
+        var jwt = configuration.GetSection("AuthenticationJwt").Get<JwtOptions>() ?? new JwtOptions();
+        Validator.ValidateObject(jwt, new ValidationContext(jwt), validateAllProperties: true);
+        var validation = jwt.CreateValidationParameters();
+        services.AddSingleton(jwt);
+        services.AddSingleton<JwtAccessTokenIssuer>();
+        services.AddSingleton<IAuthSessionStore, RedisAuthSessionStore>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<JwtSessionEvents>();
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(bearer =>
+            {
+                bearer.MapInboundClaims = false;
+                bearer.TokenValidationParameters = validation;
+                bearer.EventsType = typeof(JwtSessionEvents);
+            });
+        services.AddAuthorization(authorization =>
+        {
+            authorization.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+        });
+        services.AddIdentityPermissions();
+        return services;
+    }
+}

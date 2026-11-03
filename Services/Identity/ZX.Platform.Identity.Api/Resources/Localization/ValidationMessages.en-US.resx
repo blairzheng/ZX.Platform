@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Validation.AccountRequired" xml:space="preserve"><value>Account is required.</value></data>
+  <data name="Validation.AccountMaxLength" xml:space="preserve"><value>Account must not exceed {1} characters.</value></data>
+  <data name="Validation.DisplayNameRequired" xml:space="preserve"><value>Display name is required.</value></data>
+  <data name="Validation.DisplayNameMaxLength" xml:space="preserve"><value>Display name must not exceed {1} characters.</value></data>
+  <data name="Validation.PasswordRequired" xml:space="preserve"><value>Password is required.</value></data>
+  <data name="Validation.PasswordMinLength" xml:space="preserve"><value>Password must contain at least {1} characters.</value></data>
+  <data name="Validation.NewPasswordRequired" xml:space="preserve"><value>New password is required.</value></data>
+  <data name="Validation.NewPasswordMinLength" xml:space="preserve"><value>New password must contain at least {1} characters.</value></data>
+  <data name="Validation.NewPasswordMaxLength" xml:space="preserve"><value>New password must not exceed {1} characters.</value></data>
+  <data name="Validation.UserIdRequired" xml:space="preserve"><value>User ID is required.</value></data>
+  <data name="Validation.SbuCodeRequired" xml:space="preserve"><value>Sbu code is required.</value></data>
+  <data name="Validation.SbuCodeMaxLength" xml:space="preserve"><value>Sbu code must not exceed {1} characters.</value></data>
+  <data name="Validation.SbuNameRequired" xml:space="preserve"><value>Sbu name is required.</value></data>
+  <data name="Validation.SbuNameMaxLength" xml:space="preserve"><value>Sbu name must not exceed {1} characters.</value></data>
+  <data name="Validation.PageRange" xml:space="preserve"><value>Page must be greater than 0.</value></data>
+  <data name="Validation.PageSizeRange" xml:space="preserve"><value>Page size must be between {1} and {2}.</value></data>
+  <data name="Validation.PaginationOverflow" xml:space="preserve"><value>Pagination parameters exceed the supported range.</value></data>
+  <data name="Validation.ParameterInvalid" xml:space="preserve"><value>Invalid value for parameter '{0}'.</value></data>
+  <data name="Validation.InvalidValue" xml:space="preserve"><value>Invalid request parameter.</value></data>
+  <data name="Validation.BodyRequired" xml:space="preserve"><value>Request body is required.</value></data>
+  <data name="Validation.Failed" xml:space="preserve"><value>Request validation failed.</value></data>
+  <data name="Validation.Separator" xml:space="preserve"><value>; </value></data>
+  <data name="Validation.CurrentPasswordRequired" xml:space="preserve"><value>Current password is required.</value></data>
+  <data name="Validation.PasswordMaxBytes" xml:space="preserve"><value>Password must not exceed 72 bytes in UTF-8.</value></data>
+  <data name="Validation.Required" xml:space="preserve"><value>{0} is required.</value></data>
+  <data name="Validation.StringLength" xml:space="preserve"><value>{0} cannot exceed {1} characters.</value></data>
+  <data name="Validation.MaxLength" xml:space="preserve"><value>{0} cannot contain more than {1} items.</value></data>
+  <data name="Validation.RoleCode" xml:space="preserve"><value>Role codes must start with a letter and contain only letters, numbers and underscores.</value></data>
+  <data name="Validation.MenuKind" xml:space="preserve"><value>Invalid menu kind.</value></data>
+  <data name="Validation.MenuSort" xml:space="preserve"><value>Sort order must be between 0 and 10000.</value></data>
+  <data name="Validation.MenuLauncherTone" xml:space="preserve"><value>Invalid menu grid color.</value></data>
+  <data name="Validation.MenuCode" xml:space="preserve"><value>Menu codes must start with a letter and contain only letters, numbers, underscores and hyphens.</value></data>
+  <data name="Validation.EmployeeNoRequired" xml:space="preserve"><value>Enter the employee number.</value></data>
+  <data name="Validation.EmployeeNoMaxLength" xml:space="preserve"><value>The employee number cannot exceed 32 characters.</value></data>
+  <data name="Validation.LdapPasswordMaxLength" xml:space="preserve"><value>The password is too long.</value></data>
+  <data name="Validation.ReviewReasonMaxLength" xml:space="preserve"><value>The review note cannot exceed 500 characters.</value></data>
+  <data name="Validation.SecurityVersionRequired" xml:space="preserve"><value>The account security version is missing. Please refresh and try again.</value></data>
+  <data name="Validation.UserRequired" xml:space="preserve"><value>The user identifier is missing.</value></data>
+</root>

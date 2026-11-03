@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Auth.InvalidCredentials" xml:space="preserve"><value>Invalid account or password, or the account is currently unavailable.</value></data>
+  <data name="Auth.SessionInvalid" xml:space="preserve"><value>Your session has expired. Please sign in again.</value></data>
+  <data name="Auth.Forbidden" xml:space="preserve"><value>You do not have permission to perform this operation.</value></data>
+  <data name="Auth.CsrfRequired" xml:space="preserve"><value>A valid request verification header is required.</value></data>
+  <data name="Auth.CurrentPasswordIncorrect" xml:space="preserve"><value>The current password is incorrect.</value></data>
+  <data name="Auth.LoggedIn" xml:space="preserve"><value>Signed in successfully.</value></data>
+  <data name="Auth.Refreshed" xml:space="preserve"><value>Session refreshed successfully.</value></data>
+  <data name="Auth.LoggedOut" xml:space="preserve"><value>Signed out successfully.</value></data>
+  <data name="Auth.CurrentUserLoaded" xml:space="preserve"><value>Current user loaded successfully.</value></data>
+  <data name="Auth.PasswordChanged" xml:space="preserve"><value>Password changed successfully. Please sign in again.</value></data>
+  <data name="Auth.AlreadyOnline" xml:space="preserve"><value>This account is already signed in elsewhere. Continue and sign out the previous session?</value></data>
+  <data name="Auth.ForcedLogout" xml:space="preserve"><value>The user has been signed out.</value></data>
+  <data name="Auth.ServiceUnavailable" xml:space="preserve"><value>The sign-in service is temporarily unavailable. Please try again later.</value></data>
+  <data name="Auth.LdapDisabled" xml:space="preserve"><value>OA sign-in is not available yet. Please use your system account.</value></data>
+  <data name="Auth.LdapUnavailable" xml:space="preserve"><value>The OA directory service is temporarily unavailable. Please try again later.</value></data>
+  <data name="Auth.LdapTooManyAttempts" xml:space="preserve"><value>Too many attempts. Please try again later or contact your administrator.</value></data>
+  <data name="Auth.ApprovalRejected" xml:space="preserve"><value>Your account request was not approved. Please contact your administrator.</value></data>
+  <data name="Auth.AccountUnavailable" xml:space="preserve"><value>This account is disabled or currently unavailable. Please contact your administrator.</value></data>
+  <data name="Auth.PasswordChangeNotAllowedForLdap" xml:space="preserve"><value>OA account passwords are managed by the OA system. Please change your password there.</value></data>
+</root>

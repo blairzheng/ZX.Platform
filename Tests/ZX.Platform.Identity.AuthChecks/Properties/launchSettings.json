@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "ZX.Platform.Identity.AuthChecks": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:62908;http://localhost:62909"
+    }
+  }
+}
