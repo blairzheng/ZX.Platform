@@ -49,6 +49,17 @@
 
 密码、连接字符串、JWT 密钥设置为 Masked；密码类值关闭 Expand variable reference。当前可用作用域为 `*`；若收紧作用域，后端任务的 environment 为 `production`，前端为 `production/frontend`。Protected 变量只会提供给受保护分支/标签，使用时需同步保护 `main`。
 
+外部 MES 库是可选配置，在 `mom_img` 项目中按需添加以下变量，值为部署环境对应库的完整 Oracle 连接字符串。关闭 **Expand variable reference**，值不能含换行。发布脚本仅把非空值写入 Identity 容器；未设置或空值不写入，不作为上表中的必填项。
+
+| GitLab 变量 | 业务连接别名 | Identity 容器环境变量 |
+| --- | --- | --- |
+| `MOM_MES_FDG_CONNECTION` | `MesFDG` | `ExternalOracle__Sources__MesFDG` |
+| `MOM_MES_EBDG_CONNECTION` | `MesEBDG` | `ExternalOracle__Sources__MesEBDG` |
+| `MOM_MES_EDG_CONNECTION` | `MesEDG` | `ExternalOracle__Sources__MesEDG` |
+| `MOM_MES_EDA_CONNECTION` | `MesEDA` | `ExternalOracle__Sources__MesEDA` |
+
+业务代码传给 `IExternalOracleConnectionFactory.OpenAsync` 的别名与上表一致。本机 User Secrets 使用 `ExternalOracle:Sources:<别名>`，不随 Git 提交或镜像自动同步。更新 `mom_img` 流水线配置后须新建发布流水线，重新发布后端才会将这些配置应用到两台节点；重跑旧流水线不会使用新提交的脚本。容器健康检查不验证外部 MES 连通性和表访问权限，需另行核对，外部 MES 表不执行本平台 EF Migration。
+
 新的容器配置由 GitLab 变量注入；本地 User Secrets 不进入镜像，也不供服务器读取。服务器原有 `/etc/mom` 文件不参与当前发布。修改变量后，需要重新运行发布任务重建容器才生效。容器运行环境保存在 Docker 元数据中，查看时不要输出完整环境变量或截图传播。
 
 OA / LDAP 登录的可选配置不进入上表必填项：默认 `AuthenticationLdap__Enabled=false`，本地登录与现有发布流程完全不受影响。需要开放 OA 登录时，按 `deploy/docker/templates/identity.env.example` 的 `AuthenticationLdap__*` 注释段在服务器 env 文件补齐节点、BaseDn 和服务账号，服务账号密码只写入服务器本地的 env 文件（权限仅部署管理员可读），不写入仓库变量说明、镜像、日志或工单。两台实例的 `Provider`、节点顺序、超时和 JWT/Redis 前缀必须一致，否则会出现同一工号在不同节点建档或绑定失败。目录查询与 bind 的最终联调见 [OA / LDAP 登录实施方案](oa-ldap-login-implementation.md#10-实施结果与联调状态)。

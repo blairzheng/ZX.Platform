@@ -11,4 +11,5 @@
   <data name="Error.TooManyRequests" xml:space="preserve"><value>请求过于频繁，请稍后再试。</value></data>
   <data name="Error.ConcurrentUpdate" xml:space="preserve"><value>数据已被其他操作修改，请刷新后重试。</value></data>
   <data name="Error.ServiceUnavailable" xml:space="preserve"><value>依赖服务暂时不可用，请稍后重试。</value></data>
+  <data name="Stocktake.ListLoaded" xml:space="preserve"><value>盘点报表已加载。</value></data>
 </root>

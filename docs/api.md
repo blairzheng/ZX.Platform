@@ -314,6 +314,7 @@ PUT `/api/Users/batchDelete` 的请求体直接使用用户 Guid 数组，不包
 
 ## 相关文档
 
+- [一键盘点报表](stocktake-report.md)：`GET /api/InventoryStocktake/list` 一次返回全部明细，前端本地过滤及汇总，权限 `inventory.stocktake.read`，查询 `MesEDA` 的现有表，不区分 SBU。
 - [业务语义](identity.md)：状态变化、SBU关系与当前能力边界。
 - [API 响应与错误](http.md)：响应结构、错误码、`traceId` 与取消信号。
 - [数据库与持久化](database.md)：唯一索引、软删除过滤与审计字段。

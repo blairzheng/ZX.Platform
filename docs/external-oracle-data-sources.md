@@ -6,14 +6,16 @@
 
 ## 配置与连接生命周期
 
-`ExternalOracle:Sources` 是服务端连接别名到 Oracle 连接字符串的映射。例如部署环境可提供 `ExternalOracle__Sources__MesE` 和 `ExternalOracle__Sources__MesF`；别名仅由后端业务代码选择，不能从 HTTP 参数直接传给连接工厂。真实连接字符串通过部署密钥或本地 User Secrets 注入，不写进仓库或前端。没有配置任何外部库时，现有 Identity 接口仍可启动；请求未知别名时连接工厂明确失败，不回退到 Identity 库或其他 MES 库。
+`ExternalOracle:Sources` 是服务端连接别名到 Oracle 连接字符串的映射。例如部署环境可提供 `ExternalOracle__Sources__MesEDG` 和 `ExternalOracle__Sources__MesFDG`；别名仅由后端业务代码选择，不能从 HTTP 参数直接传给连接工厂。真实连接字符串通过部署密钥或本地 User Secrets 注入，不写进仓库或前端。没有配置任何外部库时，现有 Identity 接口仍可启动；请求未知别名时连接工厂明确失败，不回退到 Identity 库或其他 MES 库。
 
 `IExternalOracleConnectionFactory.OpenAsync(alias, cancellationToken)` 每次创建一个连接对象并打开连接。使用方在一次业务操作结束时 `await using` 释放连接；Oracle 驱动的连接池负责复用对应连接字符串的物理连接。打开失败时工厂释放连接对象。每个库的连接池上限、连接寿命等由它自己的连接字符串配置，和 Identity 数据库连接池互不混用。
 
-当前本机已配置并验证三个外部别名：`MesE`、`MesF`、`MesEB`。站点查询第一版的业务对照为：`MesE` → SBU1、SBU8；`MesF` → SBU2、SBU3；`MesEB` → SBU4。VNK → SBU7 暂不接入。这个对照属于站点查询模块的策略，不是全局 SBU 数据源绑定；业务仍须按已验证的 SBU 过滤记录。
+当前连接别名统一为 `MesEDG`、`MesFDG`、`MesEBDG`、`MesEDA`；前三项分别由 `MesE`、`MesF`、`MesEB` 改名。2026-11-03 本机已调整 User Secrets，GitLab `mom_img` 已配置对应连接变量，名称与容器环境变量的完整映射见[发布配置](deployment.md#gitlab-配置变量)。本机曾只读验证 `MesEDA` 连接及 `EDA.G_WMS_KEYBOARD` 的计数、分页和筛选；2026-11-04 一键盘点报表已部署并由用户实际查询，当前接口完整读取明细。其他三个新别名未重新验证。
+
+站点查询第一版的业务对照为：`MesEDG` → SBU1、SBU8；`MesFDG` → SBU2、SBU3；`MesEBDG` → SBU4。VNK → SBU7 暂不接入。这个对照属于站点查询模块的策略，不是全局 SBU 数据源绑定；站点业务仍须按已验证的 SBU 过滤记录。`MesEDA` 已用于[一键盘点报表](stocktake-report.md)，查询 `EDA.G_WMS_KEYBOARD`（数据库名 `BU17EDA`，表 owner 为 `EDA`），按该报表的明确业务要求不区分 SBU，但仍校验功能权限。
 
 ```csharp
-await using var connection = await connections.OpenAsync("MesE", cancellationToken);
+await using var connection = await connections.OpenAsync("MesEDG", cancellationToken);
 await using var command = connection.CreateCommand();
 command.CommandTimeout = 10; // 按具体业务查询调整，不作为所有 MES 操作的统一值。
 ```

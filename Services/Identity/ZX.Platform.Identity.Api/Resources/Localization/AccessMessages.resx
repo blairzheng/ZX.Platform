@@ -65,4 +65,5 @@
   <data name="Access.Permission.identity.menu.update" xml:space="preserve"><value>修改菜单</value></data>
   <data name="Access.Permission.identity.menu.status" xml:space="preserve"><value>启用或禁用菜单</value></data>
   <data name="Access.Permission.identity.menu.delete" xml:space="preserve"><value>删除菜单</value></data>
+  <data name="Access.Permission.inventory.stocktake.read" xml:space="preserve"><value>查看一键盘点报表</value></data>
 </root>

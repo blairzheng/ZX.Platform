@@ -56,7 +56,7 @@ public sealed class RedisLdapLoginGuard(
                 throw new BusinessException(ErrorCodes.TooManyRequests, "Auth.LdapTooManyAttempts",
                     new { Reason = "TooManyRequests" });
         }
-        catch (RedisException exception)
+        catch (Exception exception) when (exception is RedisException or RedisTimeoutException)
         {
             throw new AuthSessionUnavailableException(exception);
         }
@@ -73,7 +73,7 @@ public sealed class RedisLdapLoginGuard(
                     [options.FailureWindowSeconds])
                 .WaitAsync(cancellationToken);
         }
-        catch (RedisException exception)
+        catch (Exception exception) when (exception is RedisException or RedisTimeoutException)
         {
             throw new AuthSessionUnavailableException(exception);
         }
@@ -85,7 +85,7 @@ public sealed class RedisLdapLoginGuard(
         {
             await connection.GetDatabase().KeyDeleteAsync(Key(employeeNo)).WaitAsync(cancellationToken);
         }
-        catch (RedisException exception)
+        catch (Exception exception) when (exception is RedisException or RedisTimeoutException)
         {
             throw new AuthSessionUnavailableException(exception);
         }

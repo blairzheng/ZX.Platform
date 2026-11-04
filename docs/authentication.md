@@ -171,6 +171,10 @@ dotnet user-secrets remove "AuthenticationRedis:KeyPrefix" --project Services/Id
 
 Redis 不可用时依赖会话的操作返回本地化 `503 / 600503`，不退回内存、不按未登录返回 401、不删除 Refresh Cookie。连接配置使用 `BacklogPolicy.FailFast`，避免恢复连接后补执行积压的旧认证操作。这里的 Redis 超时仅限制依赖调用，不是所有业务接口的统一执行时限。已发出的命令超时后可能已执行，不能无条件自动重试登录或刷新。
 
+会话存储、权限缓存与 OA 登录限流均显式捕获 `RedisTimeoutException`，与 `RedisException` 一同转换为对应的依赖不可用异常。当前 StackExchange.Redis 3.4.5 的 `RedisTimeoutException` 继承 `TimeoutException`，仅捕获 `RedisException` 会漏掉超时并落到通用 500。请求取消仍沿用取消语义，不被这一处理转换成 503。
+
+调试时停在 Redis `GET` 的超时异常，只能证明该次会话校验未在期限内完成，不能据此判断菜单保存或业务 SQL 有问题。先继续或重启调试进程，核对请求结果与日志，再检查网络和 Redis 延迟；刚经历断点暂停时，应退出暂停后重试确认。调整异常断点只影响调试器是否暂停，不会修复依赖超时，也不能替代异常处理。
+
 应用重启而 Redis 会话还在时可以继续使用。Redis 数据全部丢失则所有用户需重新登录；AOF 每秒刷盘也可能丢失最近写入，包括会话撤销，恢复后不能承诺严格立即失效。生产还需监控、备份和高可用方案。各节点应同步系统时间。
 
 ## 验证与后续

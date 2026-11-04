@@ -34,6 +34,7 @@ public static class IdentityPermissions
     public const string MenuUpdate = "identity.menu.update";
     public const string MenuChangeStatus = "identity.menu.status";
     public const string MenuDelete = "identity.menu.delete";
+    public const string InventoryStocktakeRead = "inventory.stocktake.read";
 
     public static IReadOnlyList<string> All { get; } = typeof(IdentityPermissions)
         .GetFields(BindingFlags.Public | BindingFlags.Static)

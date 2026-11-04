@@ -41,6 +41,7 @@
 | 并行推进 SBU / MES 与低代码 | [两条工作线交接](sbu-mes-lowcode-handoff.md) | 当前契约、实施顺序、分工、验收和待提供资料 |
 | 设计 / 实现低代码 | [低代码平台契约](lowcode/README.md) | 定位与边界、元数据、字段类型、运行时、权限与 SBU 范围、发布与退役 |
 | 接入外部 MES Oracle 库 | [外部 Oracle 数据源](external-oracle-data-sources.md) | 别名配置、连接复用、读写边界与下一步 |
+| 查询一键盘点报表 | [一键盘点报表](stocktake-report.md) | MesEDA 源表、完整读取、本地过滤与汇总、卷数和数量口径、全局权限和菜单配置 |
 | 查阅过去讨论        | [历史文档](history/README.md)    | 原交接记录与前端迁移方案                      |
 
 ## 前端仓库
