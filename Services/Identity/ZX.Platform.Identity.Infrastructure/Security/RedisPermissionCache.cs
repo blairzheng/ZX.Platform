@@ -22,7 +22,7 @@ public sealed class RedisPermissionCache(IConnectionMultiplexer connection, Redi
                 ?? throw new JsonException("权限缓存不能为空。");
             return new CachedAuthorization(version, cached.Version == version ? cached.Snapshot : null);
         }
-        catch (Exception exception) when (exception is RedisException or JsonException)
+        catch (Exception exception) when (exception is RedisException or RedisTimeoutException or JsonException)
         {
             throw new AuthorizationUnavailableException(exception);
         }
@@ -36,13 +36,19 @@ public sealed class RedisPermissionCache(IConnectionMultiplexer connection, Redi
             await connection.GetDatabase().StringSetAsync(UserKey(userId), JsonSerializer.Serialize(new StoredAuthorization(version, snapshot)),
                 new Expiration(TimeSpan.FromMinutes(5)), ValueCondition.Always).WaitAsync(cancellationToken);
         }
-        catch (RedisException exception) { throw new AuthorizationUnavailableException(exception); }
+        catch (Exception exception) when (exception is RedisException or RedisTimeoutException)
+        {
+            throw new AuthorizationUnavailableException(exception);
+        }
     }
 
     public async Task InvalidateAsync(CancellationToken cancellationToken)
     {
         try { await connection.GetDatabase().StringIncrementAsync(VersionKey).WaitAsync(cancellationToken); }
-        catch (RedisException exception) { throw new AuthorizationUnavailableException(exception); }
+        catch (Exception exception) when (exception is RedisException or RedisTimeoutException)
+        {
+            throw new AuthorizationUnavailableException(exception);
+        }
     }
 
     private sealed record StoredAuthorization(string Version, AuthorizationSnapshot Snapshot);

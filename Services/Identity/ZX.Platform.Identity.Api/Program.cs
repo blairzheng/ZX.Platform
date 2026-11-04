@@ -7,6 +7,8 @@ using ZX.Platform.Identity.Application.Sbus;
 using ZX.Platform.Identity.Application.Persistence;
 using ZX.Platform.Identity.Application.Security;
 using ZX.Platform.Identity.Application.Users;
+using ZX.Platform.Identity.Application.Inventory.Stocktake;
+using ZX.Platform.Identity.Infrastructure.Inventory;
 using ZX.Platform.Identity.Infrastructure.Persistence;
 using ZX.Platform.Identity.Infrastructure.Persistence.Interceptors;
 using ZX.Platform.Identity.Infrastructure.Persistence.Repositories;
@@ -51,6 +53,8 @@ builder.Services.AddScoped<IUnitOfWork>(serviceProvider =>
     serviceProvider.GetRequiredService<PlatformIdentityDbContext>());
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISbuService, SbuService>();
+builder.Services.AddScoped<IStocktakeReportRepository, StocktakeReportRepository>();
+builder.Services.AddScoped<IStocktakeReportService, StocktakeReportService>();
 builder.Services.AddScoped<IUserSbuRepository, UserSbuRepository>();
 builder.Services.AddScoped<IUserApprovalAuditRepository, UserApprovalAuditRepository>();
 builder.Services.AddScoped<CurrentSbuContext>();

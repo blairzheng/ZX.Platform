@@ -6,6 +6,8 @@
 
 设备点检是本文的开发示例，仓库中尚未实现。示例先实现“分页查询、新增”两个接口，修改、删除和状态流转按文末要求扩展，不要把文档中的接口当作已有功能。
 
+需要参考真实业务时，可查看已有的一键盘点：API 的 `InventoryStocktakeController.cs`、Application 的 `Inventory/Stocktake/` 和 Infrastructure 的 `Inventory/StocktakeReportRepository.cs`。它只读 `MesEDA` 的 `EDA.G_WMS_KEYBOARD`，不区分 SBU、全量返回后由前端过滤，不需要新增表或 Migration；不要把这套取数范围直接套到本文的 SBU 分页示例上。
+
 所有命令在后端仓库根目录执行。多行命令使用 bash/zsh 写法；PowerShell 中可去掉行末反斜杠，将同一条命令合成一行执行。
 
 ## 1. 确定本次要做的业务
@@ -27,7 +29,7 @@
 | --- | --- |
 | `ZX.Platform.Identity.Domain` | `Entities/InspectionRecord.cs` |
 | `ZX.Platform.Identity.Infrastructure` | `Persistence/Configurations/InspectionRecordConfiguration.cs`、`Persistence/PlatformIdentityDbContext.cs`、`Persistence/Migrations/`、`Persistence/Repositories/InspectionRecordRepository.cs` |
-| `ZX.Platform.Identity.Application` | `InspectionRecords/` 下的 DTO、Service、Repository 接口；`Authorization/IdentityPermissions.cs`、`Menus/MenuService.cs` |
+| `ZX.Platform.Identity.Application` | `InspectionRecords/` 下的 DTO、Service、Repository 接口；`Authorization/IdentityPermissions.cs` |
 | `ZX.Platform.Identity.Api` | `Controllers/InspectionRecordsController.cs`、`Program.cs`、`Resources/Localization/` |
 
 ## 2. 创建实体
@@ -459,7 +461,7 @@ Controller 中的 `messages["Inspection.Created"].Value` 不是直接返回这�
 | `src/views/equipment/inspection/index.vue` | 新增分页列表页 |
 | `src/views/equipment/inspection/components/InspectionCreateDialog.vue` | 新增表单弹窗 |
 | `src/api/identity/permissions.ts` | 追加权限常量 |
-| `src/router/dynamic.ts` | 追加组件映射 |
+| `src/router/menuPages.ts` | 在统一注册表追加组件标识、选项词条和加载函数 |
 
 ### 9.1 新增 API 和类型
 
@@ -836,22 +838,22 @@ EquipmentInspectionRead: 'equipment.inspection.read',
 EquipmentInspectionCreate: 'equipment.inspection.create',
 ```
 
-在 `src/router/dynamic.ts` 的**现有** `menuComponents` 对象内追加：
+在 `src/router/menuPages.ts` 的**现有** `menuPages` 对象内追加：
 
 ```ts
-EquipmentInspection: () => import('@/views/equipment/inspection/index.vue'),
+EquipmentInspection: {
+  titleKey: 'inspection.title',
+  load: () => import('@/views/equipment/inspection/index.vue'),
+},
 ```
 
 页面通过 `auth.hasPermission(Permission.EquipmentInspectionCreate)` 控制新增入口；页面访问权限由动态菜单路由及守卫处理。不要仅隐藏菜单就认为后端有保护，也不要为这一个业务页再在 `src/router/index.ts` 添加绕过动态菜单的固定路由。
 
-后端 `Services/Identity/ZX.Platform.Identity.Application/Menus/MenuService.cs` 的 `Validate` 目前限制页面组件。在原有白名单表达式内追加本例标识，保留原有项：
+路由与菜单编辑器共用 `menuPages`，不再分别修改 `dynamic.ts` 或维护选项名称字典。`titleKey` 使用第 9.2 节注册的中英文词条，控制组件下拉选项名称；实际菜单及标签标题仍来自菜单配置。
 
-```csharp
-input.Component is not ("SystemUser" or "SystemSbu" or "SystemRole" or "SystemMenu"
-    or "EquipmentInspection")
-```
+后端 `Menus/MenuService.cs` 只校验页面组件标识格式，不追加页面名称：以 ASCII 字母开头，后续仅字母、数字、下划线，总长 1～100 字符。`EquipmentInspection`、`InventoryStocktake` 合法；`equipment/inspection`、`Equipment.Inspection`、`1Inspection` 不合法。菜单组件必须与前端注册表键按大小写精确匹配，目录和操作的组件留空。
 
-这里展示的是原条件中的局部表达式，原来的 path 校验和异常处理都保留。前后端组件标识大小写必须相同。
+直接调用菜单 API 可以保存格式合法但前端未登记的标识，前端不会为它注册页面路由；菜单编辑器只允许保存已登记的组件。先准备包含新页面的前端，再配置菜单。组件登记本身不改数据库结构，不需要 Migration；业务新增表或字段仍按第 4 节处理。
 
 ### 9.6 在界面创建菜单并授权
 
@@ -866,6 +868,8 @@ input.Component is not ("SystemUser" or "SystemSbu" or "SystemRole" or "SystemMe
 菜单和标签标题来自菜单管理中的中英文标题；页面内部的表头和表单文字来自 `inspection.ts`，二者分别配置。图标如需填写，使用项目已有 Lucide 标识，不另建图标体系。
 
 业务菜单由界面创建，不写入 `DefaultMenus` 或数据库迁移。角色管理中勾选查看、新增权限，再给测试用户分配角色及启用的 SBU。测试账号刷新菜单或重新登录后进入页面，选择正确的 SBU 再新增和查询。
+
+后端授权树会为页面的 read 权限自动补“查看页面”叶子，无需手工再创建同码查看操作。新增、审批等独立动作按实际权限创建 action 节点；菜单本身不等于角色授权。
 
 仅测试库配置了菜单不代表其他环境也已配置；交付时记录菜单路径、组件标识、权限码、节点结构及中英文标题，由负责人安排目标环境配置。
 
@@ -896,7 +900,7 @@ pnpm dev
 2. 有查看和新增权限时，可以在已分配且启用的 SBU 创建记录并查询。
 3. 缺失、伪造或无权访问的 `X-SBU-ID` 被拒绝；另一 SBU 的记录不出现在列表及总数中。
 4. 必填、长度、结果值、UTC 时间与可空备注符合约定；中英文消息正确。
-5. 数据库包含本次迁移，前端路径、组件映射、后端白名单和菜单配置一致。
+5. 数据库包含本次迁移，菜单组件与前端 `menuPages` 的键精确匹配，路径和动作权限配置一致。
 
 管理员能访问，不代表普通角色的功能权限和 SBU 数据范围已经验证。带上实际验证结果再交付，不把尚未执行的检查写成已通过。
 

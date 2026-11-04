@@ -42,7 +42,7 @@ public sealed class RedisAuthSessionStore(
             await connection.GetDatabase().StringSetAsync(key, JsonSerializer.Serialize(session),
                 new Expiration(expires.UtcDateTime), ValueCondition.Always).WaitAsync(cancellationToken);
         }
-        catch (RedisException exception)
+        catch (Exception exception) when (exception is RedisException or RedisTimeoutException)
         {
             throw new AuthSessionUnavailableException(exception);
         }
@@ -125,7 +125,7 @@ public sealed class RedisAuthSessionStore(
         {
             await connection.GetDatabase().KeyDeleteAsync(SessionKey(userId)).WaitAsync(cancellationToken);
         }
-        catch (RedisException exception)
+        catch (Exception exception) when (exception is RedisException or RedisTimeoutException)
         {
             throw new AuthSessionUnavailableException(exception);
         }
@@ -161,7 +161,8 @@ public sealed class RedisAuthSessionStore(
                 ?? throw new JsonException("Redis 会话 JSON 不能为空。");
             return (value, session);
         }
-        catch (Exception exception) when (exception is RedisException or JsonException)
+        // RedisTimeoutException 继承 TimeoutException，不属于 RedisException。
+        catch (Exception exception) when (exception is RedisException or RedisTimeoutException or JsonException)
         {
             throw new AuthSessionUnavailableException(exception);
         }
@@ -186,7 +187,7 @@ public sealed class RedisAuthSessionStore(
             }
             return await commit;
         }
-        catch (RedisException exception)
+        catch (Exception exception) when (exception is RedisException or RedisTimeoutException)
         {
             throw new AuthSessionUnavailableException(exception);
         }

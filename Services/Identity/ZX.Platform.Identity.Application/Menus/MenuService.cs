@@ -129,9 +129,13 @@ public sealed class MenuService(IMenuRepository menus, IUnitOfWork unitOfWork) :
         if (input.Affix && (input.Kind != Menu.Page || !input.ShowInTags)) throw Error("Access.InvalidMenu");
         if (input.Kind == Menu.Page)
         {
+            // 组件是否存在由前端本地注册表判断，后端只约束标识格式。
+            var validComponent = !string.IsNullOrWhiteSpace(input.Component) &&
+                Regex.IsMatch(input.Component, @"\A[A-Za-z][A-Za-z0-9_]{0,99}\z", RegexOptions.CultureInvariant);
             if (!Regex.IsMatch(input.Path, @"^/[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*$", RegexOptions.CultureInvariant) ||
                 new[] { "/login", "/overview", "/applications", "/examples/users" }.Contains(input.Path, StringComparer.OrdinalIgnoreCase) ||
-                input.Component is not ("SystemUser" or "SystemSbu" or "SystemRole" or "SystemMenu")) throw Error("Access.InvalidMenuRoute");
+                !validComponent)
+                throw Error("Access.InvalidMenuRoute");
             if (all.Any(menu => menu.Id != id && menu.Kind == Menu.Page && string.Equals(menu.Path, input.Path, StringComparison.OrdinalIgnoreCase)))
                 throw Error("Access.MenuPathExists", ErrorCodes.Conflict);
         }

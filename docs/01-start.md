@@ -17,6 +17,8 @@
 
 Redis 复用现有正式实例，每位成员必须使用自己的开发前缀，与线上及其他成员区分。同一成员的本机实例使用同一前缀即可。
 
+调试已有的一键盘点报表时，另向负责人获取 `ExternalOracle:Sources:MesEDA` 的连接配置，写入 Identity.Api 的本机 User Secrets；连接账号需要能读取 `EDA.G_WMS_KEYBOARD`。`BU17EDA` 是数据库名，`EDA` 是表 owner。未调试该报表时无需配置此项，连接信息不放入前端或源码。
+
 ## 2. 还原依赖与 EF 工具
 
 ```bash

@@ -30,7 +30,7 @@ description: "在 ZX.Platform 现有 Identity 四层内新增或扩展业务接�
 | 功能权限 | `Application/Authorization/IdentityPermissions.cs`、`Api/Extensions/AuthorizationExtensions.cs` | 第 7 节；追加常量和动作 Policy，保留原有目录机制 |
 | SBU 隔离 | `Api/Authorization/RequireSbuAttribute.cs`、`CurrentSbuContext.cs`、当前业务仓储 | 第 6、7 节；校验归属后仍需逐查询过滤 |
 | 服务注册与提示词条 | `Api/Program.cs`、`Localization/ApiMessageLocalizer.cs`、`Resources/Localization/` | 第 8 节；中英文资源、DI 都要贯通 |
-| 页面接入与菜单 | `Application/Menus/MenuService.cs` | 第 9 节；仅有前端任务授权时修改对应前端仓库 |
+| 页面接入与菜单 | `Application/Menus/MenuService.cs`、实际前端仓库的 `src/router/menuPages.ts` | 第 9 节；前端统一登记组件，仅有前端任务授权时修改对应前端仓库 |
 | 外部 Oracle 取数 | `Infrastructure/ExternalData/`、`Api/Extensions/ExternalOracleDataSourcesExtensions.cs` | 第 10 节；复用服务端数据源别名，明确 SBU 与失败边界 |
 
 表中是需要检查的入口，不要求每次都修改这些文件。阅读最小相关范围，不把所有源码和整份长文档一次性加载。
@@ -51,7 +51,11 @@ description: "在 ZX.Platform 现有 Identity 四层内新增或扩展业务接�
 
 ## 对接前端
 
-后端任务交付实际可用的路由、方法、请求字段、分页结构、时间与 NULL 约定、动作权限及 SBU 要求。需要新菜单时列出路径、组件标识和中英文标题；按需求追加后端页面组件白名单，不自动写菜单或授权数据。
+后端任务交付实际可用的路由、方法、请求字段、分页结构、时间与 NULL 约定、动作权限及 SBU 要求。需要新菜单时列出路径、组件标识和中英文标题，不自动写菜单或授权数据。
+
+前端在 `src/router/menuPages.ts` 的 `menuPages` 中统一登记组件标识、`titleKey` 和显式 `load` 函数，路由与菜单编辑器共用该表。后端不追加前端组件名称列表；页面组件只校验 ASCII 字母开头、后续为字母/数字/下划线、总长 1～100 字符，目录与操作的组件为空。新增业务权限仍在 `IdentityPermissions` 声明，由真实接口独立鉴权。
+
+既有组件标识保持稳定，与前端注册表键按大小写精确匹配。直接调用菜单 API 时，格式合法但前端未登记的标识可以保存，前端不会为其注册页面路由；先准备包含新页面的前端，再配置菜单。组件登记本身不改数据库结构，无需 Migration。查看权限由后端授权树自动补为“查看页面”叶子，不要求手工创建同 read 码的 action；业务操作按需配置 action 节点。
 
 按 SBU 隔离的接口明确提醒前端设置 `sbuScoped: true`，业务成功提示显示后端 `message`。若用户也授权前端实施，先定位用户实际选定的前端仓库并读它自己的 AGENTS，再按 `02` 第 9 节完成；纯后端任务不修改前端。
 

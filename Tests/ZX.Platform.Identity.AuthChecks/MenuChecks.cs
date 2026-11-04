@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using ZX.Platform.Identity.Application.Authorization;
 using ZX.Platform.Identity.Application.Errors;
+using ZX.Platform.Identity.Application.Exceptions;
 using ZX.Platform.Identity.Application.Menus;
 using ZX.Platform.Identity.Application.Menus.Dtos;
 using ZX.Platform.Identity.Domain.Entities;
@@ -77,7 +78,58 @@ internal static class MenuChecks
         Check.That(!Flatten(cleaned).Any(node => node.Code == stalePage.Code) &&
             cleaned.Single(node => node.Code == "__unassigned").Children.Any(node => node.PermissionCode == IdentityPermissions.UserRestore),
             "A removed page must not strand its still-valid action permissions.");
-        Console.WriteLine("Menu migration, bootstrap, visibility, hierarchy and built-in protection passed.");
+        await ComponentIdentifiersAsync();
+        Console.WriteLine("Menu migration, bootstrap, visibility, hierarchy, component identifiers and built-in protection passed.");
+    }
+
+    private static async Task ComponentIdentifiersAsync()
+    {
+        var repository = new TestMenus();
+        var service = new MenuService(repository, new TestUnitOfWork());
+        string[] validComponents = ["NewBusinessPage", "Inventory_Stocktake", "A", new string('A', 100)];
+        Guid pageId = default;
+        for (var index = 0; index < validComponents.Length; index++)
+        {
+            var component = validComponents[index];
+            var path = $"/component/checks{index}";
+            pageId = await service.CreateAsync(new() { Kind = Menu.Page, Title = "Component checks", Path = path,
+                Component = component, PermissionCode = IdentityPermissions.UserRead }, default);
+            Check.That(repository.Items.Single(menu => menu.Id == pageId).Component == component,
+                "New frontend component identifiers, including the 100-character boundary, must be accepted without backend registration.");
+            var updatedComponent = validComponents[(index + 1) % validComponents.Length];
+            await service.UpdateAsync(new() { Id = pageId, Kind = Menu.Page, Title = "Updated component", Path = path,
+                Component = updatedComponent, PermissionCode = IdentityPermissions.UserRead }, default);
+            Check.That(repository.Items.Single(menu => menu.Id == pageId).Component == updatedComponent,
+                "Updating a page must apply the same component identifier rules as creation.");
+        }
+        var existingPage = repository.Items.Single(menu => menu.Id == pageId);
+        string?[] invalidComponents = [null, "", " ", new string('A', 101), "1Stocktake", "Inventory-Stocktake",
+            "inventory/stocktake", "Stocktake.vue", "Stocktake Report", "盘点报表", "Stocktake\n"];
+        foreach (var component in invalidComponents)
+        {
+            await InvalidComponentAsync(() => service.CreateAsync(new() { Kind = Menu.Page, Title = "Invalid component",
+                Path = "/component/invalid", Component = component!, PermissionCode = IdentityPermissions.UserRead }, default));
+            await InvalidComponentAsync(() => service.UpdateAsync(new() { Id = pageId, Kind = Menu.Page, Title = "Invalid component",
+                Path = existingPage.Path, Component = component!, PermissionCode = IdentityPermissions.UserRead }, default));
+        }
+        await Check.ErrorAsync(() => service.CreateAsync(new() { Kind = Menu.Page, Title = "Unknown permission",
+            Path = "/component/unknown", Component = "NewBusinessPage", PermissionCode = "identity.unknown.read" }, default), ErrorCodes.ValidationFailed);
+        Check.That((await service.GetCurrentAsync(new(false, [], []), default)).Count == 0,
+            "Accepting new component identifiers must not grant page access without the declared permission.");
+        await Check.ErrorAsync(() => service.CreateAsync(new() { Kind = Menu.Directory, Title = "Invalid directory",
+            Component = "NewBusinessPage" }, default), ErrorCodes.ValidationFailed);
+        await Check.ErrorAsync(() => service.CreateAsync(new() { Kind = Menu.Action, ParentId = pageId, Title = "Invalid action",
+            Component = "NewBusinessPage", PermissionCode = IdentityPermissions.UserCreate }, default), ErrorCodes.ValidationFailed);
+
+        static async Task InvalidComponentAsync(Func<Task> action)
+        {
+            try { await action(); }
+            catch (BusinessException exception) when (exception.Code == ErrorCodes.ValidationFailed && exception.MessageKey == "Access.InvalidMenuRoute")
+            {
+                return;
+            }
+            throw new InvalidOperationException("Invalid component identifiers must return the existing InvalidMenuRoute business error.");
+        }
     }
 
     private static IEnumerable<MenuDto> Flatten(IEnumerable<MenuDto> nodes) =>
