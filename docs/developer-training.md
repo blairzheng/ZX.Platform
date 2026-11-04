@@ -125,9 +125,9 @@ Gateway 不引用 Identity 业务项目
 - `page`：页面，关联路径、权限和前端组件标识。
 - `action`：按钮权限，不生成路由。
 
-`Auth/me` 返回当前用户能看到的菜单树，前端根据 `src/router/dynamic.ts` 的组件映射注册动态路由。当前支持的页面组件由代码显式维护，例如 `SystemUser`、`SystemSbu`、`SystemRole` 和 `SystemMenu`。
+`Auth/me` 返回当前用户能看到的菜单树，前端 `src/router/dynamic.ts` 根据 `src/router/menuPages.ts` 的统一注册表生成动态路由。注册表同时维护组件标识、显示名称的多语言键和加载函数，已有 `SystemUser`、`SystemSbu`、`SystemRole`、`SystemMenu` 和 `InventoryStocktake`。
 
-没有页面子项的自定义目录会进入统一的“待建设”页面；菜单管理不会生成业务页面源码。接入正式页面时，必须同时维护后端组件白名单、前端组件映射、页面路由、权限声明和真实业务接口。
+没有页面子项的自定义目录会进入统一的“待建设”页面；菜单管理不会生成业务页面源码。接入正式页面时，只在前端统一注册表登记组件，不需要修改后端组件名称列表；新业务权限仍须在后端声明，并由真实业务接口独立校验。后端只检查页面组件标识以 ASCII 字母开头、后续为字母/数字/下划线、总长 1～100 字符。菜单编辑器使用注册表选项并校验；直接调用 API 保存了格式合法但未登记的标识时，前端不会注册该页面。先发布前端页面，再配置菜单入口。
 
 ### 4. 数据库变更必须有 Migration
 
@@ -206,7 +206,7 @@ POST /api/Sbus/add
 1. 在 `src/api/<service>/` 定义接口方法和 TypeScript 类型。
 2. 在 `src/views/<module>/` 编写页面，页面级查询和弹窗状态留在页面内。
 3. 列表优先复用 `DataTable`，列标题使用 `computed` 和 i18n。
-4. 需要真实页面入口时，在 `src/router/dynamic.ts` 增加本地组件映射。
+4. 需要真实页面入口时，在 `src/router/menuPages.ts` 统一登记组件标识、多语言名称和加载函数。
 5. 在菜单管理中配置 `page` 菜单的路径、组件标识和查看权限。
 6. 在页面按钮上用 `auth.hasPermission(...)` 控制显示，但不代替后端授权。
 7. 补充中英文文案、图标、主题变量和页面专题文档。
@@ -286,7 +286,7 @@ src/views/equipment/inspection/components/InspectionEditor.vue
 1. 在 API 文件定义列表、创建和修改方法，以及请求和响应类型。
 2. 页面使用 `DataTable` 展示记录，筛选、分页和弹窗状态留在页面内。
 3. 新增或修改按钮根据 `auth.hasPermission(...)` 控制显示。
-4. 在 `router/dynamic.ts` 增加明确的 `EquipmentInspection` 组件映射。
+4. 在 `src/router/menuPages.ts` 登记 `EquipmentInspection` 的多语言名称和显式加载函数。
 5. 在后端菜单中创建 `page` 节点，配置路径、组件标识和查看权限。
 6. 在菜单的操作节点下配置新增、修改等按钮权限。
 7. 补充中英文词条、图标、主题样式和页面文档。

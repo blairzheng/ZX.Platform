@@ -1,0 +1,3 @@
+interface:
+  display_name: "ZX 后端业务开发"
+  short_description: "按 ZX.Platform 现有分层开发业务接口、单据及状态流转，接入权限与 SBU"

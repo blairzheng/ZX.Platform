@@ -57,7 +57,7 @@ ZX.Platform/
 ZX.front.vue/
 ├── src/api/equipment/                           # 接口方法和类型
 ├── src/views/equipment/                         # 页面和页面专用组件
-├── src/router/dynamic.ts                        # 后端组件标识到 Vue 组件的映射
+├── src/router/menuPages.ts                      # 组件标识、显示名称和 Vue 加载函数的统一注册表
 ├── src/api/identity/permissions.ts              # 前端权限常量
 ├── src/locales/zh-CN、src/locales/en-US/       # 中英文文案
 └── src/icons/svg/lucide/                        # 本地业务图标
@@ -723,7 +723,7 @@ builder.Services.AddScoped<IInspectionRecordRepository, InspectionRecordReposito
 builder.Services.AddScoped<IInspectionRecordService, InspectionRecordService>();
 ```
 
-同时在 `MenuService.Validate` 的组件白名单中加入 `EquipmentInspection`，否则菜单管理保存页面时会拒绝未知组件。
+后端不维护前端组件名称列表。页面组件 `EquipmentInspection` 在后续前端步骤的统一注册表中登记；后端仅校验标识格式，业务权限仍须在 `IdentityPermissions` 声明并由 Controller 独立检查。
 
 同时补充：
 
@@ -998,42 +998,40 @@ const submit = async () => {
 
 正式代码要把中文文字替换为 `equipmentInspection` 词条，并按现有主题公共类补充样式。
 
-### 第 3 步：添加页面组件映射
+### 第 3 步：登记页面组件
 
 修改：
 
 ```text
-ZX.front.vue/src/router/dynamic.ts
+ZX.front.vue/src/router/menuPages.ts
 ```
 
-增加显式映射：
+在 `menuPages` 中增加一个登记项：
 
 ```ts
-EquipmentInspection: () => import('@/views/equipment/inspection/index.vue'),
+EquipmentInspection: {
+  titleKey: 'equipmentInspection.title',
+  load: () => import('@/views/equipment/inspection/index.vue'),
+},
 ```
 
-后端菜单的 `component` 必须填写 `EquipmentInspection`，不能填写任意文件路径。前端只加载 `dynamic.ts` 中登记过的组件。
+后端菜单的 `component` 必须填写 `EquipmentInspection`，不能填写任意文件路径。`titleKey` 对应的中英文词条在下一步添加。前端路由与菜单编辑器共用 `menuPages.ts`，无需再在菜单编辑器单独维护组件显示名称；前端只加载注册表中显式登记的组件。
 
-同时修改后端 `MenuService` 的组件白名单，使 `EquipmentInspection` 能通过菜单校验。当前白名单位置：
+后端只检查页面组件标识以 ASCII 字母开头，后续为字母、数字或下划线，总长 1～100 字符，新增页面不需要修改 `MenuService`。目录和按钮的组件仍为空。直接调用菜单 API 时，格式合法但前端未登记的标识可以保存，前端不会为其注册路由；先发布包含新页面的前端，再在菜单管理中配置入口。
 
-```text
-Services/Identity/ZX.Platform.Identity.Application/Menus/MenuService.cs
-```
-
-#### 动态组件映射代码
+#### 页面注册表代码
 
 ```ts
-export const menuComponents = {
-  SystemUser: () => import('@/views/system/user/index.vue'),
-  SystemSbu: () => import('@/views/system/sbu/index.vue'),
-  SystemRole: () => import('@/views/system/role/index.vue'),
-  SystemMenu: () => import('@/views/system/menu/index.vue'),
-  EquipmentInspection: () =>
-    import('@/views/equipment/inspection/index.vue'),
+export const menuPages = {
+  // 保留 SystemUser、SystemSbu、SystemRole、SystemMenu、InventoryStocktake 等已有登记项。
+  EquipmentInspection: {
+    titleKey: 'equipmentInspection.title',
+    load: () => import('@/views/equipment/inspection/index.vue'),
+  },
 }
 ```
 
-后端菜单的 `component` 必须填写 `EquipmentInspection`，不能填写任意文件路径。
+以上展示新增部分，应加入现有注册表，不要替换已有登记项。菜单中的 `component` 与注册表键大小写一致；已有组件标识不得随意改名，否则存量菜单将失去对应页面。本次登记规则不改变数据库结构，无需为组件登记新增 Migration；业务实体的结构变化仍按前面的迁移步骤处理。
 
 ### 第 4 步：添加前端权限和文案
 
@@ -1045,7 +1043,7 @@ ZX.front.vue/src/locales/zh-CN/equipmentInspection.ts
 ZX.front.vue/src/locales/en-US/equipmentInspection.ts
 ```
 
-前端权限常量必须和后端权限编码一致。页面按钮可以这样判断：
+在中英文文案中添加 `equipmentInspection.title`，分别为“设备点检”和“Equipment Inspection”，供页面注册表的 `titleKey` 使用。前端权限常量必须和后端权限编码一致。页面按钮可以这样判断：
 
 ```ts
 const auth = useAuthStore()
@@ -1145,7 +1143,7 @@ Auth/me 返回菜单
 
 - [ ] API 方法统一使用 `@/utils/request`。
 - [ ] 页面和表单职责分开，列表使用 `DataTable`。
-- [ ] 动态组件映射、后端组件白名单和菜单组件标识一致。
+- [ ] `menuPages.ts` 已登记组件标识、多语言名称和加载函数，菜单组件标识与注册表键大小写一致。
 - [ ] 页面权限和操作权限分别配置。
 - [ ] 中文、英文、Light、Dark、Dark Sidebar 都能使用。
 - [ ] 没有权限时按钮隐藏，接口拒绝时页面不会误报成功。

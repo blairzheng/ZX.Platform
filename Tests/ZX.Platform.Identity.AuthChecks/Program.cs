@@ -1,5 +1,11 @@
 using ZX.Platform.Identity.AuthChecks;
 
+if (args.Contains("--menu-only"))
+{
+    await MenuChecks.RunAsync();
+    return;
+}
+
 DevelopmentMigrationChecks.Run();
 if (args.Contains("--development-migrations-only")) return;
 

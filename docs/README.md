@@ -4,6 +4,8 @@
 
 这里是后端文档入口。第一次接手按“启动 → 理解分层 → 维护一个业务功能”的顺序阅读；排查某个模块时直接查对应专题。
 
+AI 辅助业务接口开发使用仓库内的 [zx-backend-business skill](../.agents/skills/zx-backend-business/SKILL.md)，实施步骤见[业务模块开发模板](business-module-template.md)。新增页面只在前端 `src/router/menuPages.ts` 登记组件，后端继续维护业务权限与接口鉴权。
+
 ## 第一次接手
 
 换电脑或新会话接续开发，先读[项目交接说明](project-handoff.md)，了解当前版本、已接受的设计和环境恢复步骤。
