@@ -19,6 +19,8 @@ Redis 复用现有正式实例，每位成员必须使用自己的开发前缀�
 
 调试已有的一键盘点报表时，另向负责人获取 `ExternalOracle:Sources:MesEDA` 的连接配置，写入 Identity.Api 的本机 User Secrets；连接账号需要能读取 `EDA.G_WMS_KEYBOARD`。`BU17EDA` 是数据库名，`EDA` 是表 owner。未调试该报表时无需配置此项，连接信息不放入前端或源码。
 
+使用 AI 助手时，另在 Identity.Api 的 User Secrets 配置 `AI:BaseUrl`、`AI:Model`、`AI:ApiKey`；模型需要支持工具调用。正常后端打包会使用 Python 自动生成前后端业务源码资料并随镜像发布，无需每次手工导出；打包机器需要 Python 3.10 及以上版本和配套前端源码，运行服务器不需要 Python。配置、自动生成和权限步骤见 [基于项目源码的 AI 助手](ai-integration.md)；不使用 AI 时可以不配置。
+
 ## 2. 还原依赖与 EF 工具
 
 ```bash

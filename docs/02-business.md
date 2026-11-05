@@ -8,6 +8,8 @@
 
 需要参考真实业务时，可查看已有的一键盘点：API 的 `InventoryStocktakeController.cs`、Application 的 `Inventory/Stocktake/` 和 Infrastructure 的 `Inventory/StocktakeReportRepository.cs`。它只读 `MesEDA` 的 `EDA.G_WMS_KEYBOARD`，不区分 SBU、全量返回后由前端过滤，不需要新增表或 Migration；不要把这套取数范围直接套到本文的 SBU 分页示例上。
 
+当前模块的说明从 [业务文档目录](business/README.md) 查找，一键盘点的实际契约见 [一键盘点](business/inventory/stocktake.md)。成员如何编写和更新文档，统一按 [成员业务文档编写规范](03-documentation.md)；本文件继续维护通用开发步骤。
+
 所有命令在后端仓库根目录执行。多行命令使用 bash/zsh 写法；PowerShell 中可去掉行末反斜杠，将同一条命令合成一行执行。
 
 ## 1. 确定本次要做的业务
@@ -373,6 +375,29 @@ public sealed class InspectionRecordsController(IInspectionRecordService records
 这条链路同时包含登录校验、动作权限和 SBU 校验。`[RequireSbu]` 验证请求头 `X-SBU-ID` 中的 SBU 是否启用且已分配给当前用户，再由 `CurrentSbuContext.SbuId` 传入 Service；仓储继续按该值过滤。仅校验请求头，不在查询中限制 SBU，仍会越权。
 
 Controller 只绑定输入、调用 Service 和返回现有 `ApiResponse`，不直接查 EF、不自行捕获全部异常并包装成功。
+
+### 7.1 按需向 AI 开放只读查询
+
+普通业务查询不自动全部开放给 AI。确认接口及其调用链只读、返回字段适合当前账号查看后，在需要开放的 GET 方法上加一个 `[AiQuery]`，并保留原登录、动作权限和适用的 `[RequireSbu]`：
+
+```csharp
+using ZX.Platform.Identity.Api.AI.Queries;
+
+// 本文仍是待开发的设备点检示例；只展示在现有 ListAsync 上添加的属性。
+[AiQuery]
+[HttpGet("list")]
+[Authorize(Policy = IdentityPermissions.EquipmentInspectionRead)]
+public async Task<IActionResult> ListAsync(
+    [FromQuery] InspectionRecordQueryDto query, CancellationToken cancellationToken)
+```
+
+只需给前面的查询方法加属性和 using，不再复制一份方法，也不修改 AI 工具的 `switch`、新增专用 AI Service 或另写接口参数说明。标记描述可省略；难以从源码理解时，可选写成 `[AiQuery("查询设备点检记录")]`。目录自动收集已注册端点、ApiExplorer 参数和源码位置，模型通过已有 Controller、Service/DTO 和界面词条理解用途。现有用户、角色、菜单、SBU、本人资料和一键盘点共 16 个受保护只读 GET 已接入，设备点检仍需按本文开发后才存在。
+
+本例 `{list,total}` 响应使用普通标记即可。若原接口返回已确认的完整裸数组，可选声明 `ResultShape = AiQueryResultShape.CompleteList`；完整树使用 `CompleteTree`，保留 `children` 且拒绝平面列表筛选。未声明数组不会自动视为全量，树根数也不能当作全部节点数；这些声明只描述原接口的可见结果，不扩大权限和业务范围。
+
+自动发现要求标记方法是受 `[Authorize]` 保护的单一 GET，参数可由目录识别。支持 query/path 标量和一维标量数组，查询 DTO 会展开成这些参数；复杂 body、header/service 绑定、匿名或同名歧义等签名不开放。新增、修改、删除和状态流转不加标记；标记不代替只读代码审查。
+
+执行查询仍重新认证当前会话、执行原动作权限、MVC 参数绑定与校验，以及 `[RequireSbu]` 等过滤器。SBU 来自当前请求中由原过滤器验证的选择，不能通过模型参数指定任意 SBU。分页响应只是当前页，AI 不能据此宣称全局合计或最大值；结果容量限制也不能靠忽略分页或截断绕过。发布时源码资料仍由现有流程自动导出，详细机制和限制见 [基于项目源码的 AI 助手](ai-integration.md#新增查询如何向-ai-开放)。
 
 ## 8. 注册依赖并添加后端多语言
 
@@ -909,6 +934,8 @@ pnpm dev
 接入外部 MES 时，由 Infrastructure 按服务端配置的别名访问，查询参数化并应用业务对应的 SBU 条件；外部现有表不纳入 Identity 的迁移。跨系统调用另行明确失败重试与幂等规则，不认为一次本地数据库保存就能保证外部系统同时成功。
 
 ## 11. 交付本次业务
+
+新增或改变业务行为时，同步 `docs/business/` 中对应模块文档；新模块补业务目录入口。文档范围、前后端分工及提交前核对见 [成员业务文档编写规范](03-documentation.md)，无需每次改写系统级文档。
 
 业务完成后，将代码、必要的中英文资源及迁移文件一起提交到自己的业务分支，在 GitLab 发起合并请求，由负责人审核合并。不要直接推团队基线或自行发布。
 

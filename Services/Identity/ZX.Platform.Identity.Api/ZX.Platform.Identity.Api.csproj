@@ -25,4 +25,8 @@
     <ProjectReference Include="..\ZX.Platform.Identity.Infrastructure\ZX.Platform.Identity.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="AI/Knowledge/project-sources.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

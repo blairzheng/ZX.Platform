@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using ZX.Platform.Identity.Api.AI.Queries;
 using ZX.Platform.Identity.Api.Contracts;
 using ZX.Platform.Identity.Api.Localization;
 using ZX.Platform.Identity.Application.Sbus;
@@ -38,8 +39,10 @@ namespace ZX.Platform.Identity.Api.Controllers
             return StatusCode(StatusCodes.Status201Created, response);
         }
 
+        [AiQuery]
         [HttpGet("getSbu")]
         [Authorize(Policy = IdentityPermissions.SbuRead)]
+        [ProducesResponseType(typeof(ApiResponse<SbuDetailDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetByIdAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             var sbu = await _sbuService.GetByIdAsync(id, cancellationToken);
@@ -52,8 +55,10 @@ namespace ZX.Platform.Identity.Api.Controllers
             return StatusCode(StatusCodes.Status200OK, response);
         }
 
+        [AiQuery(ResultShape = AiQueryResultShape.CompleteList)]
         [HttpGet("getSbuList")]
         [Authorize(Policy = IdentityPermissions.SbuRead)]
+        [ProducesResponseType(typeof(ApiResponse<List<SbuDetailDto>>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAllAsync(CancellationToken cancellationToken)
         {
             var sbus = await _sbuService.GetAllAsync(cancellationToken);
@@ -131,8 +136,10 @@ namespace ZX.Platform.Identity.Api.Controllers
             return StatusCode(StatusCodes.Status200OK, response);
         }
 
+        [AiQuery(ResultShape = AiQueryResultShape.CompleteList)]
         [HttpGet("getAllEnabledSbus")]
         [Authorize(Policy = PermissionPolicies.SbuOptions)]
+        [ProducesResponseType(typeof(ApiResponse<List<SbuDetailDto>>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAllEnabledSbusAsync(CancellationToken cancellationToken)
         {
             var sbus = await _sbuService.GetAllEnabledSbusAsync(cancellationToken);

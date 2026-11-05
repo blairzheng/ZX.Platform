@@ -46,6 +46,7 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddIdentityDatabase(builder.Configuration);
 builder.Services.AddExternalOracleDataSources(builder.Configuration);
+builder.Services.AddPlatformAssistant(builder.Configuration, builder.Environment);
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISbuRepository, SbuRepository>();

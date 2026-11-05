@@ -51,6 +51,15 @@ if [[ $mode != upload ]]; then
     printf '该版本包已存在；换版本号，或用 --upload-only 重传。\n' >&2
     exit 1
   }
+  command -v python3 >/dev/null || { printf '本机缺少 Python 3.10+（用于自动生成 AI 源码资料）。\n' >&2; exit 1; }
+  frontend_dir=${MOM_ASSISTANT_FRONTEND_DIR:-"$(dirname "$repo_dir")/ZX.front.vue"}
+  [[ -d $frontend_dir ]] || {
+    printf '找不到前端源码：%s\n请准备对应版本的 ZX.front.vue，或设置 MOM_ASSISTANT_FRONTEND_DIR。\n' "$frontend_dir" >&2
+    exit 1
+  }
+  printf '自动生成本版本 AI 源码资料……\n'
+  python3 scripts/export-assistant-sources.py --backend "$repo_dir" --frontend "$frontend_dir"
+
   command -v docker >/dev/null || { printf '本机缺少 Docker。\n' >&2; exit 1; }
   docker info >/dev/null || { printf '请先启动本机 Docker。\n' >&2; exit 1; }
   docker buildx version >/dev/null || { printf '本机 Docker 缺少 buildx。\n' >&2; exit 1; }

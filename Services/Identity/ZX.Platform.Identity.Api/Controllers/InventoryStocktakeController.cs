@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ZX.Platform.Identity.Api.AI.Queries;
 using ZX.Platform.Identity.Api.Contracts;
 using ZX.Platform.Identity.Api.Localization;
 using ZX.Platform.Identity.Application.Authorization;
@@ -14,7 +15,9 @@ namespace ZX.Platform.Identity.Api.Controllers;
 public sealed class InventoryStocktakeController(IStocktakeReportService reports, IApiMessageLocalizer messages) : ControllerBase
 {
     // 全局报表，不标注 RequireSbu；功能权限仍由后端独立校验。
+    [AiQuery]
     [HttpGet("list")]
+    [ProducesResponseType(typeof(ApiResponse<StocktakeListDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetListAsync(CancellationToken cancellationToken)
     {
         var list = await reports.GetListAsync(cancellationToken);

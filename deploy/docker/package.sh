@@ -36,6 +36,14 @@ trap 'rm -rf "$stage"' EXIT
 bundle_dir="$stage/$bundle_name"
 mkdir -p "$bundle_dir/templates"
 
+frontend_dir=${MOM_ASSISTANT_FRONTEND_DIR:-"$(dirname "$repo_dir")/ZX.front.vue"}
+[[ -d $frontend_dir ]] || {
+  printf '找不到前端源码：%s\n请准备对应版本的 ZX.front.vue，或设置 MOM_ASSISTANT_FRONTEND_DIR。\n' "$frontend_dir" >&2
+  exit 1
+}
+printf '自动生成本版本 AI 源码资料……\n'
+python3 scripts/export-assistant-sources.py --backend "$repo_dir" --frontend "$frontend_dir"
+
 docker buildx build --platform linux/amd64 \
   --file Services/Identity/ZX.Platform.Identity.Api/Dockerfile \
   --tag "mom-identity:$release" --load .

@@ -42,4 +42,9 @@
   <data name="Validation.ReviewReasonMaxLength" xml:space="preserve"><value>The review note cannot exceed 500 characters.</value></data>
   <data name="Validation.SecurityVersionRequired" xml:space="preserve"><value>The account security version is missing. Please refresh and try again.</value></data>
   <data name="Validation.UserRequired" xml:space="preserve"><value>The user identifier is missing.</value></data>
+  <data name="Validation.AiMessagesRequired" xml:space="preserve"><value>Send at least one conversation message.</value></data>
+  <data name="Validation.AiMessagesMaxLength" xml:space="preserve"><value>A request can contain at most {1} conversation messages.</value></data>
+  <data name="Validation.AiRoleInvalid" xml:space="preserve"><value>A message role must be user or assistant.</value></data>
+  <data name="Validation.AiContentRequired" xml:space="preserve"><value>Message content is required.</value></data>
+  <data name="Validation.AiContentMaxLength" xml:space="preserve"><value>A message cannot exceed {1} characters.</value></data>
 </root>

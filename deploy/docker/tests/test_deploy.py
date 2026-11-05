@@ -306,12 +306,29 @@ class NetworkChecks(unittest.TestCase):
 class PackageChecks(unittest.TestCase):
     def test_real_package_script_with_fake_docker_creates_complete_bundle(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             scripts = root / 'deploy' / 'docker'
             scripts.mkdir(parents=True)
             for name in ('package.sh', 'deploy.sh', 'deploy.py', 'README.md'):
                 shutil.copy(ROOT / name, scripts / name)
             shutil.copytree(ROOT / 'templates', scripts / 'templates')
+            exporter = root / 'scripts/export-assistant-sources.py'
+            exporter.parent.mkdir()
+            shutil.copy(ROOT.parents[1] / 'scripts/export-assistant-sources.py', exporter)
+            frontend = root / 'frontend'
+            sources = {
+                frontend / 'src/router/menuPages.ts':
+                    "export const pages = [import('@/views/inventory/stocktake/index.vue')];\n",
+                frontend / 'src/views/inventory/stocktake/index.vue': '<template>盘点</template>\n',
+                root / 'Services/Identity/ZX.Platform.Identity.Application/Inventory/ReportService.cs':
+                    'public class ReportService {}\n',
+                root / 'Services/Identity/ZX.Platform.Identity.Domain/Entities/Item.cs': 'public class Item {}\n',
+                root / 'Services/Identity/ZX.Platform.Identity.Api/Controllers/ReportController.cs':
+                    'public class ReportController {}\n',
+            }
+            for path, content in sources.items():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding='utf-8')
             # Files outside the explicit allowlist must not enter the bundle.
             (root / 'secrets.json').write_text('must-not-be-packaged')
             (scripts / 'identity.env').write_text('must-not-be-packaged')
@@ -338,10 +355,13 @@ elif args[0] == 'save':
 ''')
             fake.chmod(0o755)
             env = dict(os.environ, PATH=str(tools_dir) + os.pathsep + os.environ['PATH'],
-                       MOM_PACKAGE_TEST_STATE=str(root / 'docker-state.json'))
+                       MOM_PACKAGE_TEST_STATE=str(root / 'docker-state.json'),
+                       MOM_ASSISTANT_FRONTEND_DIR=str(frontend))
             result = subprocess.run(['bash', str(scripts / 'package.sh'), 'test-01'],
                                     env=env, text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+            catalog = root / 'Services/Identity/ZX.Platform.Identity.Api/AI/Knowledge/project-sources.json'
+            self.assertTrue(catalog.is_file(), 'Offline image packaging must export assistant sources.')
             archive = root / 'output/mom-deploy/mom-backend-test-01.tar.gz'
             spec = importlib.util.spec_from_file_location('mom_remote_package_check', ROOT / 'remote.py')
             remote = importlib.util.module_from_spec(spec)
