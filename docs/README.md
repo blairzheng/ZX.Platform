@@ -22,6 +22,9 @@ AI 辅助业务接口开发使用仓库内的 [zx-backend-business skill](../.ag
 | 任务                | 文档                             | 重点                                          |
 | ------------------- | -------------------------------- | --------------------------------------------- |
 | 理解架构 / 新增业务 | [开发者指南](developer-guide.md) | 四层职责、Repository / Unit of Work、开发约定 |
+| 维护业务文档 | [成员业务文档编写规范](03-documentation.md) | 更新时机、内容结构与前后端分工 |
+| 查阅已实现业务 | [业务文档目录](business/README.md) | 模块接口、规则、权限、数据范围与 AI 查询开放情况 |
+| 配置 / 扩展 AI 助手 | [基于项目源码的 AI 助手](ai-integration.md) | 模型配置、自动源码资料、只读查询与容量限制 |
 | 启动 / 配置 / 排错  | [开发环境](development.md)       | User Secrets、端口、HTTPS、Gateway 和 Git     |
 | 查看部署拓扑 | [当前部署拓扑](deployment-topology.md) | 176 入口和 Runner、177/178 后端、共享数据库与 Redis |
 | 生成后端发布包 | [GitHub 手动打包](github-release.md) | 填正式库迁移 ID，生成镜像、SQL、版本清单与校验摘要 |
@@ -43,7 +46,7 @@ AI 辅助业务接口开发使用仓库内的 [zx-backend-business skill](../.ag
 | 并行推进 SBU / MES 与低代码 | [两条工作线交接](sbu-mes-lowcode-handoff.md) | 当前契约、实施顺序、分工、验收和待提供资料 |
 | 设计 / 实现低代码 | [低代码平台契约](lowcode/README.md) | 定位与边界、元数据、字段类型、运行时、权限与 SBU 范围、发布与退役 |
 | 接入外部 MES Oracle 库 | [外部 Oracle 数据源](external-oracle-data-sources.md) | 别名配置、连接复用、读写边界与下一步 |
-| 查询一键盘点报表 | [一键盘点报表](stocktake-report.md) | MesEDA 源表、完整读取、本地过滤与汇总、卷数和数量口径、全局权限和菜单配置 |
+| 查询一键盘点报表 | [一键盘点业务说明](business/inventory/stocktake.md) | 查询契约、字段口径、全局权限、数据来源与 AI 查询范围 |
 | 查阅过去讨论        | [历史文档](history/README.md)    | 原交接记录与前端迁移方案                      |
 
 ## 前端仓库
@@ -60,5 +63,7 @@ AI 辅助业务接口开发使用仓库内的 [zx-backend-business skill](../.ag
 [README](../README.md) 负责项目状态、快速开始和入口；开发者指南负责架构和跨模块开发流程；专题负责对应契约；规划文档负责尚未实现的设计。
 
 一个契约优先在一个专题维护，其他文档链接过去。修改接口时更新 Identity 接口契约、业务语义与 HTTP 专题；修改实体时更新数据库专题；修改提示或限流时更新对应专题。调整架构边界时更新开发者指南，完成新能力后更新首页和规划。
+
+具体业务的说明放在 `docs/business/`，新增模块补文档和索引，业务行为与契约改变时更新受影响的段落；系统级文档维持现有位置，不列为普通业务每次必改项。详细更新时机与分工见 [成员业务文档编写规范](03-documentation.md)。
 
 部署入口于 2026-10-29 更新为 GitLab Runner 流程。历史记录中的阶段状态和示意代码可能已经过时，以当前专题和实际源码为准。

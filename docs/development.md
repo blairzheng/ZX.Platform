@@ -51,6 +51,12 @@ Development 已在 `appsettings.Development.json` 提供共享开发 JWT 密钥�
 
 接口时间字段统一以 UTC 的 ISO 8601（带 `Z` / `+00:00`）传输，数据库也按 UTC 存储；前端或其他调用方在显示时再按业务时区格式化。后续定时任务应保存本地时间和明确的业务时区。约定见[时间字段格式](http.md#时间字段格式)。
 
+## AI 助手配置
+
+使用 AI 助手时，在 Identity.Api 的本机 User Secrets 另外配置 `AI:BaseUrl`、`AI:Model`、`AI:ApiKey`；模型需要支持工具调用，真实 Key 不写入源码或前端。不使用 AI 时可以不配置，不影响其他功能启动。
+
+正常后端打包会使用 Python 自动生成前后端业务源码资料并随镜像发布，无需每次手工导出。打包机器需要 Python 3.10 及以上版本和配套前端源码，运行服务器不需要 Python。完整配置、自动生成、权限与容量限制见 [基于项目源码的 AI 助手](ai-integration.md)。
+
 ## 本地启动
 
 Apple Silicon Mac 上的 Colima、Oracle Free 和 Redis 容器配置见[macOS 本机基础设施](local-infrastructure.md)。Identity 统一按 Oracle 19c 运行，唯一迁移目录为 `Persistence/Migrations/`。首次建表或清空重建按 [部署文档](database-initialization.md)操作。

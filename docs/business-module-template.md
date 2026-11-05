@@ -6,6 +6,8 @@
 
 本文默认先把业务模块接入现有 Identity 服务，便于开发者熟悉当前仓库。业务规模扩大或需要独立部署时，再按最后一节拆成独立服务。
 
+已实现模块的说明从 [业务文档目录](business/README.md) 查找，一键盘点的实际契约见 [一键盘点](business/inventory/stocktake.md)。成员如何编写和更新文档，统一按 [成员业务文档编写规范](03-documentation.md)；本文继续维护通用开发步骤。
+
 ## 阅读顺序
 
 1. 先看模块边界和目录落点。
@@ -732,6 +734,31 @@ builder.Services.AddScoped<IInspectionRecordService, InspectionRecordService>();
 - 校验和业务异常资源
 - `docs/api.md` 中的请求字段、响应和错误码
 
+### 第 7.1 步：按需向 AI 开放只读查询
+
+普通业务查询不自动全部开放给 AI。确认接口及其调用链只读、返回字段适合当前账号查看后，在需要开放的 GET 方法上加 `[AiQuery]`，并保留原登录、动作权限和适用的 `[RequireSbu]`。例如给前面的 `ListAsync` 方法添加属性与 using：
+
+```csharp
+using ZX.Platform.Identity.Api.AI.Queries;
+
+// 仅展示属性及方法签名，保留原实现，不另建一份查询方法。
+[AiQuery]
+[HttpGet("list")]
+[Authorize(Policy = IdentityPermissions.EquipmentInspectionRead)]
+[RequireSbu]
+public async Task<IActionResult> ListAsync(
+    [FromQuery] InspectionRecordQueryDto query,
+    CancellationToken cancellationToken)
+```
+
+不修改 AI 工具的 `switch`、新增专用 AI Service 或另写接口参数说明。标记描述可省略；难以从源码理解时，可选写成 `[AiQuery("查询设备点检记录")]`。目录自动收集已注册端点、ApiExplorer 参数和源码位置，模型结合 Controller、Service/DTO 和界面词条理解用途。现有用户、角色、菜单、SBU、本人资料和一键盘点共 16 个受保护只读 GET 已接入；设备点检仍是待开发示例。
+
+结果声明以原接口实际契约为准。分页 `{list,total}` 响应使用普通标记即可，但 AI 不能将当前页视为全量。本文示例返回裸数组；只有确认原接口确实返回其授权范围内的完整列表时，才可声明 `ResultShape = AiQueryResultShape.CompleteList`。完整树使用 `CompleteTree`，保留 `children` 且拒绝平面列表筛选。未声明数组不会自动视为全量，树根数也不能当作全部节点数；这些声明不扩大权限和业务范围。
+
+自动发现要求标记方法是受 `[Authorize]` 保护的单一 GET，参数可由目录识别。支持 query/path 标量和一维标量数组，查询 DTO 会展开成这些参数；复杂 body、header/service 绑定、匿名或同名歧义等签名不开放。新增、修改、删除、授权和状态流转不加标记；标记不代替只读代码审查。
+
+执行查询仍重新认证当前会话、检查原动作权限，执行 MVC 参数绑定与校验，以及 `[RequireSbu]` 等过滤器。SBU 来自当前请求中由原过滤器验证的选择，不能通过模型参数指定任意 SBU。分页和结果容量限制不能靠截断或忽略分页绕过；最大值、合计等结论必须有问题范围内的完整数据依据。发布时源码资料由现有流程自动导出，详细机制和限制见 [AI 查询接入说明](ai-integration.md#新增查询如何向-ai-开放)。
+
 ## 四、前端按文件实施
 
 ### 第 1 步：定义 API 类型和请求方法
@@ -1167,6 +1194,8 @@ Auth/me 返回菜单
 拆分后仍要通过 Gateway 暴露接口，不能让前端绕过 Gateway。独立服务不能直接引用 Identity API 层的 `RequireSbuAttribute`，需要按平台统一的认证和 SBU 校验契约实现自己的服务端校验；在平台确认共享组件前，不要自行复制一套互不兼容的权限目录。
 
 ## 八、提交前命令
+
+新增或改变业务行为时，同步 `docs/business/` 中对应模块文档；新模块补业务目录入口。文档范围、前后端分工及提交前核对见 [成员业务文档编写规范](03-documentation.md)，无需每次改写系统级文档。
 
 后端仓库根目录：
 

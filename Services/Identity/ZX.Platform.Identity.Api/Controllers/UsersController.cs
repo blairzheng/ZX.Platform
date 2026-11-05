@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ZX.Platform.Identity.Api.Contracts;
+using ZX.Platform.Identity.Api.AI.Queries;
 using ZX.Platform.Identity.Api.Localization;
 using ZX.Platform.Identity.Application.Users;
 using ZX.Platform.Identity.Application.Users.Dtos;
@@ -45,8 +46,10 @@ namespace ZX.Platform.Identity.Api.Controllers
             return StatusCode(StatusCodes.Status201Created, response);
         }
 
+        [AiQuery]
         [HttpGet("getUser")]
         [Authorize(Policy = IdentityPermissions.UserRead)]
+        [ProducesResponseType(typeof(ApiResponse<UserDetailDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetByIdAsync([FromQuery] Guid id, CancellationToken cancellationToken)
         {
             var user = await _userService.GetByIdAsync(id, cancellationToken);
@@ -59,8 +62,10 @@ namespace ZX.Platform.Identity.Api.Controllers
             return StatusCode(StatusCodes.Status200OK, response);
         }
 
+        [AiQuery]
         [HttpGet("getUserList")]
         [Authorize(Policy = IdentityPermissions.UserRead)]
+        [ProducesResponseType(typeof(ApiResponse<UserPageDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetPageListAsync([FromQuery] UserQueryDto userQuery, CancellationToken cancellationToken)
         {
             var (users, count) = await _userService.GetPageListAsync(userQuery, cancellationToken);
@@ -191,8 +196,10 @@ namespace ZX.Platform.Identity.Api.Controllers
         /// <summary>
         /// 管理员按工号只读查询目录，用于预开通前核对。不接收员工密码、不创建用户。
         /// </summary>
+        [AiQuery]
         [HttpGet("ldapLookup")]
         [Authorize(Policy = IdentityPermissions.UserCreate)]
+        [ProducesResponseType(typeof(ApiResponse<LdapUserLookupResultDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> LdapLookupAsync([FromQuery] LdapUserLookupQueryDto query, CancellationToken cancellationToken)
         {
             var result = await _userService.LdapLookupAsync(query, cancellationToken);

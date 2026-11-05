@@ -12,4 +12,14 @@
   <data name="Error.ConcurrentUpdate" xml:space="preserve"><value>The data was modified by another operation. Please refresh and try again.</value></data>
   <data name="Error.ServiceUnavailable" xml:space="preserve"><value>A required service is temporarily unavailable. Please try again later.</value></data>
   <data name="Stocktake.ListLoaded" xml:space="preserve"><value>Stocktake report loaded.</value></data>
+  <data name="AI.Replied" xml:space="preserve"><value>AI reply received.</value></data>
+  <data name="AI.NotConfigured" xml:space="preserve"><value>The AI service is not configured. Contact your administrator.</value></data>
+  <data name="AI.AuthenticationFailed" xml:space="preserve"><value>The AI service credentials are unavailable. Ask your administrator to check the configuration.</value></data>
+  <data name="AI.Unavailable" xml:space="preserve"><value>The AI service is temporarily unavailable. Please try again later.</value></data>
+  <data name="AI.Timeout" xml:space="preserve"><value>The AI reply timed out. Shorten your question or try again later.</value></data>
+  <data name="AI.Busy" xml:space="preserve"><value>The AI service is busy. Please try again later.</value></data>
+  <data name="AI.InvalidResponse" xml:space="preserve"><value>The AI service did not return a valid text reply. Please try again later.</value></data>
+  <data name="AI.ToolProtocolUnavailable" xml:space="preserve"><value>The model service rejected the tool request. Ask your administrator to check GPUStack tool calling support and model context settings.</value></data>
+  <data name="AI.InvalidConversation" xml:space="preserve"><value>The conversation format is invalid. Start a new conversation and try again.</value></data>
+  <data name="AI.ConversationTooLong" xml:space="preserve"><value>The conversation is too long. Start a new conversation and try again.</value></data>
 </root>

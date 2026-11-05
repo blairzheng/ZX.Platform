@@ -42,4 +42,9 @@
   <data name="Validation.ReviewReasonMaxLength" xml:space="preserve"><value>审批说明不能超过 500 个字符。</value></data>
   <data name="Validation.SecurityVersionRequired" xml:space="preserve"><value>缺少账号安全版本，请刷新后重试。</value></data>
   <data name="Validation.UserRequired" xml:space="preserve"><value>缺少用户标识。</value></data>
+  <data name="Validation.AiMessagesRequired" xml:space="preserve"><value>请至少发送一条对话消息。</value></data>
+  <data name="Validation.AiMessagesMaxLength" xml:space="preserve"><value>每次最多携带 {1} 条对话消息。</value></data>
+  <data name="Validation.AiRoleInvalid" xml:space="preserve"><value>对话角色只允许 user 或 assistant。</value></data>
+  <data name="Validation.AiContentRequired" xml:space="preserve"><value>对话内容不能为空。</value></data>
+  <data name="Validation.AiContentMaxLength" xml:space="preserve"><value>单条对话内容不能超过 {1} 个字符。</value></data>
 </root>

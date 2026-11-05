@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ZX.Platform.Identity.Api.AI.Queries;
 using ZX.Platform.Identity.Api.Authorization;
 using ZX.Platform.Identity.Api.Contracts;
 using ZX.Platform.Identity.Api.Localization;
@@ -14,18 +15,24 @@ namespace ZX.Platform.Identity.Api.Controllers;
 [Authorize]
 public sealed class MenusController(IMenuService menus, IApiMessageLocalizer messages) : ControllerBase
 {
+    [AiQuery(ResultShape = AiQueryResultShape.CompleteTree)]
     [HttpGet("getMenuTree")]
     [Authorize(Policy = IdentityPermissions.MenuRead)]
+    [ProducesResponseType(typeof(ApiResponse<List<MenuDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTreeAsync(CancellationToken cancellationToken) => Ok(new ApiResponse<List<MenuDto>>
     { Code = 0, Message = messages["Access.MenuTreeLoaded"].Value, Data = await menus.GetTreeAsync(cancellationToken) });
 
+    [AiQuery(ResultShape = AiQueryResultShape.CompleteTree)]
     [HttpGet("options")]
     [Authorize(Policy = PermissionPolicies.MenuOptions)]
+    [ProducesResponseType(typeof(ApiResponse<List<MenuDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetOptionsAsync(CancellationToken cancellationToken) => Ok(new ApiResponse<List<MenuDto>>
     { Code = 0, Message = messages["Access.MenuTreeLoaded"].Value, Data = await menus.GetTreeAsync(cancellationToken) });
 
+    [AiQuery(ResultShape = AiQueryResultShape.CompleteList)]
     [HttpGet("permissions")]
     [Authorize(Policy = PermissionPolicies.MenuOptions)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public IActionResult GetPermissions() => Ok(new ApiResponse<object>
     {
         Code = 0, Message = messages["Access.PermissionListLoaded"].Value,

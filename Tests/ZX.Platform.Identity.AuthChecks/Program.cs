@@ -1,5 +1,11 @@
 using ZX.Platform.Identity.AuthChecks;
 
+if (args.Contains("--assistant-query-only"))
+{
+    await AssistantQueryChecks.RunAsync();
+    return;
+}
+
 if (args.Contains("--menu-only"))
 {
     await MenuChecks.RunAsync();

@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ZX.Platform.Identity.Api.Authentication;
+using ZX.Platform.Identity.Api.AI.Queries;
 using ZX.Platform.Identity.Api.Contracts;
 using ZX.Platform.Identity.Api.Localization;
 using ZX.Platform.Identity.Api.Options;
@@ -94,7 +95,9 @@ public sealed class AuthController(IAuthService auth, IAuthSessionStore sessions
         return Ok(new ApiResponse { Code = 0, Message = messages["Auth.LoggedOut"].Value });
     }
 
+    [AiQuery]
     [HttpGet("me")]
+    [ProducesResponseType(typeof(ApiResponse<CurrentUserDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCurrentUserAsync(CancellationToken cancellationToken)
     {
         var current = await auth.GetCurrentUserAsync(CurrentUserId, cancellationToken);
