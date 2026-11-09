@@ -36,10 +36,8 @@ secrets.json
 !.env.example
 deploy/native/*.env
 deploy/docker/*.env
-output/mom-deploy/
-output/mom-release/
-output/mom-images-*
-output/.mom-images.*
+# Generated SQL delivery bundles and release output
+/output/
 __pycache__/
 *.pfx
 *.p12

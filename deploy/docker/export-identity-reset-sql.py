@@ -52,6 +52,7 @@ sql = f'''-- DESTRUCTIVE: reset only the 11 listed MOM Identity tables in {schem
 -- DDL commits implicitly. No database users or unrelated tables are deleted.
 DECLARE
     v_count INTEGER;
+    v_history_column VARCHAR2(30);
 BEGIN
 '''
 if args.session_agnostic:
@@ -64,8 +65,16 @@ else:
     END IF;
 '''
 if args.expected_migration:
-    sql += f'''    SELECT COUNT(*) INTO v_count FROM "{schema}"."ZX_IDENTITY_MIGRATIONS"
-    WHERE "MigrationId" = '{args.expected_migration}';
+    sql += f'''    SELECT COUNT(*), MAX(COLUMN_NAME) INTO v_count, v_history_column
+    FROM ALL_TAB_COLUMNS
+    WHERE OWNER = '{schema}' AND TABLE_NAME = 'ZX_IDENTITY_MIGRATIONS'
+      AND COLUMN_NAME IN ('MigrationId', 'MIGRATION_ID');
+    IF v_count <> 1 THEN
+        RAISE_APPLICATION_ERROR(-20007, 'Missing or ambiguous migration ID column.');
+    END IF;
+    EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM "{schema}"."ZX_IDENTITY_MIGRATIONS" WHERE "'
+        || v_history_column || '" = :migration'
+        INTO v_count USING '{args.expected_migration}';
     IF v_count <> 1 THEN
         RAISE_APPLICATION_ERROR(-20002, 'Expected Identity migration was not found.');
     END IF;

@@ -42,6 +42,9 @@ class OracleSqlExportChecks(unittest.TestCase):
         self.assertIn('v_count <> 9', sql)
         self.assertIn('Identity table names differ from the reviewed list.', sql)
         self.assertIn('DROP TABLE "SAJET"."ZX_IDENTITY_USER" PURGE', sql)
+        self.assertIn("COLUMN_NAME IN ('MigrationId', 'MIGRATION_ID')", sql)
+        self.assertIn('INTO v_count USING', sql)
+        self.assertNotIn('RENAME COLUMN', sql)
         self.assertNotIn('DBA_LOGIN', sql)
         self.assertNotIn('DB_SERVICE', sql)
 
@@ -74,6 +77,10 @@ class OracleSqlExportChecks(unittest.TestCase):
         sql = target.read_text()
         self.assertIn(f"v_last <> '{BASE}'", sql)
         self.assertIn(f"N'{TARGET}'", sql)
+        self.assertIn('("MIGRATION_ID", "PRODUCT_VERSION") VALUES', sql)
+        self.assertLess(sql.index('-- Identity history compatibility'), sql.index('-- MOM Oracle'))
+        self.assertLess(sql.index('Unexpected current migration; stop history conversion.'),
+                        sql.index('RENAME COLUMN'))
         self.assertNotIn('DBA_LOGIN', sql)
         self.assertNotIn('DB_SERVICE', sql)
 
@@ -89,6 +96,36 @@ class OracleSqlExportChecks(unittest.TestCase):
         sql = target.read_text()
         self.assertIn("SESSION_USER') <> 'DBA_LOGIN'", sql)
         self.assertIn("<> 'PROD_SERVICE'", sql)
+
+    def test_history_conversion_is_guarded_and_can_resume_each_rename(self):
+        target = self.directory / 'history-compatibility.sql'
+        result = self.run_export('export-history-compatibility-sql.py', target, 'ZX_IDENTITY',
+                                 '--expected-migration', BASE)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        sql = target.read_text()
+        self.assertIn('WHENEVER SQLERROR EXIT SQL.SQLCODE', sql)
+        self.assertIn("OWNER = 'ZX_IDENTITY'", sql)
+        self.assertIn('IF v_old_id = 1 THEN', sql)
+        self.assertIn('IF v_old_version = 1 THEN', sql)
+        self.assertIn('IF v_create_time = 0 THEN', sql)
+        self.assertIn('"CREATE_TIME" DATE DEFAULT SYSDATE NOT NULL', sql)
+        self.assertIn('Unexpected or ambiguous history columns', sql)
+        self.assertIn('Unexpected history CREATE_TIME definition', sql)
+        self.assertLess(sql.index(f"v_last <> '{BASE}'"), sql.index('RENAME COLUMN'))
+        self.assertNotIn('DROP TABLE', sql)
+        self.assertNotIn('INSERT INTO', sql)
+        self.assertNotIn('UPDATE "', sql)
+        self.assertNotIn('DELETE FROM', sql)
+
+    def test_history_conversion_rejects_unsafe_schema_or_version(self):
+        for schema, migration in [('SYS', BASE), ('SYSTEM', BASE), ('SAJET;DROP', BASE),
+                                  ('SAJET', "bad'; DROP TABLE X;--")]:
+            with self.subTest(schema=schema, migration=migration):
+                target = self.directory / 'rejected.sql'
+                result = self.run_export('export-history-compatibility-sql.py', target, schema,
+                                         '--expected-migration', migration)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(target.exists())
 
 
 if __name__ == '__main__':

@@ -1,6 +1,8 @@
 ﻿using Oracle.ManagedDataAccess.Client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Oracle.EntityFrameworkCore.Infrastructure;
 using ZX.Platform.Identity.Application.Exceptions;
 using ZX.Platform.Identity.Application.Persistence;
@@ -28,6 +30,7 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence
         {
             ValidateSchema(schema);
             options.ReplaceService<IModelCacheKeyFactory, IdentityDatabaseModelCacheKeyFactory>();
+            options.ReplaceService<IHistoryRepository, PlatformIdentityHistoryRepository>();
             options.UseOracle(connectionString, oracle =>
             {
                 oracle.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19);
@@ -78,6 +81,20 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence
             modelBuilder.ApplyConfigurationsFromAssembly(
                 typeof(PlatformIdentityDbContext).Assembly);
             modelBuilder.HasDefaultSchema(Schema);
+
+            // 数据库建表规范统一维护；独立于应用的 UTC 业务审计字段。
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes()
+                .Where(entityType => entityType.BaseType is null && entityType.GetTableName() is not null))
+            {
+                var createTime = modelBuilder.Entity(entityType.ClrType)
+                    .Property<DateTime>("DatabaseCreateTime")
+                    .HasColumnName("CREATE_TIME")
+                    .HasColumnType("DATE")
+                    .HasDefaultValueSql("SYSDATE")
+                    .IsRequired();
+                createTime.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
+                createTime.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
+            }
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

@@ -66,6 +66,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
 
+                    b.Property<DateTime>("DatabaseCreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATE")
+                        .HasColumnName("CREATE_TIME")
+                        .HasDefaultValueSql("SYSDATE");
+
                     b.Property<string>("Icon")
                         .HasMaxLength(100)
                         .HasColumnType("NVARCHAR2(100)")
@@ -176,6 +182,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("CODE");
 
+                    b.Property<DateTime>("DatabaseCreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATE")
+                        .HasColumnName("CREATE_TIME")
+                        .HasDefaultValueSql("SYSDATE");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("NUMBER(1)")
                         .HasColumnName("IS_ACTIVE");
@@ -204,6 +216,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
+
+                    b.Property<DateTime>("DatabaseCreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATE")
+                        .HasColumnName("CREATE_TIME")
+                        .HasDefaultValueSql("SYSDATE");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
@@ -263,6 +281,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
 
+                    b.Property<DateTime>("DatabaseCreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATE")
+                        .HasColumnName("CREATE_TIME")
+                        .HasDefaultValueSql("SYSDATE");
+
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("UPDATED_AT_UTC");
@@ -297,6 +321,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
+
+                    b.Property<DateTime>("DatabaseCreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATE")
+                        .HasColumnName("CREATE_TIME")
+                        .HasDefaultValueSql("SYSDATE");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("NUMBER(1)")
@@ -367,6 +397,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
+
+                    b.Property<DateTime>("DatabaseCreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATE")
+                        .HasColumnName("CREATE_TIME")
+                        .HasDefaultValueSql("SYSDATE");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
@@ -495,6 +531,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
 
+                    b.Property<DateTime>("DatabaseCreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATE")
+                        .HasColumnName("CREATE_TIME")
+                        .HasDefaultValueSql("SYSDATE");
+
                     b.Property<string>("FromStatus")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -576,6 +618,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
 
+                    b.Property<DateTime>("DatabaseCreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATE")
+                        .HasColumnName("CREATE_TIME")
+                        .HasDefaultValueSql("SYSDATE");
+
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
                         .HasColumnName("UPDATED_AT_UTC");
@@ -608,6 +656,12 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("RAW(16)")
                         .HasColumnName("CREATED_BY_USER_ID");
+
+                    b.Property<DateTime>("DatabaseCreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("DATE")
+                        .HasColumnName("CREATE_TIME")
+                        .HasDefaultValueSql("SYSDATE");
 
                     b.Property<bool>("IsDefault")
                         .HasColumnType("NUMBER(1)")

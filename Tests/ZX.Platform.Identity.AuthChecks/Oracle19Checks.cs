@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.RegularExpressions;
 using ZX.Platform.Identity.Api.Extensions;
 using ZX.Platform.Identity.Infrastructure.Persistence;
 using ZX.Platform.Identity.Infrastructure.Persistence.Interceptors;
@@ -28,10 +30,12 @@ internal static class Oracle19Checks
         Check.That(db.Model.GetEntityTypes().All(entity => entity.GetSchema() == "ZX_IDENTITY"),
             "Oracle 19c business tables must resolve explicitly to ZX_IDENTITY even when another account logs in.");
         CheckNumericBooleans(db);
+        CheckDatabaseCreationTime(db);
+        CheckHistorySql(db, "ZX_IDENTITY");
         var migrations = db.Database.GetMigrations().ToArray();
         Check.That(migrations.Length >= 2 && migrations[0] == "20261027000000_InitialIdentitySchema" &&
             migrations.Contains("20261028084818_ReplaceFactoriesWithSbus") &&
-            migrations[^1] == "20261103090000_AllowPendingLdapLogin",
+            migrations[^1] == "20261109012525_AddDatabaseCreationTime",
             "The project must have one Oracle 19c migration chain starting at its new baseline and ending at the current migration.");
 
         var migrator = db.GetService<IMigrator>();
@@ -141,6 +145,8 @@ internal static class Oracle19Checks
             Check.That(ReferenceEquals(local, scope.ServiceProvider.GetRequiredService<PlatformIdentityDbContext>()),
                 "Repositories must share the same scoped DbContext.");
             CheckNumericBooleans(local);
+            CheckDatabaseCreationTime(local);
+            CheckHistorySql(local, schema ?? "ZX_IDENTITY");
             Check.That(local.Model.GetEntityTypes().All(entity => entity.GetSchema() == (schema ?? "ZX_IDENTITY")),
                 "Each deployment must use the configured table owner; local development defaults to ZX_IDENTITY.");
         }
@@ -174,4 +180,49 @@ internal static class Oracle19Checks
             .Where(property => property.ClrType == typeof(bool))
             .All(property => property.GetColumnType() == "NUMBER(1)"),
             "Every environment must map Boolean columns to NUMBER(1), including newer local Oracle versions.");
+
+    private static void CheckDatabaseCreationTime(PlatformIdentityDbContext db)
+    {
+        foreach (var entity in db.Model.GetEntityTypes())
+        {
+            var createTime = entity.FindProperty("DatabaseCreateTime");
+            Check.That(createTime is not null && createTime.IsShadowProperty() &&
+                createTime.GetColumnName() == "CREATE_TIME" && createTime.GetColumnType() == "DATE" &&
+                createTime.GetDefaultValueSql() == "SYSDATE" && !createTime.IsNullable &&
+                createTime.ValueGenerated == ValueGenerated.OnAdd &&
+                createTime.GetBeforeSaveBehavior() == PropertySaveBehavior.Ignore &&
+                createTime.GetAfterSaveBehavior() == PropertySaveBehavior.Ignore,
+                $"{entity.GetTableName()} must let Oracle own its creation time independently of UTC audit fields.");
+        }
+    }
+
+    internal static void CheckHistorySql(PlatformIdentityDbContext db, string schema)
+    {
+        var history = db.GetService<IHistoryRepository>();
+        Check.That(history is PlatformIdentityHistoryRepository,
+            "Runtime and design-time contexts must use the shared Oracle migration-history mapping.");
+        var table = $"\"{schema}\".\"{PlatformIdentityDbContext.HistoryTable}\"";
+        var createSql = history.GetCreateScript();
+        Check.That(createSql.Contains(table) && createSql.Contains("\"MIGRATION_ID\"") &&
+            createSql.Contains("\"PRODUCT_VERSION\"") &&
+            Regex.IsMatch(createSql, "\"CREATE_TIME\"\\s+DATE\\s+DEFAULT\\s+\\(?SYSDATE\\)?\\s+NOT\\s+NULL",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
+            "History DDL must use the configured owner, uppercase columns and a database-generated creation time.");
+
+        const string migration = "20261109000000_HistorySqlCheck";
+        var insertSql = history.GetInsertScript(new HistoryRow(migration, "10.0.12"));
+        var statements = new[]
+        {
+            createSql,
+            insertSql,
+            history.GetDeleteScript(migration),
+            history.GetBeginIfExistsScript(migration),
+            history.GetBeginIfNotExistsScript(migration)
+        };
+        Check.That(statements.All(statement => statement.Contains(table) &&
+                statement.Contains("\"MIGRATION_ID\"") &&
+                !statement.Contains("\"MigrationId\"") && !statement.Contains("\"ProductVersion\"")) &&
+            insertSql.Contains("\"PRODUCT_VERSION\"") && !insertSql.Contains("\"CREATE_TIME\""),
+            "Migration inserts, deletes and idempotency checks must agree on uppercase history columns and let CREATE_TIME default.");
+    }
 }
