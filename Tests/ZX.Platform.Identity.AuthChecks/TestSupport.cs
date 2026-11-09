@@ -145,9 +145,9 @@ internal sealed class TestSbus : ISbuRepository
 }
 
 /// <summary>
-/// 替代目录适配器：支持按工号查询、错误密码、禁用账号、依赖故障和多条结果。
+/// 替代目录适配器：支持错误密码、禁用账号、依赖故障和多条结果。
 /// </summary>
-internal sealed class TestLdap : ILdapAuthenticator, ILdapDirectory
+internal sealed class TestLdap : ILdapAuthenticator
 {
     public sealed record Entry(string EmployeeNo, string Password, string Account, string DisplayName,
         string Department, string Provider, string? Subject, string Status);
@@ -157,14 +157,6 @@ internal sealed class TestLdap : ILdapAuthenticator, ILdapDirectory
     public bool Unavailable { get; set; }
     public bool Ambiguous { get; set; }
     public int AuthenticateCalls { get; private set; }
-
-    public Task<LdapDirectoryUser?> FindByEmployeeNoAsync(string employeeNo, CancellationToken cancellationToken)
-    {
-        if (Unavailable) throw new LdapUnavailableException("LdapUnavailable");
-        if (Ambiguous) throw new LdapAmbiguousResultException("多条目录记录。");
-        var entry = Entries.FirstOrDefault(item => item.EmployeeNo == employeeNo);
-        return Task.FromResult(entry is null ? null : ToUser(entry));
-    }
 
     public Task<LdapDirectoryUser> AuthenticateAsync(
         string employeeNo, string password, CancellationToken cancellationToken)
@@ -279,7 +271,7 @@ internal sealed class Fixture : IDisposable
         Auth = new(Users, Unit, Passwords, Sessions, Options, Clock, new PermissionService(Roles, PermissionCache, Users),
             new MenuService(Menus, Unit), UserSbus, Sbus, Ldap, LdapGuard);
         UserService = new(Users, Unit, Passwords, Sbus, UserSbus, Sessions, PermissionCache, Roles,
-            new PermissionService(Roles, PermissionCache, Users), Ldap, ApprovalAudits, Clock);
+            new PermissionService(Roles, PermissionCache, Users), ApprovalAudits, Clock);
         User = User.CreateLocal("ADMIN", "Administrator", Passwords.Hash("Example123!"));
         Users.Add(User);
         var administrator = Role.CreateAdministrator();

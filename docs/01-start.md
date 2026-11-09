@@ -23,6 +23,18 @@ Redis 复用现有正式实例，每位成员必须使用自己的开发前缀�
 
 使用 AI 助手时，另在 Identity.Api 的 User Secrets 配置 `AI:BaseUrl`、`AI:Model`、`AI:ApiKey`；模型需要支持工具调用。正常后端打包会使用 Python 自动生成前后端业务源码资料并随镜像发布，无需每次手工导出；打包机器需要 Python 3.10 及以上版本和配套前端源码，运行服务器不需要 Python。配置、自动生成和权限步骤见 [基于项目源码的 AI 助手](ai-integration.md)；不使用 AI 时可以不配置。
 
+### 可选：OA / LDAP 登录
+
+默认 `AuthenticationLdap:Enabled=false`。启用后，员工在登录页输入 OA 工号和密码，后端使用 `AuthenticationLdap:Domain`（默认 `LUXSHARE`）组成 `域名\工号` 直接向 AD 认证，再使用同一连接读取该员工的姓名、工号、objectGUID 和启用状态。普通员工必须具有读取自身这些属性的权限；读不到可信身份时返回目录不可用，不凭输入工号直接建立会话。错误密码不切换节点重试，原有超时、并发限制和登录失败限制继续生效。
+
+本模式要求输入工号同时是 AD 的 `sAMAccountName`（当前默认配置如此），不支持先用另一工号属性查找不同登录名。
+
+不再配置 `AuthenticationLdap:BindDn` / `BindPassword`，也不使用独立目录查询账号。目录节点、BaseDn 和属性沿用 `appsettings.json` 的默认值，环境不同再通过 User Secrets 或容器环境变量覆盖。使用默认 Plain/389 节点时，需明确设置 `AuthenticationLdap:AllowPlainText=true`；TLS 场景保持证书验证，按实际目录配置主备节点。
+
+管理员预开通只填写工号并选择待审批或立即开通，后端仅检查 MOM 内账号冲突并保存授权，不访问 LDAP，不需要员工提供密码；姓名暂显示工号。首次成功 OA 登录后，绑定真实目录身份并补齐姓名，保留同一 UserId、审批、角色和 SBU。已绑定账号不能自动换绑；禁用、拒绝、删除、锁定或身份冲突仍拒绝登录。没有预开通的员工仍可首次 OA 登录创建待业务审批账号。原 `/api/Users/ldapLookup` 目录预览接口已移除，AI 查询目录也不再包含此项。
+
+本次不改变表结构，不需要 EF Migration。部署切换必须同时发布兼容的后端与前端新包，再移除旧查询账号变量，不能仅删变量继续使用旧镜像。GitLab 的 `MOM_LDAP_*` 到容器变量映射以部署仓库 `mom_img` 的说明为准，应用源码不会直接读取这些 GitLab 变量。
+
 ### 可选：GoFlow 免登录
 
 MOM 与 GoFlow 的前后端已加入免登录对接代码，默认进入 GoFlow 首页；部署配置及线上联调仍需完成。契约、权限及流程见 [GoFlow 集成](business/integrations/goflow.md)。默认 `SingleSignOn:GoFlow:Enabled=false`，无需为普通开发填写配置。

@@ -11,7 +11,7 @@ public static class LdapDirectoryStatus
 }
 
 /// <summary>
-/// 经 LDAP 查询或认证后得到的可信目录身份。
+/// 完成员工密码认证后读取的可信目录身份。
 /// 只有在完成用户 bind 后，登录流程才可以使用其中的身份字段。
 /// </summary>
 /// <param name="EmployeeNo">工号，既是查询键也是 ZX 账号的唯一来源。</param>
@@ -29,7 +29,7 @@ public sealed record LdapDirectoryUser(
     string Status);
 
 /// <summary>
-/// 目录依赖不可用：连接失败、超时、服务账号 bind 失败或查询权限不足。
+/// 目录依赖不可用：连接失败、超时、认证后读取身份失败或权限不足。
 /// 必须映射为 503，不能解释成工号不存在或密码错误。
 /// </summary>
 public sealed class LdapUnavailableException : Exception

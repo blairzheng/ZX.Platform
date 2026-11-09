@@ -3,7 +3,7 @@ namespace ZX.Platform.Identity.Infrastructure.Security;
 /// <summary>
 /// 目录搜索的失败分类。
 /// 搜索阶段出现 sizeLimitExceeded 说明匹配到多条记录，属于目录数据歧义，
-/// 换备用节点重试只会得到同样结果；其它失败（含服务账号被拒）才按依赖故障切换节点。
+/// 换备用节点重试只会得到同样结果；搜索阶段的其它失败才按依赖故障切换节点。
 /// </summary>
 public static class LdapSearchFailure
 {

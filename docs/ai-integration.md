@@ -87,14 +87,13 @@ python3 scripts/export-assistant-sources.py
 
 ## 当前已接入的查询
 
-现有 Identity 服务的 16 个受保护只读 GET 已全部标记。模型只能发现和执行当前账号原本有权访问的条目；开放查询不增加角色授权，也不改变业务数据范围。
+现有 Identity 服务的 15 个受保护只读 GET 已全部标记。模型只能发现和执行当前账号原本有权访问的条目；开放查询不增加角色授权，也不改变业务数据范围。
 
 | 查询 ID | 原 GET 路径 | 原权限 / 范围 | 返回形状 |
 | --- | --- | --- | --- |
 | `Auth.GetCurrentUser` | `/api/Auth/me` | 当前登录账号本人 | 资料详情，含本人角色、权限、SBU 和菜单 |
 | `Users.GetById` | `/api/Users/getUser` | `identity.user.read` | 用户详情，参数 `id` |
 | `Users.GetPageList` | `/api/Users/getUserList` | `identity.user.read` | `{list,total}`，沿用原筛选和分页参数 |
-| `Users.LdapLookup` | `/api/Users/ldapLookup` | `identity.user.create` | 按原工号参数只读查询目录，不预开通用户 |
 | `Roles.GetAll` | `/api/Roles/getRoleList` | `identity.role.read` | 完整角色列表，含角色权限码 |
 | `Roles.GetOptions` | `/api/Roles/options` | `identity.user.roles` | 完整角色选项列表 |
 | `Roles.GetPermissions` | `/api/Roles/permissions` | `identity.role.permissions` | 系统权限定义列表 |
@@ -108,7 +107,7 @@ python3 scripts/export-assistant-sources.py
 | `Sbus.GetAllEnabledSbus` | `/api/Sbus/getAllEnabledSbus` | 原 `PermissionPolicies.SbuOptions` | 完整启用选项列表，不等于本人 SBU 分配 |
 | `InventoryStocktake.GetList` | `/api/InventoryStocktake/list` | `inventory.stocktake.read` | 原全局盘点 `{list,total}` |
 
-登录、刷新令牌、退出、改密、创建、修改、删除、审批、授权和状态变更均未标记；Identity 和 Gateway 的匿名天气演示接口也不纳入业务查询。LDAP 查询和当前账号资料不返回密码哈希、Token、Cookie 或会话标识。用户详情、审批说明、工号及目录资料仍受原接口权限约束，不因此向所有聊天账号开放。
+登录、刷新令牌、退出、改密、创建、修改、删除、审批、授权和状态变更均未标记；Identity 和 Gateway 的匿名天气演示接口也不纳入业务查询。管理员预开通不再查询 LDAP，原目录预览接口已移除。当前账号资料不返回密码哈希、Token、Cookie 或会话标识。用户详情、审批说明及工号仍受原接口权限约束，不因此向所有聊天账号开放。
 
 权限定义、授权选项树、角色的 `permissionCodes` 不是当前账号的实际权限。判断本账号权限优先使用 `get_my_permissions`。管理菜单树不是当前账号实际可见菜单，启用 SBU 选项也不是本人已分配 SBU；本人资料应使用 `Auth.GetCurrentUser`。目录声明的 `id`、`userId`、管理筛选 `sbuId` 只表示原接口允许的业务查询对象，不能替换调用者或改写已验证的请求 SBU。
 

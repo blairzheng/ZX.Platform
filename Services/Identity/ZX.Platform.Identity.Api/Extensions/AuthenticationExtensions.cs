@@ -41,7 +41,6 @@ public static class AuthenticationExtensions
         services.AddSingleton(ldap);
         services.AddSingleton<LdapAuthenticationService>();
         services.AddSingleton<ILdapAuthenticator>(provider => provider.GetRequiredService<LdapAuthenticationService>());
-        services.AddSingleton<ILdapDirectory>(provider => provider.GetRequiredService<LdapAuthenticationService>());
         services.AddSingleton<ILdapLoginGuard, RedisLdapLoginGuard>();
         var jwt = configuration.GetSection("AuthenticationJwt").Get<JwtOptions>() ?? new JwtOptions();
         Validator.ValidateObject(jwt, new ValidationContext(jwt), validateAllProperties: true);

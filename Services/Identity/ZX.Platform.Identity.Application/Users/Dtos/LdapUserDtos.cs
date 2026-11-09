@@ -1,50 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using ZX.Platform.Identity.Application.Authentication;
 
 namespace ZX.Platform.Identity.Application.Users.Dtos;
-
-/// <summary>
-/// 管理员按工号查询目录的输入。
-/// </summary>
-public sealed class LdapUserLookupQueryDto
-{
-    [Required(ErrorMessage = "Validation.EmployeeNoRequired")]
-    [MaxLength(32, ErrorMessage = "Validation.EmployeeNoMaxLength")]
-    public string EmployeeNo { get; set; } = string.Empty;
-}
-
-/// <summary>
-/// 管理员按工号查询目录的结果。不包含 DN、服务账号或目录内部地址。
-/// </summary>
-public sealed class LdapUserLookupResultDto
-{
-    /// <summary>
-    /// 是否在目录中找到该工号。依赖故障不使用该结果表达。
-    /// </summary>
-    public bool Found { get; init; }
-
-    public string EmployeeNo { get; init; } = string.Empty;
-
-    public string? DisplayName { get; init; }
-
-    public string? Department { get; init; }
-
-    /// <summary>
-    /// 目录账号启用状态，见 LdapDirectoryStatus。
-    /// </summary>
-    public string DirectoryStatus { get; init; } = LdapDirectoryStatus.Unknown;
-
-    /// <summary>
-    /// 服务端综合目录状态、必要身份字段和本地账号冲突后的结论。
-    /// 前端只能用于展示，提交时服务端会重新查询。
-    /// </summary>
-    public bool CanProvision { get; init; }
-
-    /// <summary>
-    /// 不可开通原因，见 <see cref="LdapProvisionReasons"/>。
-    /// </summary>
-    public string? Reason { get; init; }
-}
 
 /// <summary>
 /// 预开通不可执行的结构化原因。
@@ -64,7 +20,7 @@ public static class LdapProvisionReasons
 }
 
 /// <summary>
-/// 管理员预开通 OA 用户。目录姓名和唯一标识由服务端查询，不接受客户端指定。
+/// 管理员按工号预开通 OA 用户，不查询 LDAP。目录姓名和唯一标识在首次 OA 认证后补齐。
 /// </summary>
 public sealed class CreateLdapUserDto
 {
