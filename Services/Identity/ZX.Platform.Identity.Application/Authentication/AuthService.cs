@@ -325,7 +325,7 @@ public sealed class AuthService(
 
     // 会话指纹同时覆盖账号身份和账户状态版本：OA 用户没有密码，不能再使用密码哈希；
     // 本地改密、审批、启用、禁用、删除和恢复都会改变版本，使旧会话失效。
-    private static string CredentialStamp(User user) =>
+    internal static string CredentialStamp(User user) =>
         "v2:" + Convert.ToHexString(SHA256.HashData(
             Encoding.UTF8.GetBytes($"{user.Id:N}:{user.SecurityVersion}")));
 }

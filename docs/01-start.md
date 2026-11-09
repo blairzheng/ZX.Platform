@@ -23,6 +23,28 @@ Redis 复用现有正式实例，每位成员必须使用自己的开发前缀�
 
 使用 AI 助手时，另在 Identity.Api 的 User Secrets 配置 `AI:BaseUrl`、`AI:Model`、`AI:ApiKey`；模型需要支持工具调用。正常后端打包会使用 Python 自动生成前后端业务源码资料并随镜像发布，无需每次手工导出；打包机器需要 Python 3.10 及以上版本和配套前端源码，运行服务器不需要 Python。配置、自动生成和权限步骤见 [基于项目源码的 AI 助手](ai-integration.md)；不使用 AI 时可以不配置。
 
+### 可选：GoFlow 免登录
+
+MOM 与 GoFlow 的前后端已加入免登录对接代码，默认进入 GoFlow 首页；部署配置及线上联调仍需完成。契约、权限及流程见 [GoFlow 集成](business/integrations/goflow.md)。默认 `SingleSignOn:GoFlow:Enabled=false`，无需为普通开发填写配置。
+
+启用时在 Identity.Api User Secrets（本机）或受保护的 `identity.env`（服务器）配置下面各项。两台 Identity 实例保持相同配置；测试与正式使用不同的客户端标识、回调和服务密钥，并沿用不同 Redis 前缀。
+
+| 配置键 | 含义 |
+| --- | --- |
+| `SingleSignOn:GoFlow:Enabled` | GoFlow 对接和对应传输模式准备好后设为 `true` |
+| `SingleSignOn:GoFlow:AllowHttp` | 默认 false；当前可信内网 HTTP 联调时显式设为 true，GoFlow 的 `MomSso:AllowHttp` 也要设为 true |
+| `SingleSignOn:GoFlow:ClientId` | 本环境的客户端标识，例如 `goflow-staging`；1～100 位字母、数字、点、下划线或连字符 |
+| `SingleSignOn:GoFlow:ClientSecret` | 独立的随机服务密钥，32～256 字符；建议由安全随机 32 字节转 Base64 生成，不能复用 JWT 密钥或 OA 密码 |
+| `SingleSignOn:GoFlow:CallbackUri` | 唯一 GoFlow 回调（默认 HTTPS，AllowHttp=true 时允许 HTTP），固定为 `https://GoFlow域名/api/auth/sso/mom/callback`，不含查询或 fragment |
+| `SingleSignOn:GoFlow:StartUri` | 同一 GoFlow 域名的 `https://GoFlow域名/api/auth/sso/mom/start` |
+| `SingleSignOn:GoFlow:TicketLifetimeSeconds` | 默认 60，允许 30～120 秒 |
+
+Docker / systemd 环境变量用双下划线，例如 `SingleSignOn__GoFlow__ClientSecret`。现有打包流程不嵌入真实配置；变量填入目标环境 Identity 的受保护配置文件，不放进 GitHub 构建变量、前端 `VITE_*` 或仓库源码。两边服务端的 ClientId / ClientSecret 必须一致，更新配置后重启对应实例。GoFlow 还需配置 MOM 授权页 `/sso/goflow/authorize`、后端兑换地址和目录来源，详见 GoFlow 仓库 `MOM-SSO.md`。当前两边均使用 HTTP 时，显式打开 MOM 的 `SingleSignOn__GoFlow__AllowHttp=true` 和 GoFlow 的 `MomSso__AllowHttp=true`，并将相应地址配置为实际 HTTP 地址；详细模板见 GoFlow `MOM-SSO.md`。HTTP 会明文传输票据和服务凭据，仅用于批准的可信内网联调。
+
+启用且缺少有效服务密钥或固定回调时启动配置校验失败。默认只接受 HTTPS；AllowHttp 默认关闭且只影响本 SSO 集成，不修改其他登录、Cookie 或网关策略。后续切换 HTTPS 时将两边 AllowHttp 设回 false 并重启。代理入口仍只信任明确配置的代理，不关闭证书校验。
+
+启动会按既有行为登记 `integration.goflow.open`，由负责人为实际 OA 测试角色授权。本阶段不新增表、不需要 EF Migration，也不自动修改共享角色、菜单或用户数据。
+
 ## 2. 还原依赖与 EF 工具
 
 ```bash

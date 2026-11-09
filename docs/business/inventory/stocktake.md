@@ -4,7 +4,7 @@
 
 ## 功能与范围
 
-一键盘点读取现有 MES 库存及线边仓记录，为页面展示库存数量、在制数量、卷数和按料号分析提供数据。当前只有查询能力，不生成盘点单、不修改库存，也没有审批或状态流转。
+一键盘点读取现有 MES 报表中 `DATATYPE = 'BYTIME'` 的记录，提供 WMS 库存、MES 线边仓、当前上线料卷数量、上线余量、厂商、平均料卷数量和线体等信息，供页面展示明细与按料号分析。当前只有查询能力，不生成盘点单、不修改库存，也没有审批或状态流转。
 
 这是全局报表，不按当前 SBU 隔离。当前账号必须具有 `inventory.stocktake.read` 功能权限；不能把可查询全局盘点解释为拥有其他 SBU 业务的访问权限。
 
@@ -21,10 +21,10 @@
 | 权限 | 已登录，且满足 `inventory.stocktake.read` 策略 |
 | SBU | 未声明 `[RequireSbu]`，不要求选择 SBU，不按 SBU 过滤 |
 | 成功响应 | 统一 `ApiResponse`，HTTP 200，`code = 0`，`data = { list, total }` |
-| `list` | 本次完整读取的记录数组 |
+| `list` | 本次完整读取的 `BYTIME` 记录数组 |
 | `total` | 本次返回记录数，等于 `list` 的长度，不是前端本地筛选后的数量 |
 
-后端固定按工厂、库位、料号、Oracle 行标识排序。当前不做服务端分页或业务汇总，页面从这次完整结果进行本地筛选和按料号统计；不能将该特例复制为所有业务的列表模式。
+后端固定限定 `DATATYPE = 'BYTIME'`，按工厂、库位、料号、Oracle 行标识排序。该条件由服务端固定，不接收客户端指定类型。当前不做服务端分页或按料号汇总，页面从这次完整结果进行本地筛选和按料号统计；不能将该特例复制为所有业务的列表模式。
 
 ## 字段与口径
 
@@ -36,24 +36,25 @@
 | `factory` | 工厂，来自 `WERKS` |
 | `storageLocation` | 库位，来自 `LGORT` |
 | `material` | 料号，来自 `MATNR` |
-| `wmsReelQty` | WMS 库存卷数 |
-| `reelQty` | 线边仓卷数 |
-| `keepQty` | 使用卷数 |
-| `wmsQty` | WMS 库存物料数量 |
-| `reelInfoQty` | 线边仓在制物料数量 |
-| `keepInfoQty` | 使用物料数量 |
-| `createDate` | 源库创建时间，格式 `yyyy-MM-dd HH:mm:ss`，没有时区信息 |
-| `updateDate` | 源库更新时间，格式同上，没有时区信息 |
-| `workDate` | 源库工作日期文本，按原字段读取，没有新增格式或时区转换 |
-| `dataType` | 源库数据类型文本，当前接口没有额外声明枚举含义 |
+| `pdlineName` | 线体，来自 `PDLINE_NAME` |
+| `vendorName` | 厂商信息，来自 `VENDOR_NAME` |
+| `averageReelQty` | 平均料卷数量，直接读取 `AVERAGE_REEL_QTY`，接口不重新计算 |
+| `wmsReelQty` | WMS 库存料卷数量，来自 `WMS_REEL_QTY` |
+| `wmsQty` | WMS 库存 SN 数量，来自 `WMS_QTY` |
+| `mesReelQty` | MES 线边仓料卷数量，来自 `MES_REEL_QTY` |
+| `mesReelSnQty` | MES 线边仓 SN 数量，来自 `MES_REEL_SN_QTY` |
+| `currentReelQty` | 当前上线料卷数量，来自 `CURRENT_REEL_QTY` |
+| `onlineRemainingQty` | 上线余量，SQL 计算 `CURRENT_REEL_SN_QTY - CURRENT_KEEP_SN_QTY`，单位为 SN 数量 |
 
-数量和卷数是不同指标，不能混用。不同料号的计量口径不能直接视为一致，不能机械相加为一个总库存。页面的同料号汇总、极值及 Top5 规则由前端业务文档说明，后端没有为这些结果提供单独接口。
+上线余量严格使用上述减法，不使用 `NVL` 补零；任一操作数为 `NULL` 时结果保留 `null`，结果为负数时保留原值，不截成零。数量计算在查询中完成，前端直接展示。
 
-MES 的创建、更新时间按源库无时区时间返回，不添加 `Z`，不冒充 UTC，也不要求浏览器按本地时区换算。
+料卷数量与 SN 数量是不同指标，不能混用。不同料号的计量口径不能直接视为一致，不能机械相加为一个总库存。页面的同料号汇总、极值及 Top5 使用 `wmsQty` 与 `mesReelSnQty`，范围同样限定为 `BYTIME`，具体规则由前端业务文档说明，后端没有为这些结果提供单独接口。
+
+接口仅返回上述 12 项业务字段及 `rowKey`，不再返回上线的独立数量、当前上线的两项减法操作数、创建时间、修改时间、日期或数据类型；前端类型与页面需随本次接口一起更新。
 
 ## 数据来源与限制
 
-仓储通过服务端固定别名 `MesEDA` 读取 `EDA.G_WMS_KEYBOARD`。客户端不能指定数据源、表名或 SQL。查询命令超时为 10 秒，并向下传递取消令牌；连接与查询失败沿用平台统一异常处理，失败不等于查询成功且库存为零。
+仓储通过服务端固定别名 `MesEDA` 读取 `EDA.G_WMS_KEYBOARD` 的 `BYTIME` 记录。客户端不能指定数据源、表名或 SQL。查询命令超时为 10 秒，并向下传递取消令牌；连接与查询失败沿用平台统一异常处理，失败不等于查询成功且库存为零。
 
 该模块不创建本地业务表，不需要为此报表新增实体映射或 Migration。数据源配置方法沿用现有系统配置文档，本业务文档不记录真实连接串、账号或密码。
 
@@ -75,4 +76,4 @@ AI 的筛选和全局计算必须基于工具确认的完整结果，遵守容�
 | 行字段与空值约定 | [StocktakeRowDto.cs](../../../Services/Identity/ZX.Platform.Identity.Application/Inventory/Stocktake/Dtos/StocktakeRowDto.cs) |
 | 列表结构 | [StocktakeListDto.cs](../../../Services/Identity/ZX.Platform.Identity.Application/Inventory/Stocktake/Dtos/StocktakeListDto.cs) |
 
-本页依据当前源码静态整理，未运行构建、测试或真实数据库、接口及 AI 调用。接口契约、字段口径、权限或数据范围改变时更新本页；实际联调结果和未验证事项在对应提交或合并请求中如实说明。
+本次适配依据用户提供的 SQL，已静态核对 `BYTIME` 条件、上线余量表达式及查询字段与 DTO 的对应关系；未运行构建、测试或真实数据库、接口及 AI 调用。接口契约、字段口径、权限或数据范围改变时更新本页；实际联调结果和未验证事项在对应提交或合并请求中如实说明。

@@ -14,6 +14,7 @@
 | [成员业务文档编写规范](docs/03-documentation.md) | 成员完成业务开发后该更新什么、怎样写及前后端分工 |
 | [业务文档目录](docs/business/README.md) | 已实现模块的接口契约、业务规则、权限与数据范围 |
 | [基于项目源码的 AI 助手](docs/ai-integration.md) | 配置 GPUStack 工具调用、导出业务源码资料、开通悬浮助手及只读查询 |
+| [GoFlow 免登录对接](docs/business/integrations/goflow.md) | MOM 票据接口、GoFlow 后续接入约定及当前限制 |
 
 AI 后续维护：[源码容量预警与检索优化待办](docs/ai-integration.md#源码容量与检索优化待办)。业务模块增加时提前跟进；当前有超限阻断，接近上限的自动预警尚未实现。
 

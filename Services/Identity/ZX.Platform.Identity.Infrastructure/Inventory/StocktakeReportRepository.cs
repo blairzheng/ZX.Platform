@@ -14,15 +14,16 @@ public sealed class StocktakeReportRepository(IExternalOracleConnectionFactory c
         await using var command = connection.CreateCommand();
         ((OracleCommand)command).BindByName = true;
         command.CommandTimeout = 10;
-        // 当前报表完整读取现有记录，前端本地筛选；数据源、表名和排序均固定。
+        // 固定读取 BYTIME 明细，前端本地筛选；上线余量按源表两列直接相减。
         command.CommandText = """
             SELECT ROWIDTOCHAR(t.ROWID), t.WERKS, t.LGORT, t.MATNR,
-                   t.WMS_REEL_QTY, t.REEL_QTY, t.KEEP_QTY,
-                   t.WMS_QTY, t.REEL_INFO_QTY, t.KEEP_INFO_QTY,
-                   TO_CHAR(t.CREATE_DATE, 'YYYY-MM-DD HH24:MI:SS'),
-                   TO_CHAR(t.UPDATE_DATE, 'YYYY-MM-DD HH24:MI:SS'),
-                   t.WORK_DATE, t.DATATYPE
+                   t.PDLINE_NAME, t.VENDOR_NAME, t.AVERAGE_REEL_QTY,
+                   t.WMS_REEL_QTY, t.WMS_QTY,
+                   t.MES_REEL_QTY, t.MES_REEL_SN_QTY,
+                   t.CURRENT_REEL_QTY,
+                   t.CURRENT_REEL_SN_QTY - t.CURRENT_KEEP_SN_QTY AS ONLINE_REMAINING_QTY
             FROM EDA.G_WMS_KEYBOARD t
+            WHERE t.DATATYPE = 'BYTIME'
             ORDER BY t.WERKS, t.LGORT, t.MATNR, t.ROWID
             """;
 
@@ -36,16 +37,15 @@ public sealed class StocktakeReportRepository(IExternalOracleConnectionFactory c
                 Factory = ReadString(reader, 1),
                 StorageLocation = ReadString(reader, 2),
                 Material = ReadString(reader, 3),
-                WmsReelQty = ReadDecimal(reader, 4),
-                ReelQty = ReadDecimal(reader, 5),
-                KeepQty = ReadDecimal(reader, 6),
-                WmsQty = ReadDecimal(reader, 7),
-                ReelInfoQty = ReadDecimal(reader, 8),
-                KeepInfoQty = ReadDecimal(reader, 9),
-                CreateDate = ReadString(reader, 10),
-                UpdateDate = ReadString(reader, 11),
-                WorkDate = ReadString(reader, 12),
-                DataType = ReadString(reader, 13)
+                PdlineName = ReadString(reader, 4),
+                VendorName = ReadString(reader, 5),
+                AverageReelQty = ReadDecimal(reader, 6),
+                WmsReelQty = ReadDecimal(reader, 7),
+                WmsQty = ReadDecimal(reader, 8),
+                MesReelQty = ReadDecimal(reader, 9),
+                MesReelSnQty = ReadDecimal(reader, 10),
+                CurrentReelQty = ReadDecimal(reader, 11),
+                OnlineRemainingQty = ReadDecimal(reader, 12)
             });
         }
 
