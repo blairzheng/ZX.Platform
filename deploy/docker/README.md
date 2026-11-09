@@ -4,6 +4,10 @@
 
 部署、DBA 交付及初始化的完整说明保留在主仓库 main 分支，由负责人统筹。本目录不作为成员的开发操作入口。
 
+当前发布源码统一使用 `team`：审核后将同一个本地 `team` 分别推送至 GitLab 和 GitHub 的 `team`，不再为打包合并至 `main`，也不将 `main` 的独有文档合回 `team`。前后端仓库均按此流程操作，发布前确认两个远程的 `team` 指向各自同一提交。
+
+GitHub 打开 **Actions → 生成后端发布包 → Run workflow**，将 **Use workflow from** 选择为 `team`；`from_migration` 填 DBA 从正式库查到的最后一条完整迁移 ID。`frontend_ref` 显式填写 `team`，或填写本次配套前端的完整提交 SHA；页面可能仍显示默认分支旧工作流中的 `main` 默认值，运行前必须核对。后端工作流只允许 `team` 打包，AI 资料默认也读取前端 `team`。推送分支不会自动打包，打包、上传及部署仍分别手动执行。
+
 当前正式库的表 owner 为 `ZX_IDENTITY`。后端发布脚本及 GitHub Actions 默认导出至该 schema；显式传入 `--schema` 或设置 GitHub Actions Variable `MOM_IDENTITY_DB_SCHEMA` 可以覆盖，覆盖值必须与目标环境真实表 owner 一致。表、索引及索引目标表均带目标 schema。
 
 DBA 规范要求应用表和迁移历史表均具有 `CREATE_TIME DATE DEFAULT SYSDATE NOT NULL`，列名全部大写。历史表使用 `MIGRATION_ID`、`PRODUCT_VERSION`；原来的 UTC 业务审计字段保留，`CREATE_TIME` 使用数据库服务器时间，存量记录补列后是变更执行时间。
