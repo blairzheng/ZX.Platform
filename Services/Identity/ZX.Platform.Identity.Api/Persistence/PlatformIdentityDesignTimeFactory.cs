@@ -44,6 +44,7 @@ public sealed class PlatformIdentityDesignTimeFactory : IDesignTimeDbContextFact
         PlatformIdentityDbContext.Configure(options, connection, PlatformIdentityDbContext.DefaultSchema);
         if (development)
         {
+            // 保留 Configure 中的统一历史表映射，只替换开发库的目标 owner。
             options.UseOracle(connection, oracle =>
                 oracle.MigrationsHistoryTable(PlatformIdentityDbContext.HistoryTable, schema));
             options.ReplaceService<IMigrationsSqlGenerator, DevelopmentOracleMigrationsSqlGenerator>();

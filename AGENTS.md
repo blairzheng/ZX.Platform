@@ -75,7 +75,7 @@ Controller 使用 `messages["业务消息键"].Value`，Domain / Application 只
 
 ## Oracle 映射与 Migration
 
-沿用 `PlatformIdentityDbContext` 和现有 Oracle 19c 映射。列名及约束名称跟随当前规范，统一使用 UTC 时间和现有 GUID 表示；注意 Oracle 空字符串等于 NULL、字段长度及标识符限制。不在业务映射中写死个人测试 schema，不迁移外部 MES 的已有表。
+沿用 `PlatformIdentityDbContext` 和现有 Oracle 19c 映射。业务列名统一大写，迁移历史表使用 `MIGRATION_ID`、`PRODUCT_VERSION`。所有应用表及迁移历史表包含数据库生成的 `CREATE_TIME DATE DEFAULT SYSDATE NOT NULL`；应用表由公共 shadow 属性映射自动添加，新模块不在实体、DTO 或每张表配置中重复声明。该列记录数据库服务器时间，不替换现有 UTC 审计字段；存量记录补列得到的是升级时间，不推测或回填原始创建时间，不因此创建分区。保留现有 GUID 表示；注意 Oracle 空字符串等于 NULL、字段长度及标识符限制。不在业务映射中写死个人测试 schema，不迁移外部 MES 的已有表。
 
 模型变更顺序为：实体 → EF 映射与 DbSet → 生成并检查迁移 → 经授权更新测试库 → 接口联调。生成迁移必须使用完整命令，统一保留输出目录：
 
@@ -87,7 +87,7 @@ dotnet ef migrations add 本次迁移名称 \
   --output-dir Persistence/Migrations
 ```
 
-生成迁移不带 `-- --development`；更新测试库按 `02` 中的 `database update ... -- --development` 完整命令，读取负责人提供的 User Secrets。保留默认离线生成、统一源 schema 与开发库执行入口的区别，不为普通业务变更改造工厂或 SQL 生成器。
+生成迁移不带 `-- --development`；更新测试库按 `02` 中的 `database update ... -- --development` 完整命令，读取负责人提供的 User Secrets。现有库首次使用新版 EF 更新前，必须由负责人先安排执行历史表兼容 SQL，将 `MigrationId` / `ProductVersion` 改为大写列并补齐 `CREATE_TIME`；不能等普通迁移修正 EF 读取迁移历史所需的列。兼容 SQL 通过 `deploy/docker/export-history-compatibility-sql.py` 离线生成，完整命令见 `02` 第 4.2 节；正式发布的 `upgrade.sql` 已内嵌此步骤，不额外重复手工执行。正式脚本统一使用 `ZX_IDENTITY`，测试库使用实际表 owner，连接账号不必等于 schema。保留默认离线生成、统一源 schema 与开发库执行入口的区别，不为普通业务变更改造工厂或 SQL 生成器。
 
 迁移 `.cs`、对应 Designer 和 snapshot 一起交付；snapshot 由 EF 生成，冲突时核对模型和迁移链，不简单选一侧覆盖。检查 Up / Down 及数据转换，只包含本任务需要的结构和回填；出现无关表的删除或改动先查原因。已有数据的必填列、默认值和转换需考虑存量，Oracle DDL 可能隐式提交。
 

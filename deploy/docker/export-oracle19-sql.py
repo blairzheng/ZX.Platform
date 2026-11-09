@@ -4,6 +4,8 @@ import argparse
 import re
 from pathlib import Path
 
+from oracle_history_sql import history_compatibility_sql
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('source', type=Path)
 parser.add_argument('target', type=Path)
@@ -35,6 +37,8 @@ if service_name and not re.fullmatch(r"[A-Z][A-Z0-9_$#.-]{0,127}", service_name)
 sql = source.read_text(encoding="utf-8-sig")
 # EF's Oracle script uses both quoted identifiers and PL/SQL owner literals.
 sql = sql.replace('"ZX_IDENTITY"', f'"{schema}"').replace("'ZX_IDENTITY'", f"'{schema}'")
+# Older offline source scripts may still contain EF's original history names.
+sql = sql.replace('"MigrationId"', '"MIGRATION_ID"').replace('"ProductVersion"', '"PRODUCT_VERSION"')
 blocks = [block.strip() for block in re.split(r"(?m)^/\s*$", sql) if block.strip()]
 objects = re.findall(rf'CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX)\s+"{re.escape(schema)}"\."([^"]+)"', sql)
 if "~" in sql or (not upgrade and (len(set(objects)) != 19 or re.search(r"\b(DROP|TRUNCATE|GRANT|ALTER)\b", sql, re.I))):
@@ -67,7 +71,7 @@ else:
 if upgrade:
     if args.to_migration not in sql:
         raise SystemExit('Target migration ID is absent from the generated SQL.')
-    header += f"""    SELECT MAX("MigrationId") INTO v_last FROM "{schema}"."ZX_IDENTITY_MIGRATIONS";
+    header += f"""    SELECT MAX("MIGRATION_ID") INTO v_last FROM "{schema}"."ZX_IDENTITY_MIGRATIONS";
     IF v_last IS NULL OR v_last <> '{args.from_migration}' THEN
         RAISE_APPLICATION_ERROR(-20003, 'Unexpected current migration; stop this upgrade.');
     END IF;
@@ -80,6 +84,11 @@ else:
     END IF;
 """
 statements = ["    EXECUTE IMMEDIATE q'~" + block + "~';" for block in blocks]
+compatibility = history_compatibility_sql(
+    schema, args.from_migration,
+    login_user=None if args.session_agnostic else login_user,
+    service_name=None if args.session_agnostic else service_name,
+) + '\n' if upgrade else ''
 target.parent.mkdir(parents=True, exist_ok=True)
-target.write_text(header + "\n\n".join(statements) + "\n    COMMIT;\nEND;\n/\n", encoding="utf-8")
+target.write_text(compatibility + header + "\n\n".join(statements) + "\n    COMMIT;\nEND;\n/\n", encoding="utf-8")
 print(f"Created {target}: {len(blocks)} statements, {len(objects)} objects; no database connection.")

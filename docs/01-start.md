@@ -15,6 +15,8 @@
 | `ConnectionStrings:IdentityRedis` | 现有 Redis 的完整连接字符串；使用 Sentinel 时包含节点、密码和 serviceName |
 | `AuthenticationRedis:KeyPrefix` | 个人开发前缀，例如 `mom:development:你的工号:identity:auth:` |
 
+`IdentityDatabase:Schema` 填实际表 owner；正式脚本统一使用 `ZX_IDENTITY`，测试库以负责人提供的实际 owner 为准。该配置只指定表所属 schema，不会切换登录账号或授予跨 schema 权限。
+
 Redis 复用现有正式实例，每位成员必须使用自己的开发前缀，与线上及其他成员区分。同一成员的本机实例使用同一前缀即可。
 
 调试已有的一键盘点报表时，另向负责人获取 `ExternalOracle:Sources:MesEDA` 的连接配置，写入 Identity.Api 的本机 User Secrets；连接账号需要能读取 `EDA.G_WMS_KEYBOARD`。`BU17EDA` 是数据库名，`EDA` 是表 owner。未调试该报表时无需配置此项，连接信息不放入前端或源码。
@@ -130,6 +132,7 @@ API_PROXY_TARGET=https://localhost:7178
 ## 6. 共享环境的操作约定
 
 - 首次拉取时，测试库基础结构和测试账号应已由团队准备，不需要每位成员重复初始化。应用启动不执行数据库迁移，也不创建首个管理员。
+- 已有测试库升级到大写迁移历史列时，由负责人先安排执行历史表兼容 SQL，再执行新版 EF 更新，步骤见 [业务开发步骤第 4.2 节](02-business.md#42-更新测试库)。普通成员不重复初始化或自行修补共享库历史表。
 - Identity 启动会按当前源码同步权限目录和内置菜单。不同业务分支新增的权限声明可能不一致，涉及新增权限的并行联调先与负责人协调权限基线。
 - 个人 Redis KeyPrefix 只隔离会话、权限缓存等 Redis 键，不隔离 Oracle 测试库里的用户、角色、菜单和业务数据。修改共享数据前协调，使用能区分任务的测试数据。
 - 需要改表时，先完成实体、EF 映射及 DbSet 配置，再生成迁移并协调更新测试库；访问新增表或字段前确认迁移已执行。完整步骤统一按 `docs/02-business.md` 执行。
@@ -145,4 +148,5 @@ API_PROXY_TARGET=https://localhost:7178
 | 浏览器提示本机 HTTPS 证书不受信任 | 是否完成开发证书信任，是否使用配置中的 localhost 地址 |
 | 登录成功但菜单为空，或业务接口返回 403 | 测试账号的审批状态、角色权限、SBU 分配及当前分支权限声明 |
 | EF 更新库连接 `127.0.0.1:1`，或提示缺少测试库配置 | 更新命令是否保留 `-- --development`，是否已把测试库连接与 schema 导入 Identity.Api 的 User Secrets；使用第二份文档中的完整命令 |
+| 迁移历史表提示 `MIGRATION_ID` / `PRODUCT_VERSION` 列不存在 | 由负责人确认目标库是否已执行第 4.2 节的历史表兼容 SQL；不要删除迁移历史或直接重跑初始化 |
 | 本机修改后页面仍在请求其他环境 | 前端开发代理是否指向本机 Gateway；修改前端环境配置后是否重启开发服务 |

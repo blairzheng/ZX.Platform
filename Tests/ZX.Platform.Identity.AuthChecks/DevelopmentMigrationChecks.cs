@@ -33,6 +33,7 @@ internal static class DevelopmentMigrationChecks
                 "A personal test schema must not introduce pending model changes.");
             Check.That(db.Model.GetEntityTypes().All(entity => entity.GetSchema() == "ZX_IDENTITY"),
                 "Development configuration must not leak into the canonical model.");
+            Oracle19Checks.CheckHistorySql(db, schema);
 
             var sql = db.GetService<IMigrator>().GenerateScript();
             Check.That(sql.Contains($"\"{schema}\".\"ZX_IDENTITY_USER\"") &&

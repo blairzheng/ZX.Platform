@@ -124,6 +124,8 @@ public DbSet<InspectionRecord> InspectionRecords => Set<InspectionRecord>();
 
 现有 `ApplyConfigurationsFromAssembly` 会发现新配置，不需要逐项注册。不在业务映射中写死测试库 schema，运行时沿用 `IdentityDatabase:Schema`；迁移仍统一以 `ZX_IDENTITY` 为源 schema 生成。
 
+所有应用表由公共 shadow 属性映射自动添加 `CREATE_TIME DATE DEFAULT SYSDATE NOT NULL`，迁移历史表也使用相同列。新模块无需在实体、DTO 或上面的配置中重复声明，生成迁移时检查该列已包含。现有 `CREATED_AT_UTC` 等 UTC 审计字段继续使用原有口径；`CREATE_TIME` 由数据库维护，使用数据库服务器时间。
+
 本例没有约定组合唯一；实际业务需要唯一性时，在配置中建立对应唯一索引。Service 的重复检查不能代替数据库唯一约束。
 
 ## 4. 生成迁移并更新测试库
@@ -154,9 +156,23 @@ dotnet ef migrations add AddInspectionRecords \
 
 若出现无关的用户、角色、菜单表改动，先检查模型与合并结果，不直接执行。涉及已有表的必填列、默认值和数据回填时，单独审核存量数据转换；不把角色授权、菜单创建或其他业务操作塞进迁移。
 
+本次统一添加 `CREATE_TIME` 的升级迁移会涉及现有应用表，这是明确的公共列变更。已有记录的默认时间代表本次升级时间，不是原始业务创建时间；不自动猜测回填，也不创建分区。后续普通业务迁移不应再次重复添加该列。
+
 ### 4.2 更新测试库
 
-生成迁移后，执行下面的命令，将当前分支尚未执行的迁移应用到团队测试库：
+新版迁移历史表统一使用 `MIGRATION_ID`、`PRODUCT_VERSION`、`CREATE_TIME`。现有测试库首次使用新版 EF 更新前，必须由负责人先安排一次历史表兼容升级，再执行任何新版 `dotnet ef database update`；EF 会先读取历史，普通迁移无法在此之前修复历史列。
+
+在仓库根目录离线生成兼容 SQL，将末尾的 `实际SCHEMA` 替换为测试库表的实际 owner：
+
+```bash
+python3 deploy/docker/export-history-compatibility-sql.py output/history-compatibility.sql 实际SCHEMA
+```
+
+生成命令不连接数据库。将输出文件交负责人 / DBA 在对应测试库执行；它只规范迁移历史表的列名并补 `CREATE_TIME`，保留原迁移记录，不改业务表。需要核对基线时可追加 `--expected-migration 完整迁移ID`，脚本在修改前核对末位迁移。执行成功后再运行下面的 EF 命令，应用表的 `CREATE_TIME` 由增量迁移补齐。
+
+使用新版初始建表包的空库已具备上述历史表结构；完整发布包的 `upgrade.sql` 也已内嵌兼容步骤，无需额外手工执行独立兼容文件。共享库的执行顺序和结果由负责人统一记录，成员不自行删除或重建历史表。
+
+历史表兼容完成后，协调执行下面的命令，将当前分支尚未执行的迁移应用到团队测试库：
 
 ```bash
 dotnet ef database update \
@@ -166,7 +182,7 @@ dotnet ef database update \
   -- --development
 ```
 
-保留末尾的 `-- --development`。入口会读取第一份文档中已导入的 Identity.Api User Secrets，自动使用测试库连接和目标 schema，不需要再填写密码或手工导出 SQL。该命令会实际更新测试库；应用启动不会代替这一步。
+保留末尾的 `-- --development`。入口会读取第一份文档中已导入的 Identity.Api User Secrets，自动使用测试库连接和目标 schema，不需要再填写密码。该命令会实际更新测试库，包括尚未执行的 `CREATE_TIME` 增量迁移；应用启动不会代替这一步。正式库脚本统一使用 `ZX_IDENTITY`，测试库使用实际表 owner，不能根据连接账号或表名前缀猜测 schema。
 
 只有更新成功后，才继续后面的接口联调。不要给生成迁移的 `migrations add` 命令添加 `-- --development`。
 
