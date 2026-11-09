@@ -31,6 +31,8 @@ Redis 复用现有正式实例，每位成员必须使用自己的开发前缀�
 
 不再配置 `AuthenticationLdap:BindDn` / `BindPassword`，也不使用独立目录查询账号。目录节点、BaseDn 和属性沿用 `appsettings.json` 的默认值，环境不同再通过 User Secrets 或容器环境变量覆盖。使用默认 Plain/389 节点时，需明确设置 `AuthenticationLdap:AllowPlainText=true`；TLS 场景保持证书验证，按实际目录配置主备节点。
 
+Linux 容器还需要系统 OpenLDAP 运行库。Identity Dockerfile 使用 .NET 10 的 Ubuntu 24.04（Noble）镜像并安装 `libldap2`，配套 `System.DirectoryServices.Protocols 10.0.13`；旧版 `8.0.2` 的库名加载规则与 Noble 不匹配，不能只安装系统包继续使用旧组件。修复 `DllNotFoundException` / `libldap-2.5.so.0` 后，需从本次提交重新构建后端镜像并部署到两台 Identity 节点，重启旧镜像不会带入这项修复。构建完成后仍需在目标环境验证 OA 登录。
+
 管理员预开通只填写工号并选择待审批或立即开通，后端仅检查 MOM 内账号冲突并保存授权，不访问 LDAP，不需要员工提供密码；姓名暂显示工号。首次成功 OA 登录后，绑定真实目录身份并补齐姓名，保留同一 UserId、审批、角色和 SBU。已绑定账号不能自动换绑；禁用、拒绝、删除、锁定或身份冲突仍拒绝登录。没有预开通的员工仍可首次 OA 登录创建待业务审批账号。原 `/api/Users/ldapLookup` 目录预览接口已移除，AI 查询目录也不再包含此项。
 
 本次不改变表结构，不需要 EF Migration。部署切换必须同时发布兼容的后端与前端新包，再移除旧查询账号变量，不能仅删变量继续使用旧镜像。GitLab 的 `MOM_LDAP_*` 到容器变量映射以部署仓库 `mom_img` 的说明为准，应用源码不会直接读取这些 GitLab 变量。
