@@ -38,13 +38,15 @@ Identity.Api 的本机 User Secrets 继续使用以下配置；已有模型配�
 
 GitHub 的“生成后端发布包”工作流会同时获取前后端源码。运行时将 **Use workflow from** 选择为 `team`，前端默认读取 `blairzheng/ZX.front.vue` 的 `team`。仓库位置不同时，一次配置仓库变量 `MOM_FRONTEND_REPOSITORY`；跨私有仓库访问时，一次配置具有目标仓库只读权限的 secret `MOM_FRONTEND_READ_TOKEN`。工作流的可选输入 `frontend_ref` 默认为 `team`，需要与特定前端版本配套时可填写对应 tag 或完整提交 SHA；若页面沿用默认分支旧工作流的 `main` 输入值，运行前手动改为 `team` 或对应提交。每次运行会使用实际检出的前端提交生成资料；`release.json` 的 `assistantSources` 记录前端提交、资料包 SHA256、文件数和导出时间，便于核对本次资料来源。
 
-快照仍位于 `Services/Identity/ZX.Platform.Identity.Api/AI/Knowledge/project-sources.json`，记录导出时间、项目相对路径、完整行文本和文本 SHA256。API 项目将其复制到编译输出及发布目录，随 Identity 镜像一起部署；它不在 `wwwroot`，没有直接下载或任意文件读取接口。
+快照仍位于 `Services/Identity/ZX.Platform.Identity.Api/AI/Knowledge/project-sources.json`，记录导出时间、项目相对路径、完整行文本和文本 SHA256。该 JSON 是自动生成的构建产物，已加入 `.gitignore`，不纳入版本控制；源码和导出脚本继续提交，资料来源通过发布包的 `release.json` 核对。取消跟踪不删除本机已有文件，后续重新生成也不会产生 Git 改动。
+
+API 项目将生成的 JSON 复制到编译输出及发布目录，随 Identity 镜像一起部署；它不在 `wwwroot`，没有直接下载或任意文件读取接口。Git 忽略规则不影响 Docker 构建上下文，现有 `.dockerignore` 保留此文件；正常后端打包在构建镜像前生成它，因此全新检出也能通过同一流程带入镜像。
 
 导出范围包括已登记的真实业务页面及组件、业务 API、界面词条、业务 Service/DTO、实体和业务 Controller。新增页面按现有 `menuPages.ts` 注册后，下次后端打包时自动纳入。AI 自身、演示页面、配置、User Secrets、认证实现、数据库连接、基础设施、发布脚本、日志、依赖和构建目录均排除；符号链接和越界路径拒绝处理，常见敏感字面量会脱敏。
 
-运行时只读取随版本发布的快照，模型不能指定任意服务器文件路径，也不会在运行服务器上扫描源码。当前实现按进程缓存快照，部署新的 Identity 镜像并重启后使用新资料。前端单独发布不会更新已部署后端里的快照；新增前端业务需要 AI 同步了解时，应使用配套前端提交重新生成并发布后端包。当前保留的本地源码包包含 111 个业务文件。缺失或校验失败会向模型返回资料不可用，不把空结果当作系统没有功能。
+运行时只读取随版本发布的快照，模型不能指定任意服务器文件路径，也不会在运行服务器上扫描源码。当前实现按进程缓存快照，部署新的 Identity 镜像并重启后使用新资料。前端单独发布不会更新已部署后端里的快照；新增前端业务需要 AI 同步了解时，应使用配套前端提交重新生成并发布后端包。文件数以实际导出结果及 `release.json` 为准。缺失或校验失败会向模型返回资料不可用，不把空结果当作系统没有功能。
 
-直接执行裸 `dotnet publish` 或 `docker build` 不经过上述发布脚本，不会自动更新快照。本地调试或排查资料内容时，才需要在后端根目录单独执行以下命令；前端目录不相邻时可加 `--frontend /前端仓库绝对路径`：
+全新检出的仓库不包含该 JSON。直接执行裸 `dotnet build`、`dotnet publish` 或 `docker build` 不经过上述发布脚本，不会自动生成或更新快照。本地需要调试 AI 源码检索或排查资料内容时，在后端根目录单独执行以下命令；前端目录不相邻时可加 `--frontend /前端仓库绝对路径`。生成或更新后重启 Identity，使进程加载新资料：
 
 ```bash
 python3 scripts/export-assistant-sources.py

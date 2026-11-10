@@ -5,6 +5,9 @@
 *.nupkg
 *.snupkg
 
+# Generated AI source knowledge (created before backend image builds)
+/Services/Identity/ZX.Platform.Identity.Api/AI/Knowledge/project-sources.json
+
 # IDE caches and personal settings
 .vs/
 .idea/
