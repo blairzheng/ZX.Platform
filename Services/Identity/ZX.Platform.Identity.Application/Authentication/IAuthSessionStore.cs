@@ -6,6 +6,8 @@ public interface IAuthSessionStore
     Task<AuthTokens?> CreateAsync(Guid userId, string account, string credentialStamp, bool replaceExisting, CancellationToken cancellationToken);
     // 仅供 JWT 标准校验通过后调用；核对签名中身份对应的当前会话和 Access jti。
     Task<bool> IsAccessTokenActiveAsync(Guid userId, Guid sessionId, string tokenId, CancellationToken cancellationToken);
+    // SSO 兑换核对原会话及当前账户安全版本；不受正常 Access Token 轮换影响。
+    Task<bool> IsSessionActiveAsync(Guid userId, Guid sessionId, string credentialStamp, CancellationToken cancellationToken);
     Task<SessionIdentity?> FindByRefreshTokenAsync(string token, CancellationToken cancellationToken);
 
     // 原子消费并轮换；重放已消费凭据时撤销整个会话。

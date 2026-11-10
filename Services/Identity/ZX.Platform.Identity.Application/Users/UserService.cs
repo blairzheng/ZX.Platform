@@ -21,14 +21,13 @@ namespace ZX.Platform.Identity.Application.Users
         private readonly IAuthSessionStore _sessions;
         private readonly IPermissionCache _permissionCache;
         private readonly IPermissionService _permissions;
-        private readonly ILdapDirectory _ldapDirectory;
         private readonly IUserApprovalAuditRepository _approvalAudits;
         private readonly TimeProvider _timeProvider;
 
         public UserService(IUserRepository userRepository, IUnitOfWork unitOfWork, IPasswordHasher passwordHasher,
             ISbuRepository sbuRepository, IUserSbuRepository userSbuRepository, IAuthSessionStore sessions,
             IPermissionCache permissionCache, IRoleRepository roleRepository, IPermissionService permissions,
-            ILdapDirectory ldapDirectory, IUserApprovalAuditRepository approvalAudits, TimeProvider timeProvider)
+            IUserApprovalAuditRepository approvalAudits, TimeProvider timeProvider)
         {
             _userRepository = userRepository;
             _unitOfWork = unitOfWork;
@@ -39,7 +38,6 @@ namespace ZX.Platform.Identity.Application.Users
             _permissionCache = permissionCache;
             _roleRepository = roleRepository;
             _permissions = permissions;
-            _ldapDirectory = ldapDirectory;
             _approvalAudits = approvalAudits;
             _timeProvider = timeProvider;
         }
@@ -229,64 +227,12 @@ namespace ZX.Platform.Identity.Application.Users
             }
         }
 
-        #region OA 账号查询、预开通与审批
-
-        public async Task<LdapUserLookupResultDto> LdapLookupAsync(
-            LdapUserLookupQueryDto query, CancellationToken cancellationToken)
-        {
-            var employeeNo = NormalizeEmployeeNo(query.EmployeeNo);
-            if (!_ldapDirectory.IsEnabled)
-                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapDisabled",
-                    new { Reason = LdapProvisionReasons.LdapDisabled });
-
-            LdapDirectoryUser? directoryUser;
-            try
-            {
-                directoryUser = await _ldapDirectory.FindByEmployeeNoAsync(employeeNo, cancellationToken);
-            }
-            catch (LdapUnavailableException)
-            {
-                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapUnavailable",
-                    new { Reason = LdapProvisionReasons.LdapUnavailable });
-            }
-            catch (LdapAmbiguousResultException)
-            {
-                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapUnavailable",
-                    new { Reason = LdapProvisionReasons.LdapAmbiguousResult });
-            }
-
-            if (directoryUser is null)
-            {
-                return new LdapUserLookupResultDto
-                {
-                    Found = false,
-                    EmployeeNo = employeeNo,
-                    CanProvision = false,
-                    Reason = LdapProvisionReasons.LdapUserNotFound
-                };
-            }
-
-            var (canProvision, reason) = await EvaluateProvisionAsync(directoryUser, cancellationToken);
-            return new LdapUserLookupResultDto
-            {
-                Found = true,
-                EmployeeNo = directoryUser.EmployeeNo,
-                DisplayName = directoryUser.DisplayName,
-                Department = directoryUser.Department,
-                DirectoryStatus = directoryUser.Status,
-                CanProvision = canProvision,
-                Reason = reason
-            };
-        }
+        #region OA 账号预开通与审批
 
         public async Task<LdapUserCreatedDto> CreateLdapAsync(
             Guid actorId, CreateLdapUserDto input, CancellationToken cancellationToken)
         {
             var employeeNo = NormalizeEmployeeNo(input.EmployeeNo);
-            if (!_ldapDirectory.IsEnabled)
-                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapDisabled",
-                    new { Reason = LdapProvisionReasons.LdapDisabled });
-
             if (!input.OpenImmediately && (input.RoleIds.Count > 0 || input.SbuIds.Count > 0))
                 throw new BusinessException(ErrorCodes.ValidationFailed, "User.PendingCannotAssignGrants");
 
@@ -299,17 +245,14 @@ namespace ZX.Platform.Identity.Application.Users
                     IdentityPermissions.UserAssignSbus);
             }
 
-            // 提交时重新查目录，不信任前端预览结果。
-            var directoryUser = await RequireDirectoryUserAsync(employeeNo, cancellationToken);
-            var (canProvision, reason) = await EvaluateProvisionAsync(directoryUser, cancellationToken);
-            if (!canProvision)
-                throw ProvisionConflict(reason ?? LdapProvisionReasons.DirectoryIdentityIncomplete);
+            // 预开通只检查 MOM 内的账号占用，不连接 LDAP，也不把管理员输入当成已认证身份。
+            var existingUser = await FindExistingForProvisionAsync(employeeNo, cancellationToken);
+            if (existingUser is not null)
+                throw ProvisionConflict(existingUser.IsLdap
+                    ? LdapProvisionReasons.AccountExists : LdapProvisionReasons.AccountTypeConflict,
+                    existingUser.Id);
 
-            // 目录登录名（sAMAccountName）只用于目录认证；ZX 账号按约定固定取工号，
-            // 这样“本地账号已占用该工号”的冲突才能被下面的检查拦到。
-            var user = User.CreateLdap(
-                directoryUser.EmployeeNo, directoryUser.EmployeeNo, directoryUser.DisplayName,
-                directoryUser.Provider, directoryUser.Subject!);
+            var user = User.CreateLdapProvision(employeeNo);
 
             var roles = input.OpenImmediately
                 ? await GetValidatedRolesAsync(actorId, input.RoleIds, cancellationToken)
@@ -344,7 +287,7 @@ namespace ZX.Platform.Identity.Application.Users
             catch (UniqueConstraintException)
             {
                 _userRepository.Detach(user);
-                var existing = await FindExistingForProvisionAsync(directoryUser, cancellationToken);
+                var existing = await FindExistingForProvisionAsync(employeeNo, cancellationToken);
                 throw ProvisionConflict(existing is null
                     ? LdapProvisionReasons.IdentityConflict
                     : existing.IsLdap ? LdapProvisionReasons.AccountExists : LdapProvisionReasons.AccountTypeConflict,
@@ -566,72 +509,10 @@ namespace ZX.Platform.Identity.Application.Users
                 _ => "User.LdapIdentityConflict"
             }, new { Reason = reason, UserId = userId });
 
-        private async Task<LdapDirectoryUser> RequireDirectoryUserAsync(
-            string employeeNo, CancellationToken cancellationToken)
-        {
-            try
-            {
-                return await _ldapDirectory.FindByEmployeeNoAsync(employeeNo, cancellationToken)
-                    ?? throw new BusinessException(ErrorCodes.NotFound, "User.LdapUserNotFound",
-                        new { Reason = LdapProvisionReasons.LdapUserNotFound });
-            }
-            catch (LdapUnavailableException)
-            {
-                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapUnavailable",
-                    new { Reason = LdapProvisionReasons.LdapUnavailable });
-            }
-            catch (LdapAmbiguousResultException)
-            {
-                throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapUnavailable",
-                    new { Reason = LdapProvisionReasons.LdapAmbiguousResult });
-            }
-        }
-
-        /// <summary>
-        /// 判断目录身份是否可以开通：目录状态、必要身份字段和本地账号冲突。
-        /// </summary>
-        private async Task<(bool CanProvision, string? Reason)> EvaluateProvisionAsync(
-            LdapDirectoryUser directoryUser, CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrWhiteSpace(directoryUser.EmployeeNo) ||
-                string.IsNullOrWhiteSpace(directoryUser.Subject) ||
-                string.IsNullOrWhiteSpace(directoryUser.Account) ||
-                string.IsNullOrWhiteSpace(directoryUser.DisplayName))
-                return (false, LdapProvisionReasons.DirectoryIdentityIncomplete);
-
-            if (directoryUser.Status == LdapDirectoryStatus.Disabled)
-                return (false, LdapProvisionReasons.DirectoryDisabled);
-            if (directoryUser.Status != LdapDirectoryStatus.Enabled)
-                return (false, LdapProvisionReasons.DirectoryStateUnknown);
-
-            var existing = await FindExistingForProvisionAsync(directoryUser, cancellationToken);
-            if (existing is not null)
-            {
-                if (!existing.IsLdap)
-                    return (false, LdapProvisionReasons.AccountTypeConflict);
-                if (!string.Equals(existing.EmployeeNo, directoryUser.EmployeeNo, StringComparison.Ordinal) ||
-                    !string.Equals(existing.LdapSubject, directoryUser.Subject, StringComparison.OrdinalIgnoreCase))
-                    return (false, LdapProvisionReasons.IdentityConflict);
-                // 已存在同工号记录，转入审批维护而不是新建。
-                return (false, LdapProvisionReasons.AccountExists);
-            }
-
-            // ZX 账号就是工号：冲突检查必须按工号执行，而不是目录登录名。
-            var byAccount = await _userRepository.GetByNormalizedAccountAsync(
-                directoryUser.EmployeeNo.Trim().ToUpperInvariant(), cancellationToken);
-            if (byAccount is not null)
-                return (false, byAccount.IsLdap
-                    ? LdapProvisionReasons.AccountExists
-                    : LdapProvisionReasons.AccountTypeConflict);
-
-            return (true, null);
-        }
-
         private async Task<User?> FindExistingForProvisionAsync(
-            LdapDirectoryUser directoryUser, CancellationToken cancellationToken) =>
-            await _userRepository.GetByLdapIdentityAsync(
-                directoryUser.Provider, directoryUser.Subject ?? string.Empty, cancellationToken)
-            ?? await _userRepository.GetByEmployeeNoAsync(directoryUser.EmployeeNo, cancellationToken);
+            string employeeNo, CancellationToken cancellationToken) =>
+            await _userRepository.GetByEmployeeNoAsync(employeeNo, cancellationToken)
+            ?? await _userRepository.GetByNormalizedAccountAsync(employeeNo.ToUpperInvariant(), cancellationToken);
 
         private async Task EnsurePermissionsAsync(
             Guid actorId, CancellationToken cancellationToken, params string[] permissions)

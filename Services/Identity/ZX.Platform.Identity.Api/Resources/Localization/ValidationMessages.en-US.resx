@@ -47,4 +47,5 @@
   <data name="Validation.AiRoleInvalid" xml:space="preserve"><value>A message role must be user or assistant.</value></data>
   <data name="Validation.AiContentRequired" xml:space="preserve"><value>Message content is required.</value></data>
   <data name="Validation.AiContentMaxLength" xml:space="preserve"><value>A message cannot exceed {1} characters.</value></data>
+  <data name="Validation.SsoRequestInvalid" xml:space="preserve"><value>Invalid single sign-on request parameters. Please start again.</value></data>
 </root>

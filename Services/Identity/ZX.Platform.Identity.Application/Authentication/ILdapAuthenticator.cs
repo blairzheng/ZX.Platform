@@ -2,7 +2,7 @@ namespace ZX.Platform.Identity.Application.Authentication;
 
 /// <summary>
 /// 员工凭 OA 工号和密码向目录认证。
-/// 只有完成用户 bind 后返回的身份才可以用于登录，服务账号查到用户不代表认证通过。
+/// 只有完成员工自身的 bind 后，才读取其目录身份并用于登录。
 /// </summary>
 public interface ILdapAuthenticator
 {
@@ -14,30 +14,12 @@ public interface ILdapAuthenticator
     /// <summary>
     /// 认证员工凭据。
     /// </summary>
-    /// <exception cref="LdapUnavailableException">目录不可用或服务账号无法完成查询。</exception>
+    /// <exception cref="LdapUnavailableException">目录不可用或认证后无法读取身份。</exception>
     /// <exception cref="LdapAmbiguousResultException">同一工号返回多条目录记录。</exception>
     /// <exception cref="LdapInvalidCredentialsException">工号不存在、密码错误或目录拒绝认证。</exception>
     Task<LdapDirectoryUser> AuthenticateAsync(
         string employeeNo,
         string password,
-        CancellationToken cancellationToken);
-}
-
-/// <summary>
-/// 管理员按工号只读查询目录，用于预开通前的核对。
-/// 不做员工密码 bind，不代表该员工已经登录。
-/// </summary>
-public interface ILdapDirectory
-{
-    bool IsEnabled { get; }
-
-    /// <summary>
-    /// 按工号精确查询目录用户；成功完成搜索但没有结果时返回 null。
-    /// </summary>
-    /// <exception cref="LdapUnavailableException">目录不可用或服务账号无法完成查询。</exception>
-    /// <exception cref="LdapAmbiguousResultException">同一工号返回多条目录记录。</exception>
-    Task<LdapDirectoryUser?> FindByEmployeeNoAsync(
-        string employeeNo,
         CancellationToken cancellationToken);
 }
 

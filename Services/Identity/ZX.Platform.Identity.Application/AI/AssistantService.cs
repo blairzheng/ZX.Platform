@@ -7,6 +7,7 @@ namespace ZX.Platform.Identity.Application.AI;
 public sealed class AssistantService(IAssistantModel model, IAssistantTools tools, AssistantLimits limits) : IAssistantService
 {
     private const int MaxContextCharacters = 120000;
+    private const string FinalAnswerInstructions = "本轮工具预算已用完。请依据已取得的资料用业务语言回答，明确尚未验证的部分，不展示代码、接口标识或源码位置，不再请求工具。";
     private const string Instructions = """
         你是 BU17 运行管理平台的助手，使用用户的语言自然、简洁地回答。
         你可以自主调用只读工具搜索和阅读本版本的前后端业务源码，查询当前账号权限，以及通过已开放的业务查询接口读取获准数据。
@@ -50,7 +51,10 @@ public sealed class AssistantService(IAssistantModel model, IAssistantTools tool
             cancellationToken.ThrowIfCancellationRequested();
             var allowTools = round < limits.MaxModelRounds - 1 && toolCount < 10;
             if (!allowTools)
-                messages.Add(new AssistantMessage("system", "本轮工具预算已用完。请依据已取得的资料用业务语言回答，明确尚未验证的部分，不展示代码、接口标识或源码位置，不再请求工具。"));
+            {
+                // Qwen 等聊天模板只接受首条 system；收尾提示合并在此，保留工具消息顺序。
+                messages[0] = messages[0] with { Content = Instructions + "\n\n" + FinalAnswerInstructions };
+            }
             if (ContextLength(messages) > MaxContextCharacters)
                 throw new BusinessException(ErrorCodes.ValidationFailed, "AI.ConversationTooLong");
             var completion = await model.CompleteAsync(messages, allowTools, cancellationToken);

@@ -9,9 +9,9 @@ namespace ZX.Platform.Identity.Infrastructure.Security;
 
 /// <summary>
 /// 通过 System.DirectoryServices.Protocols 访问 Active Directory。
-/// 查询使用服务账号，员工认证使用独立连接和用户 DN 做 bind；两类连接不互相重绑。
+/// 员工先用 域名\工号 和 OA 密码 bind，再在同一连接读取自己的目录身份。
 /// </summary>
-public sealed class LdapAuthenticationService : ILdapAuthenticator, ILdapDirectory
+public sealed class LdapAuthenticationService : ILdapAuthenticator
 {
     private const int AccountDisabledFlag = 0x2;
 
@@ -35,11 +35,12 @@ public sealed class LdapAuthenticationService : ILdapAuthenticator, ILdapDirecto
             throw new LdapUnavailableException("LdapDisabled");
 
         employeeNo = employeeNo.Trim();
-        if (string.IsNullOrEmpty(employeeNo) || string.IsNullOrEmpty(password))
+        if (string.IsNullOrEmpty(employeeNo) || string.IsNullOrEmpty(password) ||
+            employeeNo.Any(character => char.IsControl(character) || character is '\\' or '/' or '@'))
         {
             // 空密码在发往目录前拒绝，防止误触发匿名或未认证 bind。
             return Task.FromException<LdapDirectoryUser>(
-                new LdapInvalidCredentialsException("工号或密码为空。"));
+                new LdapInvalidCredentialsException("工号格式无效或密码为空。"));
         }
 
         return _runner.RunAsync(operation =>
@@ -79,107 +80,31 @@ public sealed class LdapAuthenticationService : ILdapAuthenticator, ILdapDirecto
         }, cancellationToken);
     }
 
-    public Task<LdapDirectoryUser?> FindByEmployeeNoAsync(
-        string employeeNo, CancellationToken cancellationToken)
-    {
-        if (!_options.Enabled)
-            throw new LdapUnavailableException("LdapDisabled");
-
-        employeeNo = employeeNo.Trim();
-        if (string.IsNullOrEmpty(employeeNo))
-            return Task.FromResult<LdapDirectoryUser?>(null);
-
-        return _runner.RunAsync<LdapDirectoryUser?>(operation =>
-        {
-            LdapUnavailableException? lastFailure = null;
-            foreach (var server in _options.Servers)
-            {
-                operation.ThrowIfExpired();
-                try
-                {
-                    using var connection = ConnectServiceAccount(server, operation);
-                    var entry = SearchUser(connection, employeeNo, operation);
-                    return entry is null ? null : ToIdentity(entry, employeeNo);
-                }
-                catch (LdapAmbiguousResultException)
-                {
-                    throw;
-                }
-                catch (LdapUnavailableException)
-                {
-                    throw;
-                }
-                catch (LdapException exception) when (exception.ErrorCode == LdapSearchFailure.InvalidCredentials)
-                {
-                    // 查询阶段只使用服务账号，这里的 49 是服务账号凭据或权限问题，
-                    // 属于依赖故障：既不能算员工密码错误，也不能当成“工号不存在”。
-                    lastFailure = new LdapUnavailableException("LdapServiceAccountRejected", exception);
-                    _logger.LogError(exception,
-                        "LDAP 服务账号被拒绝，请核对 BindDn/BindPassword 与查询权限。Host={Host}, Port={Port}",
-                        server.Host, server.Port);
-                }
-                catch (Exception exception) when (IsDependencyFailure(exception))
-                {
-                    lastFailure = new LdapUnavailableException("LdapUnavailable", exception);
-                    _logger.LogWarning(exception,
-                        "LDAP 节点不可用，尝试下一个节点。Host={Host}, Port={Port}", server.Host, server.Port);
-                }
-            }
-
-            throw lastFailure ?? new LdapUnavailableException("LdapUnavailable");
-        }, cancellationToken);
-    }
-
     private LdapDirectoryUser AuthenticateOnServer(
         LdapServerOptions server, string employeeNo, string password, LdapOperation operation)
     {
-        // 第一步：服务账号查询用户 DN，不把用户输入拼进 DN。
-        string distinguishedName;
-        LdapDirectoryUser identity;
-        using (var connection = ConnectServiceAccount(server, operation))
+        using var connection = CreateConnection(server, operation);
+        StartTlsIfNeeded(connection, server, operation);
+        operation.ThrowIfExpired();
+        try
         {
-            var entry = SearchUser(connection, employeeNo, operation)
-                ?? throw new LdapInvalidCredentialsException("目录中未找到该工号。");
-            distinguishedName = entry.DistinguishedName;
-            identity = ToIdentity(entry, employeeNo);
+            // 固定使用 AD 的 NetBIOS 域名格式，不尝试多种账号格式或重试错误密码。
+            connection.Bind(new NetworkCredential($"{_options.Domain}\\{employeeNo}", password));
+        }
+        catch (LdapException exception) when (exception.ErrorCode == LdapSearchFailure.InvalidCredentials)
+        {
+            throw new LdapInvalidCredentialsException("目录拒绝了该工号或密码。");
         }
 
-        // 第二步：使用独立连接和用户 DN + 用户密码 bind，服务账号连接不参与员工认证。
-        using (var connection = CreateConnection(server, operation))
-        {
-            StartTlsIfNeeded(connection, server, operation);
-            operation.ThrowIfExpired();
-            try
-            {
-                connection.Bind(new NetworkCredential(distinguishedName, password));
-            }
-            catch (LdapException exception) when (exception.ErrorCode == LdapSearchFailure.InvalidCredentials)
-            {
-                throw new LdapInvalidCredentialsException("目录拒绝了该工号或密码。");
-            }
-        }
+        // 密码验证通过后，使用员工自身的连接读取身份；读不到时不能冒用输入工号建档。
+        var entry = SearchUser(connection, employeeNo, operation)
+            ?? throw new LdapUnavailableException("LdapAuthenticatedUserNotFound");
+        var identity = ToIdentity(entry, employeeNo);
 
         _logger.LogInformation(
             "OA 用户目录认证通过。EmployeeNo={EmployeeNo}, Provider={Provider}",
             employeeNo, _options.Provider);
         return identity;
-    }
-
-    private LdapConnection ConnectServiceAccount(LdapServerOptions server, LdapOperation operation)
-    {
-        var connection = CreateConnection(server, operation);
-        try
-        {
-            StartTlsIfNeeded(connection, server, operation);
-            operation.ThrowIfExpired();
-            connection.Bind(new NetworkCredential(_options.BindDn, _options.BindPassword));
-            return connection;
-        }
-        catch
-        {
-            connection.Dispose();
-            throw;
-        }
     }
 
     private LdapConnection CreateConnection(LdapServerOptions server, LdapOperation operation)
@@ -216,7 +141,7 @@ public sealed class LdapAuthenticationService : ILdapAuthenticator, ILdapDirecto
         // 输入工号按配置的查询属性匹配；默认跟随工号属性，避免改了工号属性却仍按登录名查询。
         var lookupAttribute = _options.ResolveEmployeeLookupAttribute();
         // 过滤器值按 RFC 4515 转义，不接受客户端提交任意过滤器。
-        var filter = $"(&(objectCategory=Person)(objectClass=user)({lookupAttribute}={EscapeFilterValue(employeeNo)}))";
+        var filter = $"(&(objectCategory=Person)(objectClass=user)(sAMAccountName={EscapeFilterValue(employeeNo)})({lookupAttribute}={EscapeFilterValue(employeeNo)}))";
         var budget = operation.Slice(_options.OperationTimeoutSeconds);
         var request = new SearchRequest(
             _options.BaseDn,
@@ -252,8 +177,7 @@ public sealed class LdapAuthenticationService : ILdapAuthenticator, ILdapDirecto
             throw new LdapAmbiguousResultException($"工号 {employeeNo} 在目录中匹配到多条记录。");
         }
 
-        // 其余异常（包括服务账号被拒的 49）交给上层按依赖故障处理并切换节点：
-        // 这里的 bind 用的是服务账号，不能计入员工密码失败次数。
+        // 此处已经完成密码认证，后续搜索失败按依赖故障处理，不计入密码失败次数。
 
         if (LdapSearchFailure.IsAmbiguous(null, (int)response.ResultCode))
             throw new LdapAmbiguousResultException($"工号 {employeeNo} 在目录中匹配到多条记录。");
@@ -270,6 +194,8 @@ public sealed class LdapAuthenticationService : ILdapAuthenticator, ILdapDirecto
         var account = FirstString(entry, _options.UserNameAttribute);
         if (string.IsNullOrWhiteSpace(account))
             throw new LdapUnavailableException("LdapAccountAttributeMissing");
+        if (!string.Equals(account.Trim(), queriedEmployeeNo.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new LdapUnavailableException("LdapAccountMismatch");
 
         // 不用请求参数冒充目录返回值：工号属性读不到说明配置与目录不一致，
         // 继续拿输入值顶上会让错配看起来像成功。

@@ -27,11 +27,6 @@ namespace ZX.Platform.Identity.Application.Users
         Task BatchDeleteAsync(List<Guid> guids, CancellationToken cancellationToken);
 
         /// <summary>
-        /// 管理员按工号只读查询目录，返回核对信息，不创建用户。
-        /// </summary>
-        Task<LdapUserLookupResultDto> LdapLookupAsync(LdapUserLookupQueryDto query, CancellationToken cancellationToken);
-
-        /// <summary>
         /// 预开通 OA 用户：仅创建待审批记录，或一次完成创建、审批和授权。
         /// </summary>
         Task<LdapUserCreatedDto> CreateLdapAsync(Guid actorId, CreateLdapUserDto input, CancellationToken cancellationToken);

@@ -23,6 +23,7 @@ builder.Services.AddRequestLogging();
 builder.Services.AddApiLocalization();
 builder.Services.AddApiRateLimiting(builder.Configuration);
 builder.Services.AddIdentityAuthentication(builder.Configuration, builder.Environment);
+builder.Services.AddGoFlowSso(builder.Configuration);
 // WriteAsJsonAsync 使用 HTTP JSON 配置，与 MVC 分别设置相同的空值规则。
 builder.Services.ConfigureHttpJsonOptions(options =>
 {

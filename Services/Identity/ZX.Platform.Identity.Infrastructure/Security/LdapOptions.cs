@@ -4,7 +4,7 @@ using ZX.Platform.Identity.Application.Authentication;
 namespace ZX.Platform.Identity.Infrastructure.Security;
 
 /// <summary>
-/// OA / LDAP 目录配置。密钥不写入代码或配置文件模板，由环境变量或密钥挂载注入。
+/// OA / LDAP 目录配置。员工使用自己的 OA 密码认证，不配置独立查询账号。
 /// </summary>
 public sealed class LdapOptions
 {
@@ -28,14 +28,10 @@ public sealed class LdapOptions
     public string BaseDn { get; set; } = string.Empty;
 
     /// <summary>
-    /// 服务账号 bind 名称，例如 user@domain。
+    /// AD 的 NetBIOS 域名。使用 域名\工号 直接认证，默认 LUXSHARE。
     /// </summary>
-    public string BindDn { get; set; } = string.Empty;
-
-    /// <summary>
-    /// 服务账号密码。只从安全配置注入，不记录日志。
-    /// </summary>
-    public string BindPassword { get; set; } = string.Empty;
+    [Required]
+    public string Domain { get; set; } = "LUXSHARE";
 
     /// <summary>
     /// 查询用户使用的属性，通常是 sAMAccountName。
@@ -127,8 +123,11 @@ public sealed class LdapOptions
             throw new InvalidOperationException("AuthenticationLdap:Servers 至少需要配置一个目录节点。");
         if (string.IsNullOrWhiteSpace(BaseDn))
             throw new InvalidOperationException("AuthenticationLdap:BaseDn 不能为空。");
-        if (string.IsNullOrWhiteSpace(BindDn) || string.IsNullOrWhiteSpace(BindPassword))
-            throw new InvalidOperationException("AuthenticationLdap:BindDn / BindPassword 必须由安全配置注入。");
+        if (string.IsNullOrWhiteSpace(Domain) || Domain.Length > 15 ||
+            Domain.Any(character => !char.IsAsciiLetterOrDigit(character) && character != '-'))
+            throw new InvalidOperationException("AuthenticationLdap:Domain 必须是有效的 AD NetBIOS 域名。");
+        if (!string.Equals(UserNameAttribute, "sAMAccountName", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("AuthenticationLdap:UserNameAttribute 必须为 sAMAccountName，与直接认证的登录名一致。");
 
         // 放行任意证书等于放弃 TLS 的身份保证；实施方案明确不允许该配置存在。
         if (!VerifyServerCertificate)

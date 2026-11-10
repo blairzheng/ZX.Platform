@@ -194,27 +194,6 @@ namespace ZX.Platform.Identity.Api.Controllers
         private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
 
         /// <summary>
-        /// 管理员按工号只读查询目录，用于预开通前核对。不接收员工密码、不创建用户。
-        /// </summary>
-        [AiQuery]
-        [HttpGet("ldapLookup")]
-        [Authorize(Policy = IdentityPermissions.UserCreate)]
-        [ProducesResponseType(typeof(ApiResponse<LdapUserLookupResultDto>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> LdapLookupAsync([FromQuery] LdapUserLookupQueryDto query, CancellationToken cancellationToken)
-        {
-            var result = await _userService.LdapLookupAsync(query, cancellationToken);
-            // 个人目录资料不缓存。
-            Response.Headers.CacheControl = "no-store";
-            var response = new ApiResponse<LdapUserLookupResultDto>
-            {
-                Code = 0,
-                Message = _messages[result.Found ? "User.LdapUserFound" : "User.LdapUserNotFound"].Value,
-                Data = result
-            };
-            return StatusCode(StatusCodes.Status200OK, response);
-        }
-
-        /// <summary>
         /// 预开通 OA 用户：仅创建待审批记录，或一次完成创建、审批和授权。
         /// </summary>
         [HttpPost("addLdap")]

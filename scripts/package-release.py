@@ -4,6 +4,7 @@
 import argparse
 from datetime import datetime, timezone
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,10 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
+HISTORY_SPEC = importlib.util.spec_from_file_location(
+    'oracle_history_sql', ROOT / 'deploy/docker/oracle_history_sql.py')
+HISTORY_SQL = importlib.util.module_from_spec(HISTORY_SPEC)
+HISTORY_SPEC.loader.exec_module(HISTORY_SQL)
 EF_OPTIONS = [
     '--context', 'PlatformIdentityDbContext',
     '--project', 'Services/Identity/ZX.Platform.Identity.Infrastructure',
@@ -47,6 +52,23 @@ def parse_migrations(output):
             any(not re.fullmatch(r'[0-9]{14}_[A-Za-z0-9_]+', item) for item in migrations)):
         raise ValueError('迁移列表为空、重复或顺序异常，停止打包。')
     return migrations
+
+
+def parse_model_tables(sql):
+    """Get the exact application-table scope from the offline EF model script."""
+    if not isinstance(sql, str) or not sql.strip():
+        raise ValueError('EF 未返回当前模型建表 SQL，停止生成核对清单。')
+    declarations = re.findall(r'\bCREATE\s+TABLE\s+([^(]+)\(', sql, re.IGNORECASE)
+    if (not declarations or
+            len(declarations) != len(re.findall(r'\bCREATE\s+TABLE\b', sql, re.IGNORECASE))):
+        raise ValueError('当前模型建表 SQL 中没有表，停止生成核对清单。')
+    tables = set()
+    for declaration in declarations:
+        match = re.fullmatch(r'\s*"ZX_IDENTITY"\."([A-Z][A-Z0-9_]{0,127})"\s*', declaration)
+        if match is None:
+            raise ValueError('当前模型包含非预期的 schema 或表标识符，停止生成核对清单。')
+        tables.add(match.group(1))
+    return sorted(tables | {'ZX_IDENTITY_MIGRATIONS'})
 
 
 def validate_inputs(release, from_migration, schema):
@@ -91,12 +113,16 @@ def assistant_sources_metadata():
     frontend_commit = run(['git', '-C', str(frontend), 'rev-parse', 'HEAD'], capture=True).strip()
     if not re.fullmatch(r'[a-f0-9]{40,64}', frontend_commit):
         raise ValueError('无法记录前端源码提交，停止交付发布包。')
+    frontend_dirty = bool(run(
+        ['git', '-C', str(frontend), 'status', '--porcelain', '--untracked-files=normal'],
+        capture=True).strip())
     return {
         'path': 'AI/Knowledge/project-sources.json',
         'sha256': sha256(catalog),
         'exportedAtUtc': payload['exportedAtUtc'],
         'documentCount': len(documents),
         'frontendCommit': frontend_commit,
+        'frontendWorkingTreeDirty': frontend_dirty,
     }
 
 
@@ -111,12 +137,19 @@ def write_upload_script(directory, *, release, digest):
     return path
 
 
-def package_database(directory, *, release, from_migration, schema, migrations, commit):
+def package_database(directory, *, release, from_migration, schema, migrations, commit,
+                     working_tree_dirty=False):
     pending = select_pending(migrations, from_migration)
     target = migrations[-1]
+    model_tables = parse_model_tables(ef('dbcontext', 'script', capture=True))
+    table_names = ', '.join(f"'{name}'" for name in model_tables)
     directory.mkdir()
     sql_path = directory / 'upgrade.sql'
+    compatibility_path = directory / 'history-compatibility.sql'
     if pending:
+        compatibility_path.write_text(
+            'WHENEVER SQLERROR EXIT SQL.SQLCODE\nSET DEFINE OFF\n\n' +
+            HISTORY_SQL.history_compatibility_sql(schema, from_migration), encoding='utf-8')
         generated = directory / 'upgrade.generated.sql'
         ef('migrations', 'script', from_migration, target, '--output', str(generated))
         run([
@@ -137,23 +170,36 @@ def package_database(directory, *, release, from_migration, schema, migrations, 
     metadata = {
         'release': release,
         'commit': commit,
+        'workingTreeDirty': working_tree_dirty,
         'schema': schema,
         'fromMigration': from_migration,
         'toMigration': target,
         'requiresDatabaseUpgrade': bool(pending),
         'pendingMigrations': pending,
         'upgradeSqlSha256': sha256(sql_path) if pending else None,
+        'historyCompatibilitySqlSha256': sha256(compatibility_path) if pending else None,
     }
     (directory / 'database.json').write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     (directory / 'verify.sql').write_text(
-        f'SELECT "MigrationId", "ProductVersion"\n'
+        f'SELECT "MIGRATION_ID", "PRODUCT_VERSION", "CREATE_TIME"\n'
         f'FROM "{schema}"."ZX_IDENTITY_MIGRATIONS"\n'
-        'ORDER BY "MigrationId";\n', encoding='utf-8')
+        'ORDER BY "MIGRATION_ID";\n\n'
+        '-- Both following queries should return no rows after the DBA conventions migration.\n'
+        'SELECT c.TABLE_NAME, c.COLUMN_NAME\nFROM ALL_TAB_COLUMNS c\n'
+        f"WHERE c.OWNER = '{schema}' AND c.TABLE_NAME IN ({table_names})\n"
+        '  AND c.COLUMN_NAME <> UPPER(c.COLUMN_NAME);\n\n'
+        'SELECT t.TABLE_NAME\nFROM ALL_TABLES t\n'
+        f"WHERE t.OWNER = '{schema}' AND t.TABLE_NAME IN ({table_names})\n"
+        '  AND NOT EXISTS (SELECT 1 FROM ALL_TAB_COLUMNS c\n'
+        '    WHERE c.OWNER = t.OWNER AND c.TABLE_NAME = t.TABLE_NAME\n'
+        "      AND c.COLUMN_NAME = 'CREATE_TIME' AND c.DATA_TYPE = 'DATE' AND c.NULLABLE = 'N');\n",
+        encoding='utf-8')
     migration_list = '\n'.join(f'- `{item}`' for item in pending) or '- 无，本次不升级数据库。'
     (directory / 'README.md').write_text(
         f'# 数据库交付：{release}\n\n'
         f'- 源码提交：`{commit}`\n- 目标 schema：`{schema}`\n'
+        f'- 包含未提交后端修改：{"是" if working_tree_dirty else "否"}\n'
         f'- 起点：`{from_migration}`\n- 终点：`{target}`\n\n'
         f'## 本次迁移\n\n{migration_list}\n\n'
         '## 执行顺序\n\n'
@@ -161,9 +207,15 @@ def package_database(directory, *, release, from_migration, schema, migrations, 
         '2. 审核 upgrade.sql 的改表与数据影响，安排停写、排空请求后执行。'
         '若只有 NO_DATABASE_CHANGE.txt，则不执行数据库升级。\n'
         '3. 有升级时，在支持 SQL*Plus/SQLcl 指令的客户端中执行完整 upgrade.sql；'
-        '脚本已包含历史版本写入，不手工补版本。\n'
+        '脚本先核对起点版本，再兼容旧历史列名并补历史表 CREATE_TIME，随后执行迁移及历史版本写入，不手工补版本。'
+        '完整 upgrade.sql 已内嵌历史兼容步骤，不需要另外执行 history-compatibility.sql。\n'
         '4. 执行 verify.sql，核对历史及变更对象；应用账号与表 owner 不同时，核对新对象访问权限。\n'
         '5. DBA 确认成功后，部署同版本镜像。\n\n'
+        'history-compatibility.sql 仅供需要单独使用新版 EF 更新已有库时，先由负责人/DBA执行一次；'
+        '它只转换历史表列名和补 CREATE_TIME，不代替业务表迁移。已完成转换且仍处于起点版本时可以重复执行；'
+        '版本不符或列结构异常会在首条 DDL 前停止。\n\n'
+        '所有 CREATE_TIME 均为数据库 DATE DEFAULT SYSDATE；现有记录新增此列时记录迁移执行时间，'
+        '不等于原始业务创建时间。业务原有 UTC 审计字段继续保留。\n\n'
         'Oracle DDL 隐式提交；失败可能留下部分变更，停止并检查现场，不直接重跑。'
         '此包不包含自动回退 SQL；应用回滚不等于数据库回滚。\n', encoding='utf-8')
     return metadata
@@ -173,7 +225,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--release', required=True)
     parser.add_argument('--from-migration', required=True)
-    parser.add_argument('--schema', default='SAJET')
+    parser.add_argument('--schema', default='ZX_IDENTITY')
     parser.add_argument('--database-only', action='store_true',
                         help='只导出数据库包，供本机离线检查，不构建 Docker 镜像。')
     args = parser.parse_args()
@@ -186,6 +238,8 @@ def main():
     migrations = parse_migrations(ef('migrations', 'list', '--no-connect', '--json', capture=True))
     select_pending(migrations, from_migration)
     commit = run(['git', 'rev-parse', 'HEAD'], capture=True).strip()
+    working_tree_dirty = bool(run(
+        ['git', 'status', '--porcelain', '--untracked-files=normal'], capture=True).strip())
     directory = ROOT / 'output/mom-release' / args.release
     directory.parent.mkdir(parents=True, exist_ok=True)
     directory.mkdir()  # Never overwrite a previously generated release.
@@ -193,7 +247,7 @@ def main():
     database_dir = directory / 'database'
     database = package_database(
         database_dir, release=args.release, from_migration=from_migration,
-        schema=schema, migrations=migrations, commit=commit)
+        schema=schema, migrations=migrations, commit=commit, working_tree_dirty=working_tree_dirty)
     database_archive = directory / f'mom-database-{args.release}.zip'
     with zipfile.ZipFile(database_archive, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(database_dir.iterdir()):
@@ -218,6 +272,7 @@ def main():
     metadata = {
         'release': args.release,
         'commit': commit,
+        'workingTreeDirty': working_tree_dirty,
         'createdAtUtc': datetime.now(timezone.utc).isoformat(),
         'database': database,
         'databasePackage': {'file': database_archive.name, 'sha256': database_digest},
@@ -229,6 +284,8 @@ def main():
     database_state = '需 DBA 执行升级 SQL' if database['requiresDatabaseUpgrade'] else '无数据库变更'
     instructions = (
         f'# 后端发布包：{args.release}\n\n源码提交：`{commit}`\n\n'
+        f'包含未提交后端修改：{"是" if working_tree_dirty else "否"}；'
+        'commit 表示工作区基线，存在未提交修改时不能仅凭 commit 复现此包。\n\n'
         f'数据库状态：**{database_state}**。'
         f'起点 `{from_migration}` → 终点 `{database["toMigration"]}`，schema `{schema}`。\n\n'
         f'将 `{database_archive.name}` 交给 DBA，操作说明在包内 README.md。'
@@ -239,8 +296,8 @@ def main():
             f'前端源码提交 `{assistant_sources["frontendCommit"]}`。'
             '资料已包含在 Identity 镜像中，无需另行生成或上传；详情和摘要记录在 release.json。\n\n'
             '## 上传内网镜像包\n\n'
-            '下载完整的 Actions 发布包 ZIP，并传入能访问公司 GitLab 的机器。'
-            '解压外层 ZIP，保留文件在同一目录；镜像 tar.gz 不再解压。'
+            '本地生成时直接使用此目录；从 Actions 下载时，先解压发布包外层 ZIP。'
+            '若需传到内网，复制完整目录，保留文件在同一目录；镜像 tar.gz 不再解压。'
             '在该目录执行：\n\n'
             '```bash\nbash upload.sh\n```\n\n'
             f'脚本自动定位同目录的 `{images["file"]}`，核对 SHA256 后提示输入 Deploy Token，'

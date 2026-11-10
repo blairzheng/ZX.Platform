@@ -40,7 +40,9 @@ internal static class LdapChecks
         await GuardRepairsKeyWithoutExpiryAsync();
         SearchFailuresAreClassified();
         await DependencyFailuresAreControlledAsync();
-        await LookupReportsDirectoryStateAsync();
+        await ProvisionWorksWithoutDirectoryAsync();
+        await ProvisionedIdentityRequiresPasswordAndCannotBeReboundAsync();
+        await UnavailableProvisionedAccountsStayUnboundAsync();
         Console.WriteLine("LDAP 账号开通检查通过。");
     }
 
@@ -269,11 +271,22 @@ internal static class LdapChecks
         }, default);
 
         Check.That(created.ApprovalStatus == UserApprovalStatus.Approved && created.IsEnabled, "一次创建应直接开通。");
-        Check.That(fixture.Users.Items.Single(item => item.Id == created.Id).PasswordHash is null, "预开通不能生成密码。");
+        var provisioned = fixture.Users.Items.Single(item => item.Id == created.Id);
+        Check.That(provisioned.PasswordHash is null, "预开通不能生成密码。");
+        Check.That(provisioned.LdapProvider is null && provisioned.LdapSubject is null,
+            "预开通不得伪造目录来源和身份。");
+        var version = provisioned.SecurityVersion;
 
         var login = await fixture.Auth.LdapLoginAsync(Login(), default);
         Check.That(login.Status == LdapLoginStatus.Authenticated, "预开通用户首次登录应直接进入。");
-        Check.That(SingleLdapUser(fixture).Id == created.Id, "预开通与首次登录必须使用同一个 UserId。");
+        Check.That(SingleLdapUser(fixture).Id == created.Id && !login.Created,
+            "预开通与首次登录必须使用同一个 UserId，不新建账号。");
+        Check.That(provisioned.LdapSubject == fixture.Ldap.Entries[0].Subject &&
+            provisioned.DisplayName == "张三" && provisioned.SecurityVersion == version + 1,
+            "首次认证后补齐身份与姓名，并更新安全版本。");
+        Check.That((await fixture.Roles.GetUserRolesAsync(created.Id, default)).Any(item => item.RoleId == role.Id) &&
+            (await fixture.UserSbus.GetByUserIdAsync(created.Id, default)).Any(item => item.SbuId == sbu.Id),
+            "首次身份绑定必须保留预先分配的角色和 SBU。");
 
         // 仅创建待审批时不能同时授权。
         await Check.ErrorAsync(() => fixture.UserService.CreateLdapAsync(fixture.User.Id, new CreateLdapUserDto
@@ -620,22 +633,68 @@ internal static class LdapChecks
         Check.That(fixture.Ldap.AuthenticateCalls == calls, "空密码不应调用目录。");
     }
 
-    private static async Task LookupReportsDirectoryStateAsync()
+    private static async Task ProvisionWorksWithoutDirectoryAsync()
     {
-        using var fixture = CreateFixture(status: LdapDirectoryStatus.Disabled);
+        using var fixture = CreateFixture();
+        fixture.Ldap.IsEnabled = false;
+        fixture.Ldap.Unavailable = true;
+        fixture.Ldap.Entries.Clear();
+        var created = await fixture.UserService.CreateLdapAsync(fixture.User.Id,
+            new CreateLdapUserDto { EmployeeNo = EmployeeNo }, default);
+        var user = SingleLdapUser(fixture);
+        Check.That(user.Id == created.Id && user.DisplayName == EmployeeNo &&
+            user.LdapProvider is null && user.LdapSubject is null && fixture.Ldap.AuthenticateCalls == 0,
+            "LDAP 关闭、故障或工号不存在时，预开通都不应访问目录或伪造身份。");
+        await Check.ErrorAsync(() => fixture.UserService.CreateLdapAsync(fixture.User.Id,
+            new CreateLdapUserDto { EmployeeNo = EmployeeNo }, default), ErrorCodes.Conflict);
+    }
 
-        var disabled = await fixture.UserService.LdapLookupAsync(new LdapUserLookupQueryDto { EmployeeNo = EmployeeNo }, default);
-        Check.That(disabled.Found && !disabled.CanProvision, "目录禁用账号不能开通。");
-        Check.That(disabled.Reason == LdapProvisionReasons.DirectoryDisabled, "应返回目录禁用原因。");
+    private static async Task ProvisionedIdentityRequiresPasswordAndCannotBeReboundAsync()
+    {
+        using var fixture = CreateFixture();
+        await fixture.UserService.CreateLdapAsync(fixture.User.Id,
+            new CreateLdapUserDto { EmployeeNo = EmployeeNo }, default);
+        var user = SingleLdapUser(fixture);
+        var version = user.SecurityVersion;
+        await Check.ErrorAsync(() => fixture.Auth.LdapLoginAsync(
+            new LdapLoginDto { EmployeeNo = EmployeeNo, Password = "wrong" }, default), ErrorCodes.Unauthorized);
+        Check.That(user.LdapProvider is null && user.LdapSubject is null && user.SecurityVersion == version,
+            "知道预开通工号但密码错误，不能绑定身份。");
 
-        var missing = await fixture.UserService.LdapLookupAsync(new LdapUserLookupQueryDto { EmployeeNo = "99999" }, default);
-        Check.That(!missing.Found && missing.Reason == LdapProvisionReasons.LdapUserNotFound, "工号不存在应明确返回未找到。");
-        Check.That(fixture.Users.Items.Count == 1, "查询不能创建用户。");
+        await fixture.Auth.LdapLoginAsync(Login(), default);
+        var subject = user.LdapSubject;
+        fixture.Ldap.Entries[0] = fixture.Ldap.Entries[0] with { Subject = Guid.NewGuid().ToString("D") };
+        await Check.ErrorAsync(() => fixture.Auth.LdapLoginAsync(Login(), default), ErrorCodes.Conflict);
+        Check.That(user.LdapSubject == subject, "同工号的另一目录身份不能覆盖已有绑定。");
+    }
 
-        fixture.Ldap.Ambiguous = true;
-        var ambiguous = await CaptureAsync(() =>
-            fixture.UserService.LdapLookupAsync(new LdapUserLookupQueryDto { EmployeeNo = EmployeeNo }, default));
-        Check.That(ambiguous is BusinessException { Code: ErrorCodes.ServiceUnavailable }, "多条目录结果应返回依赖故障。");
+    private static async Task UnavailableProvisionedAccountsStayUnboundAsync()
+    {
+        foreach (var state in new[] { "disabled", "rejected", "deleted", "locked", "directory-disabled", "directory-unknown" })
+        {
+            using var fixture = CreateFixture();
+            await fixture.UserService.CreateLdapAsync(fixture.User.Id,
+                new CreateLdapUserDto { EmployeeNo = EmployeeNo }, default);
+            var user = SingleLdapUser(fixture);
+            switch (state)
+            {
+                case "disabled": user.Disable(); break;
+                case "rejected": user.RejectLdap(fixture.User.Id, fixture.Clock.GetUtcNow(), null); break;
+                case "deleted": user.MarkDeleted(); break;
+                case "locked": user.RecordLoginFailure(fixture.Clock.GetUtcNow(), 1, TimeSpan.FromMinutes(15)); break;
+                case "directory-disabled":
+                    fixture.Ldap.Entries[0] = fixture.Ldap.Entries[0] with { Status = LdapDirectoryStatus.Disabled };
+                    break;
+                case "directory-unknown":
+                    fixture.Ldap.Entries[0] = fixture.Ldap.Entries[0] with { Status = LdapDirectoryStatus.Unknown };
+                    break;
+            }
+            var version = user.SecurityVersion;
+            await Check.ErrorAsync(() => fixture.Auth.LdapLoginAsync(Login(), default),
+                state == "directory-unknown" ? ErrorCodes.ServiceUnavailable : ErrorCodes.Forbidden);
+            Check.That(user.LdapProvider is null && user.LdapSubject is null && user.SecurityVersion == version,
+                "不可用状态的预开通账号不得因 OA 认证而绑定或恢复。");
+        }
     }
 
     private static Fixture CreateFixture(

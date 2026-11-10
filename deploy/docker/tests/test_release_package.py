@@ -21,9 +21,24 @@ PACKAGE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PACKAGE)
 BASE = '20261102150741_WidenApprovalAuditSnapshot'
 TARGET = '20261103090000_AllowPendingLdapLogin'
+MODEL_SQL = 'CREATE TABLE "ZX_IDENTITY"."ZX_IDENTITY_USER" ("ID" RAW(16) NOT NULL);\n'
 
 
 class ReleasePackageChecks(unittest.TestCase):
+    def test_model_table_scope_is_exact_and_includes_future_business_tables(self):
+        tables = PACKAGE.parse_model_tables(
+            MODEL_SQL + MODEL_SQL +
+            'CREATE TABLE "ZX_IDENTITY"."EQUIPMENT_INSPECTION" ("ID" RAW(16) NOT NULL);\n')
+        self.assertEqual(tables, ['EQUIPMENT_INSPECTION', 'ZX_IDENTITY_MIGRATIONS', 'ZX_IDENTITY_USER'])
+
+    def test_model_table_scope_rejects_missing_or_unexpected_identifiers(self):
+        for sql in (None, '', 'SELECT 1 FROM DUAL;',
+                    'CREATE TABLE "SAJET"."ZX_IDENTITY_USER" ("ID" RAW(16));',
+                    'CREATE TABLE "ZX_IDENTITY"."MixedCase" ("ID" RAW(16));',
+                    MODEL_SQL + 'CREATE TABLE "ZX_IDENTITY"."BAD;NAME" ("ID" RAW(16));'):
+            with self.subTest(sql=sql), self.assertRaises(ValueError):
+                PACKAGE.parse_model_tables(sql)
+
     def test_rejects_unknown_or_newer_production_version(self):
         for migration in ('20261102111111_Unknown', '20990101000000_Future'):
             with self.subTest(migration=migration), self.assertRaises(ValueError):
@@ -40,7 +55,8 @@ class ReleasePackageChecks(unittest.TestCase):
                 PACKAGE.validate_inputs(release, migration, schema)
 
     def test_same_version_produces_no_upgrade_script(self):
-        with tempfile.TemporaryDirectory() as temporary, patch.object(PACKAGE, 'ef') as ef:
+        model = MODEL_SQL + 'CREATE TABLE "ZX_IDENTITY"."EQUIPMENT_INSPECTION" ("ID" RAW(16));\n'
+        with tempfile.TemporaryDirectory() as temporary, patch.object(PACKAGE, 'ef', return_value=model) as ef:
             directory = Path(temporary) / 'database'
             metadata = PACKAGE.package_database(
                 directory, release='test-release', from_migration=TARGET,
@@ -48,13 +64,24 @@ class ReleasePackageChecks(unittest.TestCase):
             self.assertFalse(metadata['requiresDatabaseUpgrade'])
             self.assertFalse((directory / 'upgrade.sql').exists())
             self.assertTrue((directory / 'NO_DATABASE_CHANGE.txt').exists())
-            ef.assert_not_called()
+            self.assertIn('"MIGRATION_ID", "PRODUCT_VERSION", "CREATE_TIME"',
+                          (directory / 'verify.sql').read_text())
+            self.assertIsNone(metadata['historyCompatibilitySqlSha256'])
+            verify = (directory / 'verify.sql').read_text()
+            self.assertIn("c.TABLE_NAME IN ('EQUIPMENT_INSPECTION', 'ZX_IDENTITY_MIGRATIONS', 'ZX_IDENTITY_USER')", verify)
+            self.assertIn("t.TABLE_NAME IN ('EQUIPMENT_INSPECTION', 'ZX_IDENTITY_MIGRATIONS', 'ZX_IDENTITY_USER')", verify)
+            self.assertNotIn('SUBSTR(', verify)
+            self.assertNotIn('ZX_IDENTITY_USER_BAK', verify)
+            ef.assert_called_once_with('dbcontext', 'script', capture=True)
 
     def test_upgrade_delivers_only_target_schema_with_version_guard(self):
         def generate_sql(*args, **kwargs):
+            if args[:2] == ('dbcontext', 'script'):
+                return MODEL_SQL
             path = Path(args[args.index('--output') + 1])
             path.write_text(
                 'ALTER TABLE "ZX_IDENTITY"."ZX_IDENTITY_USER" ADD "EXAMPLE" NUMBER\n/\n'
+                'CREATE INDEX "ZX_IDENTITY"."IX_EXAMPLE" ON "ZX_IDENTITY"."ZX_IDENTITY_USER" ("EXAMPLE")\n/\n'
                 'INSERT INTO "ZX_IDENTITY"."ZX_IDENTITY_MIGRATIONS" '
                 f'("MigrationId", "ProductVersion") VALUES (N\'{TARGET}\', N\'10.0.12\')\n/\n',
                 encoding='utf-8')
@@ -68,7 +95,15 @@ class ReleasePackageChecks(unittest.TestCase):
             self.assertIn('WHENEVER SQLERROR EXIT SQL.SQLCODE', sql)
             self.assertIn('SET DEFINE OFF', sql)
             self.assertIn('"SAJET"."ZX_IDENTITY_USER"', sql)
+            self.assertIn('CREATE INDEX "SAJET"."IX_EXAMPLE" ON "SAJET"."ZX_IDENTITY_USER"', sql)
             self.assertNotIn('"ZX_IDENTITY".', sql)
+            self.assertIn('("MIGRATION_ID", "PRODUCT_VERSION") VALUES', sql)
+            self.assertLess(sql.index('-- Identity history compatibility'), sql.index('-- MOM Oracle'))
+            compatibility = (directory / 'history-compatibility.sql').read_text()
+            self.assertIn('RENAME COLUMN "MigrationId" TO "MIGRATION_ID"', compatibility)
+            self.assertIn('"CREATE_TIME" DATE DEFAULT SYSDATE NOT NULL', compatibility)
+            self.assertEqual(metadata['historyCompatibilitySqlSha256'],
+                             PACKAGE.sha256(directory / 'history-compatibility.sql'))
             self.assertIn(f"v_last <> '{BASE}'", sql)
             self.assertIn(f"N'{TARGET}'", sql)
             self.assertFalse((directory / 'upgrade.generated.sql').exists())
@@ -88,11 +123,15 @@ class ReleasePackageChecks(unittest.TestCase):
             def offline_ef(*args, **kwargs):
                 if args[:2] == ('migrations', 'list'):
                     return json.dumps([{'id': BASE}, {'id': TARGET}])
+                if args[:2] == ('dbcontext', 'script'):
+                    return MODEL_SQL
                 return None
 
             def offline_run(command, **kwargs):
                 if command == ['git', 'rev-parse', 'HEAD']:
                     return 'abc123\n'
+                if command == ['git', 'status', '--porcelain', '--untracked-files=normal']:
+                    return ' M sample.cs\n'
                 self.assertEqual(command, ['bash', 'scripts/publish-images.sh', '--package-only', release])
                 archive = root / 'output' / image_name
                 archive.write_bytes(b'test archive bytes')
@@ -113,6 +152,8 @@ class ReleasePackageChecks(unittest.TestCase):
             metadata = json.loads((directory / 'release.json').read_text())
             assistant_sources.assert_called_once_with()
             self.assertEqual(metadata['assistantSources']['frontendCommit'], 'a' * 40)
+            self.assertTrue(metadata['workingTreeDirty'])
+            self.assertTrue(metadata['database']['workingTreeDirty'])
             self.assertEqual(metadata['images']['sha256'], PACKAGE.sha256(directory / image_name))
             self.assertTrue((directory / 'upload.sh').is_file())
             self.assertIn(f'MOM_PACKAGE_SHA256={metadata["images"]["sha256"]}',
@@ -129,11 +170,13 @@ class ReleasePackageChecks(unittest.TestCase):
             def offline_ef(*args, **kwargs):
                 if args[:2] == ('migrations', 'list'):
                     return json.dumps([{'id': BASE}, {'id': TARGET}])
+                if args[:2] == ('dbcontext', 'script'):
+                    return MODEL_SQL
                 return None
 
             with patch.object(PACKAGE, 'ROOT', root), \
                     patch.object(PACKAGE, 'ef', offline_ef), \
-                    patch.object(PACKAGE, 'run', return_value='abc123\n') as run, \
+                    patch.object(PACKAGE, 'run', side_effect=['abc123\n', '']) as run, \
                     patch.dict(PACKAGE.os.environ, {'GITHUB_STEP_SUMMARY': ''}), \
                     patch.object(PACKAGE.sys, 'argv', ['package-release.py', '--release', 'database-only',
                                                       '--from-migration', TARGET, '--database-only']):
@@ -143,8 +186,14 @@ class ReleasePackageChecks(unittest.TestCase):
             metadata = json.loads((directory / 'release.json').read_text())
             self.assertIsNone(metadata['images'])
             self.assertIsNone(metadata['assistantSources'])
+            self.assertEqual(metadata['database']['schema'], 'ZX_IDENTITY')
+            self.assertFalse(metadata['workingTreeDirty'])
+            self.assertFalse(metadata['database']['workingTreeDirty'])
             self.assertFalse((directory / 'upload.sh').exists())
-            run.assert_called_once_with(['git', 'rev-parse', 'HEAD'], capture=True)
+            self.assertEqual(run.call_count, 2)
+            self.assertEqual(run.call_args_list[0].args[0], ['git', 'rev-parse', 'HEAD'])
+            self.assertEqual(run.call_args_list[1].args[0],
+                             ['git', 'status', '--porcelain', '--untracked-files=normal'])
 
 
 class StandaloneUploadChecks(unittest.TestCase):

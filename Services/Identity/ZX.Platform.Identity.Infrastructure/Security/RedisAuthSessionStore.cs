@@ -58,6 +58,13 @@ public sealed class RedisAuthSessionStore(
             session.AccessId == tokenId && session.AccessExpiresAtUtc > now && session.ExpiresAtUtc > now;
     }
 
+    public async Task<bool> IsSessionActiveAsync(Guid userId, Guid sessionId, string credentialStamp, CancellationToken cancellationToken)
+    {
+        var (_, session) = await ReadSessionAsync(SessionKey(userId), cancellationToken);
+        return session is not null && session.SessionId == sessionId &&
+            session.CredentialStamp == credentialStamp && session.ExpiresAtUtc > timeProvider.GetUtcNow();
+    }
+
     public async Task<SessionIdentity?> FindByRefreshTokenAsync(string token, CancellationToken cancellationToken)
     {
         if (!TryReadRefreshToken(token, out var userId, out var sessionId)) return null;

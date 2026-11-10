@@ -22,7 +22,9 @@ Identity.Api 的本机 User Secrets 继续使用以下配置；已有模型配�
 | `AI:MaxModelRounds` | 每次聊天最多模型调用次数，2～6；最后一次要求直接回答 | 5 |
 | `AI:MaxToolResultBytes` | 单次工具结果的 UTF-8 字节上限，4096～131072 | 65536 |
 
-模型服务必须支持 Chat Completions 的 `tools`、`tool_choice` 和 `tool_calls`。本次代码没有调用真实模型验证部署兼容性。若服务拒绝请求，界面会提示管理员检查 GPUStack 的工具调用和上下文配置，不会退回无依据的固定回答。普通请求仍是非流式，完整回答生成后显示。
+模型服务必须支持 Chat Completions 的 `tools`、`tool_choice` 和 `tool_calls`。本次代码没有调用真实模型验证部署兼容性。若服务返回 HTTP 400，界面说明模型未接受本次请求，提示管理员检查消息格式、工具调用及上下文配置；400 本身不能确定是工具能力缺失，不会退回无依据的固定回答。普通请求仍是非流式，完整回答生成后显示。
+
+系统指令始终只有开头一条 `system` 消息。达到模型轮数或工具次数预算时，将收尾提示合并到首条系统消息，保留已取得的工具调用和结果顺序，并使用 `tool_choice=none` 要求直接回答。Qwen3.8 的官方聊天模板会拒绝中途出现的 `system`，因此不能在工具结果之后另加系统消息。此次兼容调整仅做静态核对，未调用内部模型验证；切换模型后仍需验证普通回答、工具查询及达到预算的收尾轮次。
 
 本机配置沿用 `docs/01-start.md` 的 User Secrets 导入方法。服务器对应环境变量为 `AI__BaseUrl`、`AI__Model`、`AI__ApiKey`，以及可选的同名双下划线配置项。配置更新后重启 Identity。模型未配置只影响 AI 请求，不阻止其他功能启动。
 
@@ -34,15 +36,17 @@ Identity.Api 的本机 User Secrets 继续使用以下配置；已有模型配�
 
 本地打包默认从后端仓库相邻的 `ZX.front.vue` 读取前端源码；目录布局不同时，在打包机器配置环境变量 `MOM_ASSISTANT_FRONTEND_DIR` 为前端仓库绝对路径。正常发布继续使用原来的打包命令，不需要额外运行导出命令。
 
-GitHub 的“生成后端发布包”工作流会同时获取前后端源码，前端默认读取 `blairzheng/ZX.front.vue` 的 `main`。仓库位置不同时，一次配置仓库变量 `MOM_FRONTEND_REPOSITORY`；跨私有仓库访问时，一次配置具有目标仓库只读权限的 secret `MOM_FRONTEND_READ_TOKEN`。工作流的可选输入 `frontend_ref` 默认为 `main`，需要与特定前端版本配套时可填写对应 tag 或完整提交 SHA。每次运行会使用实际检出的前端提交生成资料；`release.json` 的 `assistantSources` 记录前端提交、资料包 SHA256、文件数和导出时间，便于核对本次资料来源。
+GitHub 的“生成后端发布包”工作流会同时获取前后端源码。运行时将 **Use workflow from** 选择为 `team`，前端默认读取 `blairzheng/ZX.front.vue` 的 `team`。仓库位置不同时，一次配置仓库变量 `MOM_FRONTEND_REPOSITORY`；跨私有仓库访问时，一次配置具有目标仓库只读权限的 secret `MOM_FRONTEND_READ_TOKEN`。工作流的可选输入 `frontend_ref` 默认为 `team`，需要与特定前端版本配套时可填写对应 tag 或完整提交 SHA；若页面沿用默认分支旧工作流的 `main` 输入值，运行前手动改为 `team` 或对应提交。每次运行会使用实际检出的前端提交生成资料；`release.json` 的 `assistantSources` 记录前端提交、资料包 SHA256、文件数和导出时间，便于核对本次资料来源。
 
-快照仍位于 `Services/Identity/ZX.Platform.Identity.Api/AI/Knowledge/project-sources.json`，记录导出时间、项目相对路径、完整行文本和文本 SHA256。API 项目将其复制到编译输出及发布目录，随 Identity 镜像一起部署；它不在 `wwwroot`，没有直接下载或任意文件读取接口。
+快照仍位于 `Services/Identity/ZX.Platform.Identity.Api/AI/Knowledge/project-sources.json`，记录导出时间、项目相对路径、完整行文本和文本 SHA256。该 JSON 是自动生成的构建产物，已加入 `.gitignore`，不纳入版本控制；源码和导出脚本继续提交，资料来源通过发布包的 `release.json` 核对。取消跟踪不删除本机已有文件，后续重新生成也不会产生 Git 改动。
+
+API 项目将生成的 JSON 复制到编译输出及发布目录，随 Identity 镜像一起部署；它不在 `wwwroot`，没有直接下载或任意文件读取接口。Git 忽略规则不影响 Docker 构建上下文，现有 `.dockerignore` 保留此文件；正常后端打包在构建镜像前生成它，因此全新检出也能通过同一流程带入镜像。
 
 导出范围包括已登记的真实业务页面及组件、业务 API、界面词条、业务 Service/DTO、实体和业务 Controller。新增页面按现有 `menuPages.ts` 注册后，下次后端打包时自动纳入。AI 自身、演示页面、配置、User Secrets、认证实现、数据库连接、基础设施、发布脚本、日志、依赖和构建目录均排除；符号链接和越界路径拒绝处理，常见敏感字面量会脱敏。
 
-运行时只读取随版本发布的快照，模型不能指定任意服务器文件路径，也不会在运行服务器上扫描源码。当前实现按进程缓存快照，部署新的 Identity 镜像并重启后使用新资料。前端单独发布不会更新已部署后端里的快照；新增前端业务需要 AI 同步了解时，应使用配套前端提交重新生成并发布后端包。当前保留的本地源码包包含 111 个业务文件。缺失或校验失败会向模型返回资料不可用，不把空结果当作系统没有功能。
+运行时只读取随版本发布的快照，模型不能指定任意服务器文件路径，也不会在运行服务器上扫描源码。当前实现按进程缓存快照，部署新的 Identity 镜像并重启后使用新资料。前端单独发布不会更新已部署后端里的快照；新增前端业务需要 AI 同步了解时，应使用配套前端提交重新生成并发布后端包。文件数以实际导出结果及 `release.json` 为准。缺失或校验失败会向模型返回资料不可用，不把空结果当作系统没有功能。
 
-直接执行裸 `dotnet publish` 或 `docker build` 不经过上述发布脚本，不会自动更新快照。本地调试或排查资料内容时，才需要在后端根目录单独执行以下命令；前端目录不相邻时可加 `--frontend /前端仓库绝对路径`：
+全新检出的仓库不包含该 JSON。直接执行裸 `dotnet build`、`dotnet publish` 或 `docker build` 不经过上述发布脚本，不会自动生成或更新快照。本地需要调试 AI 源码检索或排查资料内容时，在后端根目录单独执行以下命令；前端目录不相邻时可加 `--frontend /前端仓库绝对路径`。生成或更新后重启 Identity，使进程加载新资料：
 
 ```bash
 python3 scripts/export-assistant-sources.py
@@ -87,14 +91,13 @@ python3 scripts/export-assistant-sources.py
 
 ## 当前已接入的查询
 
-现有 Identity 服务的 16 个受保护只读 GET 已全部标记。模型只能发现和执行当前账号原本有权访问的条目；开放查询不增加角色授权，也不改变业务数据范围。
+现有 Identity 服务的 15 个受保护只读 GET 已全部标记。模型只能发现和执行当前账号原本有权访问的条目；开放查询不增加角色授权，也不改变业务数据范围。
 
 | 查询 ID | 原 GET 路径 | 原权限 / 范围 | 返回形状 |
 | --- | --- | --- | --- |
 | `Auth.GetCurrentUser` | `/api/Auth/me` | 当前登录账号本人 | 资料详情，含本人角色、权限、SBU 和菜单 |
 | `Users.GetById` | `/api/Users/getUser` | `identity.user.read` | 用户详情，参数 `id` |
 | `Users.GetPageList` | `/api/Users/getUserList` | `identity.user.read` | `{list,total}`，沿用原筛选和分页参数 |
-| `Users.LdapLookup` | `/api/Users/ldapLookup` | `identity.user.create` | 按原工号参数只读查询目录，不预开通用户 |
 | `Roles.GetAll` | `/api/Roles/getRoleList` | `identity.role.read` | 完整角色列表，含角色权限码 |
 | `Roles.GetOptions` | `/api/Roles/options` | `identity.user.roles` | 完整角色选项列表 |
 | `Roles.GetPermissions` | `/api/Roles/permissions` | `identity.role.permissions` | 系统权限定义列表 |
@@ -108,7 +111,7 @@ python3 scripts/export-assistant-sources.py
 | `Sbus.GetAllEnabledSbus` | `/api/Sbus/getAllEnabledSbus` | 原 `PermissionPolicies.SbuOptions` | 完整启用选项列表，不等于本人 SBU 分配 |
 | `InventoryStocktake.GetList` | `/api/InventoryStocktake/list` | `inventory.stocktake.read` | 原全局盘点 `{list,total}` |
 
-登录、刷新令牌、退出、改密、创建、修改、删除、审批、授权和状态变更均未标记；Identity 和 Gateway 的匿名天气演示接口也不纳入业务查询。LDAP 查询和当前账号资料不返回密码哈希、Token、Cookie 或会话标识。用户详情、审批说明、工号及目录资料仍受原接口权限约束，不因此向所有聊天账号开放。
+登录、刷新令牌、退出、改密、创建、修改、删除、审批、授权和状态变更均未标记；Identity 和 Gateway 的匿名天气演示接口也不纳入业务查询。管理员预开通不再查询 LDAP，原目录预览接口已移除。当前账号资料不返回密码哈希、Token、Cookie 或会话标识。用户详情、审批说明及工号仍受原接口权限约束，不因此向所有聊天账号开放。
 
 权限定义、授权选项树、角色的 `permissionCodes` 不是当前账号的实际权限。判断本账号权限优先使用 `get_my_permissions`。管理菜单树不是当前账号实际可见菜单，启用 SBU 选项也不是本人已分配 SBU；本人资料应使用 `Auth.GetCurrentUser`。目录声明的 `id`、`userId`、管理筛选 `sbuId` 只表示原接口允许的业务查询对象，不能替换调用者或改写已验证的请求 SBU。
 
@@ -192,7 +195,7 @@ public async Task<IActionResult> ListAsync(
 
 成功返回现有 `ApiResponse`，`data` 包含 `reply`、`model`、`isTruncated` 和 `sources: [{ path, startLine }]`。`sources` 保留真实检索来源元数据，当前前端不展示该字段，也不打开服务器文件；答复正文按业务表达规则生成。模型 Key、完整源码和中间推理不会作为额外字段返回。
 
-输入错误为 400，未登录/缺少聊天权限沿用 401/403，模型限流为 429，模型不可用、认证失败、超时或无效响应为 503。业务工具的权限不足和资料缺失以工具状态交给模型说明。日志不记录对话、源码、业务明细、凭据或上游错误正文；模型请求不自动重试或跟随重定向。
+输入错误为 400，未登录/缺少聊天权限沿用 401/403，模型限流为 429，模型不可用、请求被模型拒绝、认证失败、超时或无效响应为 503。业务工具的权限不足和资料缺失以工具状态交给模型说明。模型非成功响应的诊断日志仅记录 HTTP 状态、是否允许工具、消息条数、系统消息条数及输出 token 配置，不记录对话、源码、业务明细、凭据或上游错误正文；模型请求不自动重试或跟随重定向。
 
 ## 本次验证和使用
 

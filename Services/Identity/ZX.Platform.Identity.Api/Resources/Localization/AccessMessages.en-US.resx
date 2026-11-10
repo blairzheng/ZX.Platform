@@ -66,4 +66,5 @@
   <data name="Access.Permission.identity.menu.status" xml:space="preserve"><value>Enable or disable menus</value></data>
   <data name="Access.Permission.identity.menu.delete" xml:space="preserve"><value>Delete menus</value></data>
   <data name="Access.Permission.inventory.stocktake.read" xml:space="preserve"><value>View stocktake report</value></data>
+  <data name="Access.Permission.integration.goflow.open" xml:space="preserve"><value>Open GoFlow with single sign-on</value></data>
 </root>

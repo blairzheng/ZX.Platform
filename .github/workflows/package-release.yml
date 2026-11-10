@@ -8,9 +8,9 @@ on:
         required: true
         type: string
       frontend_ref:
-        description: 前端源码分支、标签或提交（默认 main；可填写对应前端发布包的提交）
+        description: 前端源码分支、标签或提交（默认 team；可填写对应前端发布包的提交）
         required: false
-        default: main
+        default: team
         type: string
 
 permissions:
@@ -28,15 +28,15 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
       FROM_MIGRATION: ${{ inputs.from_migration }}
-      TARGET_SCHEMA: ${{ vars.MOM_IDENTITY_DB_SCHEMA || 'SAJET' }}
+      TARGET_SCHEMA: ${{ vars.MOM_IDENTITY_DB_SCHEMA || 'ZX_IDENTITY' }}
       MOM_ASSISTANT_FRONTEND_DIR: ${{ github.workspace }}/frontend
     steps:
       - name: 确认发布分支
         shell: bash
         working-directory: ${{ github.workspace }}
         run: |
-          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
-            echo '请从 main 分支生成发布包。' >&2
+          if [[ "$GITHUB_REF" != refs/heads/team ]]; then
+            echo '请从 team 分支生成发布包。' >&2
             exit 1
           fi
 
@@ -49,7 +49,7 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           repository: ${{ vars.MOM_FRONTEND_REPOSITORY || 'blairzheng/ZX.front.vue' }}
-          ref: ${{ inputs.frontend_ref || 'main' }}
+          ref: ${{ inputs.frontend_ref || 'team' }}
           path: frontend
           token: ${{ secrets.MOM_FRONTEND_READ_TOKEN || github.token }}
           persist-credentials: false

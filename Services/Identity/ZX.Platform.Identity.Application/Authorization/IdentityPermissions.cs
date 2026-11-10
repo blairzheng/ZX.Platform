@@ -36,6 +36,7 @@ public static class IdentityPermissions
     public const string MenuDelete = "identity.menu.delete";
     public const string InventoryStocktakeRead = "inventory.stocktake.read";
     public const string AiChatUse = "ai.chat.use";
+    public const string GoFlowOpen = "integration.goflow.open";
 
     public static IReadOnlyList<string> All { get; } = typeof(IdentityPermissions)
         .GetFields(BindingFlags.Public | BindingFlags.Static)

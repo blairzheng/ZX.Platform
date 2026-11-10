@@ -86,6 +86,11 @@ public sealed class AuthService(
         if (string.IsNullOrWhiteSpace(identity.Subject))
             throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapUnavailable",
                 new { Reason = LdapProvisionReasons.DirectoryIdentityIncomplete });
+        if (identity.Status == LdapDirectoryStatus.Disabled)
+            throw AccountUnavailable(LdapProvisionReasons.DirectoryDisabled);
+        if (identity.Status != LdapDirectoryStatus.Enabled)
+            throw new BusinessException(ErrorCodes.ServiceUnavailable, "Auth.LdapUnavailable",
+                new { Reason = LdapProvisionReasons.DirectoryStateUnknown });
 
         await ldapGuard.ResetAsync(employeeNo, cancellationToken);
 
@@ -99,9 +104,22 @@ public sealed class AuthService(
         if (user.IsLocked(now))
             throw AccountUnavailable("AccountUnavailable");
 
+        // 只有真实 OA 认证通过、MOM 状态允许且两个身份字段均为空，才绑定预开通记录。
+        // 不创建第二个账号，也不修改管理员预先分配的角色、SBU 和审批状态。
+        if (user.LdapProvider is null && user.LdapSubject is null)
+            user.BindLdapIdentity(identity.EmployeeNo, identity.Provider, identity.Subject!, identity.DisplayName);
+
         // 目录认证通过不代表绕过 ZX 的账号状态；这里只清除失败计数，不改变角色和 SBU。
         user.RecordLoginSuccess();
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (UniqueConstraintException)
+        {
+            throw new BusinessException(ErrorCodes.Conflict, "User.LdapIdentityConflict",
+                new { Reason = LdapProvisionReasons.IdentityConflict, UserId = user.Id });
+        }
 
         var tokens = await sessions.CreateAsync(user.Id, user.Account, CredentialStamp(user), input.ReplaceExistingSession, cancellationToken)
             ?? throw new BusinessException(ErrorCodes.Conflict, "Auth.AlreadyOnline",
@@ -291,8 +309,10 @@ public sealed class AuthService(
             throw new BusinessException(ErrorCodes.Conflict, "User.AccountTypeConflict",
                 new { Reason = LdapProvisionReasons.AccountTypeConflict, UserId = user.Id });
 
-        if (!string.Equals(user.LdapProvider, identity.Provider, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(user.LdapSubject, identity.Subject, StringComparison.OrdinalIgnoreCase) ||
+        var unbound = user.LdapProvider is null && user.LdapSubject is null;
+        if ((!unbound &&
+             (!string.Equals(user.LdapProvider, identity.Provider, StringComparison.OrdinalIgnoreCase) ||
+              !string.Equals(user.LdapSubject, identity.Subject, StringComparison.OrdinalIgnoreCase))) ||
             !string.Equals(user.EmployeeNo, identity.EmployeeNo, StringComparison.Ordinal))
             throw new BusinessException(ErrorCodes.Conflict, "User.LdapIdentityConflict",
                 new { Reason = LdapProvisionReasons.IdentityConflict, UserId = user.Id });
@@ -325,7 +345,7 @@ public sealed class AuthService(
 
     // 会话指纹同时覆盖账号身份和账户状态版本：OA 用户没有密码，不能再使用密码哈希；
     // 本地改密、审批、启用、禁用、删除和恢复都会改变版本，使旧会话失效。
-    private static string CredentialStamp(User user) =>
+    internal static string CredentialStamp(User user) =>
         "v2:" + Convert.ToHexString(SHA256.HashData(
             Encoding.UTF8.GetBytes($"{user.Id:N}:{user.SecurityVersion}")));
 }

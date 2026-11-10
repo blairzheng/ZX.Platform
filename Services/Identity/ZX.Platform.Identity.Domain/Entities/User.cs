@@ -71,7 +71,7 @@ namespace ZX.Platform.Identity.Domain.Entities
         public string? LdapProvider { get; private set; }
 
         /// <summary>
-        /// 规范化后的目录唯一标识（AD objectGUID）。
+        /// 规范化后的目录唯一标识（AD objectGUID）；预开通记录在首次 OA 认证前为空。
         /// </summary>
         public string? LdapSubject { get; private set; }
 
@@ -81,7 +81,7 @@ namespace ZX.Platform.Identity.Domain.Entities
         public string ApprovalStatus { get; private set; } = UserApprovalStatus.Approved;
 
         /// <summary>
-        /// 会话安全版本。审批、拒绝、启用、禁用、删除、恢复和本地改密时递增，
+        /// 会话安全版本。身份绑定、审批、拒绝、启用、禁用、删除、恢复和本地改密时递增，
         /// 用于使旧会话失效并作为账户状态变更的乐观并发检查。
         /// </summary>
         public long SecurityVersion { get; private set; } = 1;
@@ -187,6 +187,40 @@ namespace ZX.Platform.Identity.Domain.Entities
             user.LdapProvider = provider.Trim();
             user.LdapSubject = subject.Trim();
             return user;
+        }
+
+        /// <summary>
+        /// 管理员按工号预开通，不查询目录、不伪造身份。显示名称在首次 OA 认证后补齐。
+        /// </summary>
+        public static User CreateLdapProvision(string employeeNo)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(employeeNo);
+            var user = new User(
+                Guid.NewGuid(), employeeNo.Trim(), employeeNo.Trim(), null,
+                UserAuthType.Ldap, UserApprovalStatus.Pending, true);
+            user.EmployeeNo = employeeNo.Trim();
+            return user;
+        }
+
+        /// <summary>
+        /// 仅为尚未绑定的预开通账号补齐已认证身份，保留 UserId、审批和业务授权。
+        /// 递增安全版本，防止并发登录或管理员状态修改被静默覆盖。
+        /// </summary>
+        public void BindLdapIdentity(string employeeNo, string provider, string subject, string displayName)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(employeeNo);
+            ArgumentException.ThrowIfNullOrWhiteSpace(provider);
+            ArgumentException.ThrowIfNullOrWhiteSpace(subject);
+            ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+            EnsureLdapAccount();
+            if (!CanUseSession || LdapProvider is not null || LdapSubject is not null ||
+                !string.Equals(EmployeeNo, employeeNo.Trim(), StringComparison.Ordinal))
+                throw new DomainException("User.LdapIdentityConflict");
+
+            LdapProvider = provider.Trim();
+            LdapSubject = subject.Trim();
+            DisplayName = displayName.Trim();
+            IncrementSecurityVersion();
         }
 
         /// <summary>

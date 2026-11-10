@@ -56,12 +56,14 @@ public sealed class DeepSeekAssistantModel(HttpClient http, AssistantOptions opt
             if (!response.IsSuccessStatusCode)
             {
                 // 不记录源码片段、业务数据、凭据、对话或上游错误正文。
-                logger.LogWarning("Assistant model returned HTTP {StatusCode}.", (int)response.StatusCode);
+                logger.LogWarning("Assistant model returned HTTP {StatusCode}. AllowTools={AllowTools}; MessageCount={MessageCount}; SystemMessageCount={SystemMessageCount}; MaxTokens={MaxTokens}.",
+                    (int)response.StatusCode, allowTools, messages.Count,
+                    messages.Count(message => message.Role == "system"), options.MaxTokens);
                 if (response.StatusCode == HttpStatusCode.TooManyRequests)
                     throw new BusinessException(ErrorCodes.TooManyRequests, "AI.Busy");
                 if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
                     throw Failure("AI.AuthenticationFailed");
-                throw Failure(response.StatusCode == HttpStatusCode.BadRequest ? "AI.ToolProtocolUnavailable" : "AI.Unavailable");
+                throw Failure(response.StatusCode == HttpStatusCode.BadRequest ? "AI.RequestRejected" : "AI.Unavailable");
             }
 
             var completion = await response.Content.ReadFromJsonAsync<ModelResponse>(cancellationToken: cancellationToken);

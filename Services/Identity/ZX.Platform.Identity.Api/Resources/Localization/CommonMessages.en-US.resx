@@ -19,7 +19,16 @@
   <data name="AI.Timeout" xml:space="preserve"><value>The AI reply timed out. Shorten your question or try again later.</value></data>
   <data name="AI.Busy" xml:space="preserve"><value>The AI service is busy. Please try again later.</value></data>
   <data name="AI.InvalidResponse" xml:space="preserve"><value>The AI service did not return a valid text reply. Please try again later.</value></data>
-  <data name="AI.ToolProtocolUnavailable" xml:space="preserve"><value>The model service rejected the tool request. Ask your administrator to check GPUStack tool calling support and model context settings.</value></data>
+  <data name="AI.RequestRejected" xml:space="preserve"><value>The model service rejected this request. Ask your administrator to check the message format, tool calling support and context settings.</value></data>
   <data name="AI.InvalidConversation" xml:space="preserve"><value>The conversation format is invalid. Start a new conversation and try again.</value></data>
   <data name="AI.ConversationTooLong" xml:space="preserve"><value>The conversation is too long. Start a new conversation and try again.</value></data>
+  <data name="Sso.TicketIssued" xml:space="preserve"><value>GoFlow sign-in ticket issued.</value></data>
+  <data name="Sso.TicketRedeemed" xml:space="preserve"><value>GoFlow sign-in identity verified.</value></data>
+  <data name="Sso.RequestInvalid" xml:space="preserve"><value>Invalid GoFlow sign-in request. Please start again.</value></data>
+  <data name="Sso.TicketInvalid" xml:space="preserve"><value>The GoFlow sign-in ticket is invalid or expired. Please start again.</value></data>
+  <data name="Sso.ClientInvalid" xml:space="preserve"><value>GoFlow service authentication failed.</value></data>
+  <data name="Sso.UserNotAllowed" xml:space="preserve"><value>This account cannot sign in to GoFlow through MOM. An approved OA account and the required permission are needed.</value></data>
+  <data name="Sso.Unavailable" xml:space="preserve"><value>GoFlow single sign-on is disabled or temporarily unavailable. Please contact an administrator.</value></data>
+  <data name="Sso.HttpsRequired" xml:space="preserve"><value>GoFlow single sign-on requires HTTPS.</value></data>
+  <data name="Sso.ConfigurationLoaded" xml:space="preserve"><value>GoFlow sign-in configuration loaded.</value></data>
 </root>

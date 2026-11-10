@@ -47,4 +47,5 @@
   <data name="Validation.AiRoleInvalid" xml:space="preserve"><value>对话角色只允许 user 或 assistant。</value></data>
   <data name="Validation.AiContentRequired" xml:space="preserve"><value>对话内容不能为空。</value></data>
   <data name="Validation.AiContentMaxLength" xml:space="preserve"><value>单条对话内容不能超过 {1} 个字符。</value></data>
+  <data name="Validation.SsoRequestInvalid" xml:space="preserve"><value>免登录请求参数不正确，请重新发起。</value></data>
 </root>
