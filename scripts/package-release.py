@@ -113,12 +113,16 @@ def assistant_sources_metadata():
     frontend_commit = run(['git', '-C', str(frontend), 'rev-parse', 'HEAD'], capture=True).strip()
     if not re.fullmatch(r'[a-f0-9]{40,64}', frontend_commit):
         raise ValueError('无法记录前端源码提交，停止交付发布包。')
+    frontend_dirty = bool(run(
+        ['git', '-C', str(frontend), 'status', '--porcelain', '--untracked-files=normal'],
+        capture=True).strip())
     return {
         'path': 'AI/Knowledge/project-sources.json',
         'sha256': sha256(catalog),
         'exportedAtUtc': payload['exportedAtUtc'],
         'documentCount': len(documents),
         'frontendCommit': frontend_commit,
+        'frontendWorkingTreeDirty': frontend_dirty,
     }
 
 
@@ -133,7 +137,8 @@ def write_upload_script(directory, *, release, digest):
     return path
 
 
-def package_database(directory, *, release, from_migration, schema, migrations, commit):
+def package_database(directory, *, release, from_migration, schema, migrations, commit,
+                     working_tree_dirty=False):
     pending = select_pending(migrations, from_migration)
     target = migrations[-1]
     model_tables = parse_model_tables(ef('dbcontext', 'script', capture=True))
@@ -165,6 +170,7 @@ def package_database(directory, *, release, from_migration, schema, migrations, 
     metadata = {
         'release': release,
         'commit': commit,
+        'workingTreeDirty': working_tree_dirty,
         'schema': schema,
         'fromMigration': from_migration,
         'toMigration': target,
@@ -193,6 +199,7 @@ def package_database(directory, *, release, from_migration, schema, migrations, 
     (directory / 'README.md').write_text(
         f'# 数据库交付：{release}\n\n'
         f'- 源码提交：`{commit}`\n- 目标 schema：`{schema}`\n'
+        f'- 包含未提交后端修改：{"是" if working_tree_dirty else "否"}\n'
         f'- 起点：`{from_migration}`\n- 终点：`{target}`\n\n'
         f'## 本次迁移\n\n{migration_list}\n\n'
         '## 执行顺序\n\n'
@@ -231,6 +238,8 @@ def main():
     migrations = parse_migrations(ef('migrations', 'list', '--no-connect', '--json', capture=True))
     select_pending(migrations, from_migration)
     commit = run(['git', 'rev-parse', 'HEAD'], capture=True).strip()
+    working_tree_dirty = bool(run(
+        ['git', 'status', '--porcelain', '--untracked-files=normal'], capture=True).strip())
     directory = ROOT / 'output/mom-release' / args.release
     directory.parent.mkdir(parents=True, exist_ok=True)
     directory.mkdir()  # Never overwrite a previously generated release.
@@ -238,7 +247,7 @@ def main():
     database_dir = directory / 'database'
     database = package_database(
         database_dir, release=args.release, from_migration=from_migration,
-        schema=schema, migrations=migrations, commit=commit)
+        schema=schema, migrations=migrations, commit=commit, working_tree_dirty=working_tree_dirty)
     database_archive = directory / f'mom-database-{args.release}.zip'
     with zipfile.ZipFile(database_archive, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(database_dir.iterdir()):
@@ -263,6 +272,7 @@ def main():
     metadata = {
         'release': args.release,
         'commit': commit,
+        'workingTreeDirty': working_tree_dirty,
         'createdAtUtc': datetime.now(timezone.utc).isoformat(),
         'database': database,
         'databasePackage': {'file': database_archive.name, 'sha256': database_digest},
@@ -274,6 +284,8 @@ def main():
     database_state = '需 DBA 执行升级 SQL' if database['requiresDatabaseUpgrade'] else '无数据库变更'
     instructions = (
         f'# 后端发布包：{args.release}\n\n源码提交：`{commit}`\n\n'
+        f'包含未提交后端修改：{"是" if working_tree_dirty else "否"}；'
+        'commit 表示工作区基线，存在未提交修改时不能仅凭 commit 复现此包。\n\n'
         f'数据库状态：**{database_state}**。'
         f'起点 `{from_migration}` → 终点 `{database["toMigration"]}`，schema `{schema}`。\n\n'
         f'将 `{database_archive.name}` 交给 DBA，操作说明在包内 README.md。'
@@ -284,8 +296,8 @@ def main():
             f'前端源码提交 `{assistant_sources["frontendCommit"]}`。'
             '资料已包含在 Identity 镜像中，无需另行生成或上传；详情和摘要记录在 release.json。\n\n'
             '## 上传内网镜像包\n\n'
-            '下载完整的 Actions 发布包 ZIP，并传入能访问公司 GitLab 的机器。'
-            '解压外层 ZIP，保留文件在同一目录；镜像 tar.gz 不再解压。'
+            '本地生成时直接使用此目录；从 Actions 下载时，先解压发布包外层 ZIP。'
+            '若需传到内网，复制完整目录，保留文件在同一目录；镜像 tar.gz 不再解压。'
             '在该目录执行：\n\n'
             '```bash\nbash upload.sh\n```\n\n'
             f'脚本自动定位同目录的 `{images["file"]}`，核对 SHA256 后提示输入 Deploy Token，'

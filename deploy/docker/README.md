@@ -6,7 +6,33 @@
 
 当前发布源码统一使用 `team`：审核后将同一个本地 `team` 分别推送至 GitLab 和 GitHub 的 `team`，不再为打包合并至 `main`，也不将 `main` 的独有文档合回 `team`。前后端仓库均按此流程操作，发布前确认两个远程的 `team` 指向各自同一提交。
 
+## 本地生成后端发布包
+
+GitHub 下载较慢时，负责人可以直接在本机 `ZX.Platform` 的 `team` 分支运行：
+
+```bash
+python3 scripts/package-local.py
+```
+
+按提示输入 **正式库最后一条完整 MigrationId**。脚本自动生成含 UTC 时间和提交号的新版本，依次还原固定 EF 工具、编译 Release、执行与 Actions 相同的离线检查，再复用 `package-release.py` 构建 `linux/amd64` 镜像和数据库增量 SQL。不会连接或更新正式库。
+
+本机需要 .NET 10.0 SDK、Python 3.10+、Git、Bash、tar、gzip、shasum 和已启动且支持 buildx 的 Docker；还原依赖及拉取基础镜像需要能访问相应源。配套前端源码默认位于相邻 `ZX.front.vue`，用于自动生成 AI 源码资料；其他位置通过 `MOM_ASSISTANT_FRONTEND_DIR` 指定。本入口生成后端发布包，前端静态包仍使用前端自己的打包入口。
+
+也可直接传入迁移 ID；`完整迁移ID` 替换为 DBA 查询结果：
+
+```bash
+python3 scripts/package-local.py --from-migration 完整迁移ID
+```
+
+可选 `--release 本次新版本`、`--schema 实际SCHEMA`，默认 schema 为 `ZX_IDENTITY`。起点不在当前迁移链、模型还有未生成的迁移或任一步失败时停止；同版本输出不覆盖，重试时不传 `--release` 会生成新版本。本地打包不自动拉取或切换源码；使用当前工作区，后端和配套前端的提交号及未提交状态都会记录在 `release.json`。发布前核对代码，打包期间保持工作区稳定。
+
+产物位于 `output/mom-release/本次版本/`，包含镜像 `tar.gz`、数据库 `zip`、SHA256、`release.json`、`README.md` 和独立 `upload.sh`。直接复制终端最后输出的 `bash .../upload.sh` 命令，按提示输入 Deploy Token 上传镜像；无需先传到 GitHub。上传成功后，在内网 `mom_img` 新建流水线，填写脚本输出的四项参数。数据库包交 DBA；无待迁移时包内标明无需升级，有变更时先确认 DBA 执行成功，再部署对应镜像。打包和上传均不自动发布。
+
+## GitHub Actions 入口
+
 GitHub 打开 **Actions → 生成后端发布包 → Run workflow**，将 **Use workflow from** 选择为 `team`；`from_migration` 填 DBA 从正式库查到的最后一条完整迁移 ID。`frontend_ref` 显式填写 `team`，或填写本次配套前端的完整提交 SHA；页面可能仍显示默认分支旧工作流中的 `main` 默认值，运行前必须核对。后端工作流只允许 `team` 打包，AI 资料默认也读取前端 `team`。推送分支不会自动打包，打包、上传及部署仍分别手动执行。
+
+## 数据库交付约定
 
 当前正式库的表 owner 为 `ZX_IDENTITY`。后端发布脚本及 GitHub Actions 默认导出至该 schema；显式传入 `--schema` 或设置 GitHub Actions Variable `MOM_IDENTITY_DB_SCHEMA` 可以覆盖，覆盖值必须与目标环境真实表 owner 一致。表、索引及索引目标表均带目标 schema。
 

@@ -19,7 +19,7 @@
   <data name="AI.Timeout" xml:space="preserve"><value>AI 回复超时，请缩短问题或稍后重试。</value></data>
   <data name="AI.Busy" xml:space="preserve"><value>AI 服务繁忙，请稍后再试。</value></data>
   <data name="AI.InvalidResponse" xml:space="preserve"><value>AI 服务未返回有效的文字回复，请稍后重试。</value></data>
-  <data name="AI.ToolProtocolUnavailable" xml:space="preserve"><value>模型服务未接受本次工具请求，请管理员检查 GPUStack 的工具调用支持和模型上下文配置。</value></data>
+  <data name="AI.RequestRejected" xml:space="preserve"><value>模型服务未接受本次请求，请联系管理员检查消息格式、工具调用及上下文配置。</value></data>
   <data name="AI.InvalidConversation" xml:space="preserve"><value>对话格式无效，请开始新对话后重试。</value></data>
   <data name="AI.ConversationTooLong" xml:space="preserve"><value>对话内容过长，请开始新对话后重试。</value></data>
   <data name="Sso.TicketIssued" xml:space="preserve"><value>GoFlow 登录凭证已生成。</value></data>

@@ -19,7 +19,7 @@
   <data name="AI.Timeout" xml:space="preserve"><value>The AI reply timed out. Shorten your question or try again later.</value></data>
   <data name="AI.Busy" xml:space="preserve"><value>The AI service is busy. Please try again later.</value></data>
   <data name="AI.InvalidResponse" xml:space="preserve"><value>The AI service did not return a valid text reply. Please try again later.</value></data>
-  <data name="AI.ToolProtocolUnavailable" xml:space="preserve"><value>The model service rejected the tool request. Ask your administrator to check GPUStack tool calling support and model context settings.</value></data>
+  <data name="AI.RequestRejected" xml:space="preserve"><value>The model service rejected this request. Ask your administrator to check the message format, tool calling support and context settings.</value></data>
   <data name="AI.InvalidConversation" xml:space="preserve"><value>The conversation format is invalid. Start a new conversation and try again.</value></data>
   <data name="AI.ConversationTooLong" xml:space="preserve"><value>The conversation is too long. Start a new conversation and try again.</value></data>
   <data name="Sso.TicketIssued" xml:space="preserve"><value>GoFlow sign-in ticket issued.</value></data>

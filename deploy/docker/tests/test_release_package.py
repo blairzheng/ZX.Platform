@@ -130,6 +130,8 @@ class ReleasePackageChecks(unittest.TestCase):
             def offline_run(command, **kwargs):
                 if command == ['git', 'rev-parse', 'HEAD']:
                     return 'abc123\n'
+                if command == ['git', 'status', '--porcelain', '--untracked-files=normal']:
+                    return ' M sample.cs\n'
                 self.assertEqual(command, ['bash', 'scripts/publish-images.sh', '--package-only', release])
                 archive = root / 'output' / image_name
                 archive.write_bytes(b'test archive bytes')
@@ -150,6 +152,8 @@ class ReleasePackageChecks(unittest.TestCase):
             metadata = json.loads((directory / 'release.json').read_text())
             assistant_sources.assert_called_once_with()
             self.assertEqual(metadata['assistantSources']['frontendCommit'], 'a' * 40)
+            self.assertTrue(metadata['workingTreeDirty'])
+            self.assertTrue(metadata['database']['workingTreeDirty'])
             self.assertEqual(metadata['images']['sha256'], PACKAGE.sha256(directory / image_name))
             self.assertTrue((directory / 'upload.sh').is_file())
             self.assertIn(f'MOM_PACKAGE_SHA256={metadata["images"]["sha256"]}',
@@ -172,7 +176,7 @@ class ReleasePackageChecks(unittest.TestCase):
 
             with patch.object(PACKAGE, 'ROOT', root), \
                     patch.object(PACKAGE, 'ef', offline_ef), \
-                    patch.object(PACKAGE, 'run', return_value='abc123\n') as run, \
+                    patch.object(PACKAGE, 'run', side_effect=['abc123\n', '']) as run, \
                     patch.dict(PACKAGE.os.environ, {'GITHUB_STEP_SUMMARY': ''}), \
                     patch.object(PACKAGE.sys, 'argv', ['package-release.py', '--release', 'database-only',
                                                       '--from-migration', TARGET, '--database-only']):
@@ -183,8 +187,13 @@ class ReleasePackageChecks(unittest.TestCase):
             self.assertIsNone(metadata['images'])
             self.assertIsNone(metadata['assistantSources'])
             self.assertEqual(metadata['database']['schema'], 'ZX_IDENTITY')
+            self.assertFalse(metadata['workingTreeDirty'])
+            self.assertFalse(metadata['database']['workingTreeDirty'])
             self.assertFalse((directory / 'upload.sh').exists())
-            run.assert_called_once_with(['git', 'rev-parse', 'HEAD'], capture=True)
+            self.assertEqual(run.call_count, 2)
+            self.assertEqual(run.call_args_list[0].args[0], ['git', 'rev-parse', 'HEAD'])
+            self.assertEqual(run.call_args_list[1].args[0],
+                             ['git', 'status', '--porcelain', '--untracked-files=normal'])
 
 
 class StandaloneUploadChecks(unittest.TestCase):
