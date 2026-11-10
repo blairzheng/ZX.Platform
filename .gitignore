@@ -47,3 +47,8 @@ __pycache__/
 
 # OS files
 .DS_Store
+/scripts/local-oracle-init.sh
+/scripts/seed-local-admin.sql
+/start-local-db.cmd
+/compose.local.yml
+/scripts/import-from-test.sql
