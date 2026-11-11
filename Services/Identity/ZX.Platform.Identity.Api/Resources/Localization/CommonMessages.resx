@@ -38,4 +38,9 @@
   <data name="OaPersonnel.IncompleteRead" xml:space="preserve"><value>目录未返回完整结果，本次未写入任何人员，请检查目录权限及分页设置。</value></data>
   <data name="OaPersonnel.ScopeLimit" xml:space="preserve"><value>目录返回人数超过同步上限，本次未写入任何人员，请检查 BU 范围配置。</value></data>
   <data name="OaPersonnel.SyncConflict" xml:space="preserve"><value>人员已被其他操作新增或修改，本次写入已回滚，请重新同步。</value></data>
+  <data name="DirectoryRelay.Unavailable" xml:space="preserve"><value>LDAP 目录接口暂时不可用，请检查接口密钥、目录配置与服务器连接。</value></data>
+  <data name="DirectoryRelay.ClientInvalid" xml:space="preserve"><value>LDAP 中转服务认证失败，请检查访问密钥。</value></data>
+  <data name="DirectoryRelay.RequestInvalid" xml:space="preserve"><value>LDAP 中转请求参数不正确。</value></data>
+  <data name="DirectoryRelay.Authenticated" xml:space="preserve"><value>OA 目录身份已验证。</value></data>
+  <data name="DirectoryRelay.PersonnelRead" xml:space="preserve"><value>OA 目录人员已读取。</value></data>
 </root>

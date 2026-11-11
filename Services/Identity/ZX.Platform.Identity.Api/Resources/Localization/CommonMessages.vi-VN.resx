@@ -38,4 +38,9 @@
   <data name="OaPersonnel.IncompleteRead" xml:space="preserve"><value>Thư mục trả về kết quả chưa đầy đủ. Chưa ghi nhân sự nào. Vui lòng kiểm tra quyền thư mục và cấu hình phân trang.</value></data>
   <data name="OaPersonnel.ScopeLimit" xml:space="preserve"><value>Số lượng nhân sự vượt giới hạn đồng bộ. Chưa ghi nhân sự nào. Vui lòng kiểm tra phạm vi BU.</value></data>
   <data name="OaPersonnel.SyncConflict" xml:space="preserve"><value>Một thao tác khác đã thêm hoặc thay đổi nhân sự. Tất cả thay đổi ghi của lần này đã được hoàn tác. Vui lòng đồng bộ lại.</value></data>
+  <data name="DirectoryRelay.Unavailable" xml:space="preserve"><value>Điểm cuối thư mục LDAP hiện không khả dụng. Vui lòng kiểm tra khóa truy cập, cấu hình thư mục và kết nối máy chủ.</value></data>
+  <data name="DirectoryRelay.ClientInvalid" xml:space="preserve"><value>Xác thực dịch vụ chuyển tiếp LDAP thất bại. Vui lòng kiểm tra khóa truy cập.</value></data>
+  <data name="DirectoryRelay.RequestInvalid" xml:space="preserve"><value>Tham số yêu cầu chuyển tiếp LDAP không hợp lệ.</value></data>
+  <data name="DirectoryRelay.Authenticated" xml:space="preserve"><value>Đã xác minh danh tính thư mục OA.</value></data>
+  <data name="DirectoryRelay.PersonnelRead" xml:space="preserve"><value>Đã đọc nhân sự từ thư mục OA.</value></data>
 </root>

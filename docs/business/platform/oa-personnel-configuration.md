@@ -2,6 +2,8 @@
 
 本功能通过独立的只读服务账号访问 LDAP，沿用 `AuthenticationLdap` 的目录来源、主备服务器、BaseDn、属性与传输设置。同步直接在 MOM 用户表 `ZX_IDENTITY_USER` 创建缺失的待审批 OA 账号，并保存组织元数据。`OaPersonnelSync.Enabled` 单独控制人员同步，不要求开启 OA 密码登录；员工实际使用 OA 账号登录时，仍须开启原有 `AuthenticationLdap.Enabled` 并使用本人的 OA 密码。
 
+本机无法连接目录网络时，可使用 [远程 LDAP 模式](../../directory-relay.md)：查询服务账号仅配置在服务器，本机在 `appsettings.Development.json` 启用 `DirectoryRelay:Enabled`，填写固定 `BaseUrl` 和与服务器相同的 `AccessKey`，通过目录接口读取完整人员列表。仅 `Development` 切换远程调用，线上继续直连 LDAP。本机仍需设置 `OaPersonnelSync:Enabled=true`、相同 `BusinessUnit`、`MaxPeople` 等范围限制，但无需本机 `BindUser` / `BindPassword`、直连节点或 `AuthenticationLdap:AllowPlainText=true`。人员去重、建档和审计仍写入本机配置的开发 schema；服务器目录接口不执行同步入库。以下服务账号与传输配置适用于实际连接 LDAP 的服务器或本机直连模式。
+
 ## 服务端配置
 
 在 Identity.Api 的本机 User Secrets 或目标服务器受保护的环境配置中提供以下内容。两台 Identity 节点使用相同目录来源和 BU 范围；服务账号需要读取该范围内的人员及必要属性。下面仅是占位模板，不能把真实凭据加入源码或前端配置。

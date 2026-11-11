@@ -24,6 +24,7 @@ builder.Services.AddRequestLogging();
 builder.Services.AddApiLocalization();
 builder.Services.AddApiRateLimiting(builder.Configuration);
 builder.Services.AddIdentityAuthentication(builder.Configuration, builder.Environment);
+builder.Services.AddDirectoryAccess(builder.Configuration, builder.Environment);
 builder.Services.AddGoFlowSso(builder.Configuration);
 // WriteAsJsonAsync 使用 HTTP JSON 配置，与 MVC 分别设置相同的空值规则。
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -55,10 +56,7 @@ builder.Services.AddScoped<ISbuRepository, SbuRepository>();
 builder.Services.AddScoped<IUnitOfWork>(serviceProvider =>
     serviceProvider.GetRequiredService<PlatformIdentityDbContext>());
 builder.Services.AddScoped<IUserService, UserService>();
-// 人员同步使用独立的只读服务账号，沿用已有 LDAP 节点配置，不改变员工登录认证流程。
-builder.Services.AddSingleton(builder.Configuration.GetSection("OaPersonnelSync").Get<OaPersonnelSyncOptions>()
-    ?? new OaPersonnelSyncOptions());
-builder.Services.AddSingleton<IOaPersonnelDirectory, LdapPersonnelDirectory>();
+// 目录读取方式由 AddDirectoryAccess 选择，建档、审批和同步持久化仍使用本机原有用例。
 builder.Services.AddScoped<IOaPersonnelUserRepository, OaPersonnelUserRepository>();
 builder.Services.AddScoped<IOaPersonnelService, OaPersonnelService>();
 builder.Services.AddScoped<ISbuService, SbuService>();

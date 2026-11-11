@@ -38,4 +38,9 @@
   <data name="OaPersonnel.IncompleteRead" xml:space="preserve"><value>The directory returned incomplete results. No personnel were written. Check directory permissions and paging settings.</value></data>
   <data name="OaPersonnel.ScopeLimit" xml:space="preserve"><value>The directory exceeded the synchronization limit. No personnel were written. Check the business unit scope.</value></data>
   <data name="OaPersonnel.SyncConflict" xml:space="preserve"><value>Another operation added or modified personnel. All writes from this attempt were rolled back. Synchronize again.</value></data>
+  <data name="DirectoryRelay.Unavailable" xml:space="preserve"><value>The LDAP directory endpoint is unavailable. Check the access key, directory configuration and server connection.</value></data>
+  <data name="DirectoryRelay.ClientInvalid" xml:space="preserve"><value>LDAP relay service authentication failed. Check the access key.</value></data>
+  <data name="DirectoryRelay.RequestInvalid" xml:space="preserve"><value>The LDAP relay request is invalid.</value></data>
+  <data name="DirectoryRelay.Authenticated" xml:space="preserve"><value>OA directory identity verified.</value></data>
+  <data name="DirectoryRelay.PersonnelRead" xml:space="preserve"><value>OA directory personnel read.</value></data>
 </root>

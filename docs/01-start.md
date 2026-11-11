@@ -39,6 +39,14 @@ Linux 容器还需要系统 OpenLDAP 运行库。Identity Dockerfile 使用 .NET
 
 本次不改变表结构，不需要 EF Migration。部署切换必须同时发布兼容的后端与前端新包，再移除旧查询账号变量，不能仅删变量继续使用旧镜像。GitLab 的 `MOM_LDAP_*` 到容器变量映射以部署仓库 `mom_img` 的说明为准，应用源码不会直接读取这些 GitLab 变量。
 
+### 可选：本机通过远程服务访问 LDAP
+
+本机不能直连 LDAP 时，可以启用 [远程 LDAP 模式](directory-relay.md)。本机仍运行 Identity、Gateway 和业务代码；只有真实 OA 密码认证和目录人员读取交给能访问 LDAP 的服务器，账号建档、会话、审批及同步入库仍在本机配置的开发环境处理。
+
+两个目录接口随现有后端包发布到 177、178，服务器只增加 `DirectoryRelay:AccessKey` 校验密钥，沿用原 LDAP 配置，无需单独部署服务或新增 GitLab 变量。按当前内网联调约定，服务器 `appsettings.json` 与本机 `appsettings.Development.json` 已配置同一随机密钥并随本次后端包发布；本机已启用 `DirectoryRelay:Enabled=true`，`BaseUrl` 为 `http://10.32.15.177:18080/api/identity/`。密钥只供后端目录接口使用，不写入前端或日志。仅 `Development` 环境切换为远程调用，其他环境继续直连 LDAP。本机无需同步服务账号、直连节点或 `AuthenticationLdap:AllowPlainText=true`；仍需启用要测试的原有 OA 登录或同步开关，并保持 Provider、BU 一致。接口使用 `X-Directory-Key`，不需要 MOM Token；服务器认证保留原 Redis 失败计数，不写生产 Oracle 或签发生产 Token。
+
+远程模式需要本机能够访问已配置的服务器入口，服务器也必须在线且能够访问 LDAP。沿用测试库 schema 和个人 Redis 前缀；不要为使用远程 LDAP 将本机数据库改指正式库。完整配置、地址前缀、传输要求和接口边界见上述文档。本项不需要新增迁移或修改前端。
+
 ### 可选：GoFlow 免登录
 
 MOM 与 GoFlow 的前后端已加入免登录对接代码，默认进入 GoFlow 首页；部署配置及线上联调仍需完成。契约、权限及流程见 [GoFlow 集成](business/integrations/goflow.md)。默认 `SingleSignOn:GoFlow:Enabled=false`，无需为普通开发填写配置。

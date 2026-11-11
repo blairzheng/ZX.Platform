@@ -34,10 +34,12 @@ public static class AuthenticationExtensions
         services.AddSingleton(redis);
         services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConfiguration));
 
-        // LDAP 只做本地配置校验，不在启动时连接远端；目录不可达不能阻止 Identity 启动。
+        // 只做静态配置校验；开发机使用中转时无需配置直连节点及其传输方式。
         var ldap = configuration.GetSection("AuthenticationLdap").Get<LdapOptions>() ?? new LdapOptions();
         Validator.ValidateObject(ldap, new ValidationContext(ldap), validateAllProperties: true);
-        ldap.Validate();
+        var useRelay = environment.IsDevelopment() && configuration.GetValue<bool>("DirectoryRelay:Enabled");
+        if (!useRelay)
+            ldap.Validate();
         services.AddSingleton(ldap);
         services.AddSingleton<LdapAuthenticationService>();
         services.AddSingleton<ILdapAuthenticator>(provider => provider.GetRequiredService<LdapAuthenticationService>());
