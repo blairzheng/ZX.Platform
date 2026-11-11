@@ -40,7 +40,7 @@ namespace ZX.Platform.Identity.Domain.Entities
         public string Account { get; private set; } = string.Empty;
 
         /// <summary>
-        /// 标准化账号，用于账号查询和唯一性比较
+        /// 标准化账号，用于账号查询和唯一性比较。已删除的本地账号改用内部占位值，释放原登录名。
         /// </summary>
         public string NormalizedAccount { get; private set; } = string.Empty;
 
@@ -361,11 +361,31 @@ namespace ZX.Platform.Identity.Domain.Entities
         }
 
         /// <summary>
+        /// 兼容以前删除但仍占用登录名的本地账号。保留原账号、用户标识及历史关联。
+        /// OA 账号的工号和目录身份不释放，不能借删除绕过审批或禁用。
+        /// </summary>
+        public bool ReleaseDeletedLocalAccountName()
+        {
+            if (!IsDeleted || AuthType != UserAuthType.Local)
+                return false;
+
+            var releasedAccount = DeletedLocalNormalizedAccount();
+            if (NormalizedAccount == releasedAccount)
+                return false;
+
+            NormalizedAccount = releasedAccount;
+            IncrementSecurityVersion();
+            return true;
+        }
+
+        /// <summary>
         /// 逻辑删除时触发
         /// </summary>
         protected override void OnDeleted()
         {
             IsEnabled = false;
+            if (AuthType == UserAuthType.Local)
+                NormalizedAccount = DeletedLocalNormalizedAccount();
             IncrementSecurityVersion();
         }
 
@@ -375,9 +395,15 @@ namespace ZX.Platform.Identity.Domain.Entities
         protected override void OnRestored()
         {
             if (!IsLdap)
+            {
+                NormalizedAccount = Account.ToUpperInvariant();
                 IsEnabled = true;
+            }
             IncrementSecurityVersion();
         }
+
+        // 固定长度且包含用户 ID，不拼接原账号，避免历史账号达到字段上限时超长。
+        private string DeletedLocalNormalizedAccount() => $"DELETED:LOCAL:{Id:N}".ToUpperInvariant();
 
         private void EnsureLdapAccount()
         {

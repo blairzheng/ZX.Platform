@@ -263,6 +263,18 @@ public sealed class AuthService(
         if (existing is not null)
             return (existing, false);
 
+        var accountOwner = await users.GetByNormalizedAccountAsync(
+            identity.EmployeeNo.Trim().ToUpperInvariant(), cancellationToken);
+        if (accountOwner is not null)
+        {
+            if (!accountOwner.ReleaseDeletedLocalAccountName())
+                return (accountOwner, false);
+
+            // 只在真实 OA 认证通过后兼容旧软删除记录。先保存释放结果，再插入新用户，
+            // 避免同一次保存中 INSERT 早于 UPDATE 而撞上原账号的唯一索引。
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
         // 目录登录名只用于目录认证；ZX 账号按约定固定取工号，且必须与 EMPLOYEE_NO 一致。
         var candidate = User.CreateLdap(
             identity.EmployeeNo, identity.EmployeeNo, identity.DisplayName, identity.Provider, identity.Subject!);
@@ -300,7 +312,7 @@ public sealed class AuthService(
 
     private void EnsureLdapUserCanLogin(User user, LdapDirectoryUser identity)
     {
-        // 已删除的工号和标识仍占位，不自动重建、恢复或重新审批。
+        // 已删除的 OA 工号和目录标识仍占位，不自动重建、恢复或重新审批。
         if (user.IsDeleted)
             throw AccountUnavailable("AccountUnavailable");
 

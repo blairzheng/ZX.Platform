@@ -21,6 +21,7 @@
   <data name="User.AccountExists" xml:space="preserve"><value>Tài khoản này đã tồn tại.</value></data>
   <data name="User.NotFound" xml:space="preserve"><value>Người dùng không tồn tại.</value></data>
   <data name="User.NotDeleted" xml:space="preserve"><value>Người dùng chưa bị xóa, không cần khôi phục.</value></data>
+  <data name="User.AccountReusedCannotRestore" xml:space="preserve"><value>Tài khoản này đã được người dùng khác sử dụng nên không thể khôi phục người dùng đã xóa.</value></data>
   <data name="User.SbusUnavailable" xml:space="preserve"><value>Một số SBU không tồn tại hoặc đã bị vô hiệu hóa.</value></data>
   <data name="User.RestoreBeforeEnable" xml:space="preserve"><value>Người dùng đã bị xóa phải được khôi phục trước, không thể kích hoạt trực tiếp.</value></data>
   <data name="User.LdapUserFound" xml:space="preserve"><value>Đã tìm thấy người dùng OA, vui lòng kiểm tra rồi kích hoạt.</value></data>

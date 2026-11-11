@@ -21,6 +21,7 @@
   <data name="User.AccountExists" xml:space="preserve"><value>该账号已存在。</value></data>
   <data name="User.NotFound" xml:space="preserve"><value>用户不存在。</value></data>
   <data name="User.NotDeleted" xml:space="preserve"><value>用户未被删除，无需恢复。</value></data>
+  <data name="User.AccountReusedCannotRestore" xml:space="preserve"><value>该账号已被其他用户使用，无法恢复原用户。</value></data>
   <data name="User.SbusUnavailable" xml:space="preserve"><value>部分SBU不存在或已被禁用。</value></data>
   <data name="User.RestoreBeforeEnable" xml:space="preserve"><value>已删除的用户必须先恢复，不能直接启用。</value></data>
   <data name="User.LdapUserFound" xml:space="preserve"><value>已查询到 OA 用户，请核对后开通。</value></data>

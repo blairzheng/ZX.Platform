@@ -185,9 +185,20 @@ namespace ZX.Platform.Identity.Application.Users
             var user = await _userRepository.GetByIdIncludeDeletedAsync(id, cancellationToken);
             if (user == null) throw new BusinessException(ErrorCodes.NotFound, "User.NotFound");
             if (!user.IsDeleted) throw new BusinessException(ErrorCodes.Conflict, "User.NotDeleted");
+
+            var accountOwner = await _userRepository.GetByNormalizedAccountAsync(
+                user.Account.ToUpperInvariant(), cancellationToken);
+            if (accountOwner is not null && accountOwner.Id != user.Id)
+                throw new BusinessException(ErrorCodes.Conflict, "User.AccountReusedCannotRestore");
+
             // 只恢复原有身份和审批状态，OA 账号不会因为恢复而自动开通。
             user.Restore();
             try { await _unitOfWork.SaveChangesAsync(cancellationToken); }
+            catch (UniqueConstraintException)
+            {
+                // 预检查后仍可能有新账号抢先占用，由唯一索引兜底，不能覆盖新用户。
+                throw new BusinessException(ErrorCodes.Conflict, "User.AccountReusedCannotRestore");
+            }
             finally { await _permissionCache.InvalidateAsync(CancellationToken.None); }
         }
 
@@ -247,6 +258,12 @@ namespace ZX.Platform.Identity.Application.Users
 
             // 预开通只检查 MOM 内的账号占用，不连接 LDAP，也不把管理员输入当成已认证身份。
             var existingUser = await FindExistingForProvisionAsync(employeeNo, cancellationToken);
+            if (existingUser?.ReleaseDeletedLocalAccountName() == true)
+            {
+                // 兼容升级前已删除的本地账号；角色、SBU 和历史仍留在旧 UserId 上。
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                existingUser = null;
+            }
             if (existingUser is not null)
                 throw ProvisionConflict(existingUser.IsLdap
                     ? LdapProvisionReasons.AccountExists : LdapProvisionReasons.AccountTypeConflict,

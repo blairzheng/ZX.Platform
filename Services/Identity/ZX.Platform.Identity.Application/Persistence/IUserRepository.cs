@@ -23,7 +23,7 @@ namespace ZX.Platform.Identity.Application.Persistence
 
         /// <summary>
         /// 根据标准化账号查询用户，包含已经逻辑删除的用户。
-        /// 用于账号唯一性检查和提供友好提示。
+        /// 用于账号唯一性检查和提供友好提示；已释放登录名的本地历史用户需按用户标识查询。
         /// </summary>
         Task<User?> GetByNormalizedAccountAsync(
             string normalizedAccount,

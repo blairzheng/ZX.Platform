@@ -29,6 +29,12 @@ internal static class LdapChecks
         await ApprovalEnablesLoginAsync();
         await RejectionAndDisableBlockLoginAsync();
         await AccountConflictIsRejectedAsync();
+        await DeletedLocalAccountCreatesNewPendingAsync();
+        await WrongPasswordDoesNotReleaseDeletedLocalAsync();
+        LocalAccountNameReleaseIsBoundedAndIdempotent();
+        await LocalAccountCanBeRestoredBeforeReuseAsync();
+        await ReusedLocalAccountCannotBeRestoredAsync();
+        await ProvisionReleasesHistoricalLocalAccountAsync();
         await DeletedAccountIsNotRebuiltAsync();
         await ProvisionImmediatelyCreatesApprovedUserAsync();
         await StaleVersionIsRejectedAsync();
@@ -233,15 +239,183 @@ internal static class LdapChecks
 
     private static async Task AccountConflictIsRejectedAsync()
     {
-        using var fixture = CreateFixture();
-        // 同工号的本地账号：不合并、不改认证类型、不覆盖密码。
-        fixture.Users.Items.Add(User.CreateLocal(EmployeeNo, "Local Owner", fixture.Passwords.Hash("Example123!")));
+        foreach (var disabled in new[] { false, true })
+        {
+            using var fixture = CreateFixture();
+            // 未删除的本地账号即使禁用，仍不能被 OA 登录自动转换或占用。
+            var local = User.CreateLocal(EmployeeNo, "Local Owner", fixture.Passwords.Hash("Example123!"));
+            if (disabled)
+                local.Disable();
+            fixture.Users.Add(local);
+            var version = local.SecurityVersion;
 
-        var error = await CaptureAsync(() => fixture.Auth.LdapLoginAsync(Login(), default));
-        Check.That(error is BusinessException { Code: ErrorCodes.Conflict }, "同工号本地账号应返回冲突。");
-        Check.That(fixture.Users.Items.Count(item => item.IsLdap) == 0, "冲突时不能创建 OA 账号。");
-        var local = fixture.Users.Items.Single(item => item.Account == EmployeeNo);
-        Check.That(local.AuthType == UserAuthType.Local && local.PasswordHash is not null, "本地账号必须保持原样。");
+            var error = await CaptureAsync(() => fixture.Auth.LdapLoginAsync(Login(), default));
+            Check.That(error is BusinessException
+                { Code: ErrorCodes.Conflict, MessageKey: "User.AccountTypeConflict" }, "同工号本地账号应返回类型冲突。");
+            Check.That(!fixture.Users.Items.Any(item => item.IsLdap), "冲突时不能创建 OA 账号。");
+            Check.That(local.AuthType == UserAuthType.Local && local.PasswordHash is not null &&
+                local.NormalizedAccount == EmployeeNo && local.SecurityVersion == version &&
+                local.IsEnabled == !disabled, "未删除的本地账号和禁用状态必须保持原样。");
+        }
+    }
+
+    private static async Task DeletedLocalAccountCreatesNewPendingAsync()
+    {
+        foreach (var historical in new[] { false, true })
+        {
+            using var fixture = CreateFixture();
+            var local = User.CreateLocal(EmployeeNo, "Local Owner", fixture.Passwords.Hash("Example123!"));
+            fixture.Users.Add(local);
+            var (role, sbu) = SeedGrants(fixture);
+            fixture.Roles.AddUserRole(UserRole.Create(local.Id, role.Id));
+            fixture.UserSbus.Add(UserSbu.Create(local.Id, sbu.Id, false));
+            var oldLogin = await fixture.Auth.LoginAsync(
+                new LoginDto { Account = EmployeeNo, Password = "Example123!" }, default);
+            await fixture.UserService.SoftDeleteAsync(local.Id, default);
+            if (historical)
+                KeepHistoricalDeletedAccountName(local);
+            var oldId = local.Id;
+            var oldHash = local.PasswordHash;
+            var saves = 0;
+            fixture.Unit.OnSave = () =>
+            {
+                if (historical && ++saves == 1)
+                    Check.That(local.NormalizedAccount != EmployeeNo &&
+                        !fixture.Users.Items.Any(item => item.IsLdap),
+                        "历史账号必须先释放并保存，再登记同名 OA 用户。");
+                return Task.CompletedTask;
+            };
+
+            var result = await fixture.Auth.LdapLoginAsync(Login(), default);
+            var user = SingleLdapUser(fixture);
+            Check.That(result.Created && result.Tokens is not null && user.Id != oldId &&
+                user.Account == EmployeeNo && user.ApprovalStatus == UserApprovalStatus.Pending &&
+                user.IsEnabled && user.PasswordHash is null, "已删除本地账号应让出名称，OA 创建独立的待审批身份。");
+            Check.That(local.Id == oldId && local.Account == EmployeeNo && local.PasswordHash == oldHash &&
+                local.IsDeleted && !local.IsEnabled && local.NormalizedAccount != EmployeeNo,
+                "旧本地身份、账号和密码哈希必须保留，不能恢复或改成 OA。");
+            Check.That(!fixture.Roles.UserRoles.Any(item => item.UserId == user.Id) &&
+                !fixture.UserSbus.Items.Any(item => item.UserId == user.Id) &&
+                fixture.Roles.UserRoles.Any(item => item.UserId == oldId && item.RoleId == role.Id) &&
+                fixture.UserSbus.Items.Any(item => item.UserId == oldId && item.SbuId == sbu.Id),
+                "旧角色和 SBU 留在历史身份，新 OA 用户不能继承任何授权。");
+            var current = await fixture.Auth.GetCurrentUserAsync(user.Id, default);
+            Check.That(!current.HasBusinessAccess && current.Roles.Length == 0 &&
+                current.Permissions.Length == 0 && current.Sbus.Count == 0 && current.Menus.Count == 0,
+                "新 OA 会话必须等待重新审批，不能访问原有业务。");
+            Check.That(await fixture.FindAccessAsync(oldLogin.AccessToken, default) is null,
+                "新 OA 登录不能复活旧本地身份的会话。");
+        }
+    }
+
+    private static async Task WrongPasswordDoesNotReleaseDeletedLocalAsync()
+    {
+        using var fixture = CreateFixture();
+        var local = User.CreateLocal(EmployeeNo, "Local Owner", fixture.Passwords.Hash("Example123!"));
+        fixture.Users.Add(local);
+        local.MarkDeleted();
+        KeepHistoricalDeletedAccountName(local);
+        var version = local.SecurityVersion;
+
+        await Check.ErrorAsync(() => fixture.Auth.LdapLoginAsync(
+            new LdapLoginDto { EmployeeNo = EmployeeNo, Password = "wrong" }, default), ErrorCodes.Unauthorized);
+
+        Check.That(local.IsDeleted && local.NormalizedAccount == EmployeeNo && local.SecurityVersion == version &&
+            !fixture.Users.Items.Any(item => item.IsLdap), "OA 密码错误不能释放历史账号名或创建新身份。");
+    }
+
+    private static void LocalAccountNameReleaseIsBoundedAndIdempotent()
+    {
+        var account = new string('a', 100);
+        var local = User.CreateLocal(account, "Local Owner", "local-hash");
+        Check.That(!local.ReleaseDeletedLocalAccountName() && local.NormalizedAccount == account.ToUpperInvariant(),
+            "未删除的本地账号不允许释放名称。");
+        local.MarkDeleted();
+        var version = local.SecurityVersion;
+        var releasedName = local.NormalizedAccount;
+        Check.That(local.Account == account && releasedName == $"DELETED:LOCAL:{local.Id:N}".ToUpperInvariant() &&
+            releasedName.Length <= 100, "最长账号应保留原名，内部占位名必须规范化且不超过列长度。");
+        Check.That(!local.ReleaseDeletedLocalAccountName() && local.SecurityVersion == version &&
+            local.NormalizedAccount == releasedName, "重复释放必须幂等，不再修改安全版本。");
+        local.MarkDeleted();
+        Check.That(local.SecurityVersion == version, "重复删除不能重新释放或递增安全版本。");
+
+        var oa = User.CreateLdap(EmployeeNo, EmployeeNo, "OA Owner", "test-ad", Guid.NewGuid().ToString("D"));
+        oa.MarkDeleted();
+        var oaVersion = oa.SecurityVersion;
+        Check.That(!oa.ReleaseDeletedLocalAccountName() && oa.NormalizedAccount == EmployeeNo &&
+            oa.EmployeeNo == EmployeeNo && oa.SecurityVersion == oaVersion,
+            "已删除 OA 账号必须继续保留账号名和工号占位。");
+    }
+
+    private static async Task LocalAccountCanBeRestoredBeforeReuseAsync()
+    {
+        using var fixture = CreateFixture();
+        var local = User.CreateLocal("local01", "Local Owner", fixture.Passwords.Hash("Example123!"));
+        fixture.Users.Add(local);
+        await fixture.UserService.SoftDeleteAsync(local.Id, default);
+        Check.That(local.NormalizedAccount != "LOCAL01", "删除应先释放本地账号名。");
+        await fixture.UserService.RestoreAsync(local.Id, default);
+
+        Check.That(!local.IsDeleted && local.IsEnabled && local.NormalizedAccount == "LOCAL01" &&
+            local.Account == "local01" && local.AuthType == UserAuthType.Local,
+            "原账号名未被占用时，恢复应还原同一用户的本地登录身份。");
+        var login = await fixture.Auth.LoginAsync(
+            new LoginDto { Account = "LOCAL01", Password = "Example123!" }, default);
+        Check.That(login is not null, "恢复后原本地密码应可登录。");
+    }
+
+    private static async Task ReusedLocalAccountCannotBeRestoredAsync()
+    {
+        foreach (var reusedByOa in new[] { false, true })
+        {
+            using var fixture = CreateFixture();
+            var local = User.CreateLocal(EmployeeNo, "Local Owner", fixture.Passwords.Hash("Example123!"));
+            fixture.Users.Add(local);
+            await fixture.UserService.SoftDeleteAsync(local.Id, default);
+            if (reusedByOa)
+                await fixture.Auth.LdapLoginAsync(Login(), default);
+            else
+                fixture.Users.Add(User.CreateLocal(EmployeeNo, "New Local Owner", fixture.Passwords.Hash("Another123!")));
+            var version = local.SecurityVersion;
+            var releasedName = local.NormalizedAccount;
+
+            var error = await CaptureAsync(() => fixture.UserService.RestoreAsync(local.Id, default));
+            Check.That(error is BusinessException
+                { Code: ErrorCodes.Conflict, MessageKey: "User.AccountReusedCannotRestore" },
+                "原账号被新 OA 或本地用户占用时，恢复应返回明确的账号占用提示。");
+            Check.That(local.IsDeleted && !local.IsEnabled && local.SecurityVersion == version &&
+                local.NormalizedAccount == releasedName, "恢复冲突不能修改旧用户的状态或内部占位名。");
+            Check.That(fixture.Users.Items.Count(item => item.NormalizedAccount == EmployeeNo) == 1,
+                "恢复冲突不能影响当前占用该名称的新用户。");
+        }
+    }
+
+    private static async Task ProvisionReleasesHistoricalLocalAccountAsync()
+    {
+        using var fixture = CreateFixture();
+        var local = User.CreateLocal(EmployeeNo, "Local Owner", fixture.Passwords.Hash("Example123!"));
+        fixture.Users.Add(local);
+        local.MarkDeleted();
+        KeepHistoricalDeletedAccountName(local);
+        var (role, sbu) = SeedGrants(fixture);
+        fixture.Roles.AddUserRole(UserRole.Create(local.Id, role.Id));
+        fixture.UserSbus.Add(UserSbu.Create(local.Id, sbu.Id, false));
+        fixture.Ldap.IsEnabled = false;
+        fixture.Ldap.Unavailable = true;
+
+        var created = await fixture.UserService.CreateLdapAsync(fixture.User.Id,
+            new CreateLdapUserDto { EmployeeNo = EmployeeNo }, default);
+        var user = SingleLdapUser(fixture);
+        Check.That(created.Id == user.Id && user.Id != local.Id && user.ApprovalStatus == UserApprovalStatus.Pending &&
+            user.LdapProvider is null && user.LdapSubject is null && fixture.Ldap.AuthenticateCalls == 0,
+            "管理员预开通应兼容历史已删本地账号，不访问目录、不合并身份。");
+        Check.That(local.IsDeleted && local.Account == EmployeeNo && local.NormalizedAccount != EmployeeNo &&
+            !fixture.Roles.UserRoles.Any(item => item.UserId == user.Id) &&
+            !fixture.UserSbus.Items.Any(item => item.UserId == user.Id),
+            "预开通必须释放旧账号名且不能继承旧角色或 SBU。");
+        Check.That(fixture.ApprovalAudits.Items.Single().TargetUserId == user.Id,
+            "预开通审计应记录新 OA 身份。");
     }
 
     private static async Task DeletedAccountIsNotRebuiltAsync()
@@ -731,6 +905,12 @@ internal static class LdapChecks
 
     private static User SingleLdapUser(Fixture fixture) =>
         fixture.Users.Items.Single(item => item.IsLdap);
+
+    private static void KeepHistoricalDeletedAccountName(User user)
+    {
+        // 模拟升级前已软删除、但尚未释放标准化账号名的持久化记录。
+        typeof(User).GetProperty(nameof(User.NormalizedAccount))!.SetValue(user, user.Account.ToUpperInvariant());
+    }
 
     private static async Task<Exception?> CaptureAsync(Func<Task> action)
     {

@@ -21,6 +21,7 @@
   <data name="User.AccountExists" xml:space="preserve"><value>This account already exists.</value></data>
   <data name="User.NotFound" xml:space="preserve"><value>User not found.</value></data>
   <data name="User.NotDeleted" xml:space="preserve"><value>This user has not been deleted and does not need to be restored.</value></data>
+  <data name="User.AccountReusedCannotRestore" xml:space="preserve"><value>This account is in use by another user. The deleted user cannot be restored.</value></data>
   <data name="User.SbusUnavailable" xml:space="preserve"><value>Some SBUs do not exist or are disabled.</value></data>
   <data name="User.RestoreBeforeEnable" xml:space="preserve"><value>Restore the deleted user before enabling it.</value></data>
   <data name="User.LdapUserFound" xml:space="preserve"><value>OA user found in the directory. Review the details before provisioning.</value></data>
