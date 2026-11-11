@@ -31,4 +31,11 @@
   <data name="Sso.Unavailable" xml:space="preserve"><value>GoFlow 免登录尚未启用或暂时不可用，请联系管理员。</value></data>
   <data name="Sso.HttpsRequired" xml:space="preserve"><value>GoFlow 免登录必须通过 HTTPS 访问。</value></data>
   <data name="Sso.ConfigurationLoaded" xml:space="preserve"><value>已获取 GoFlow 免登录配置</value></data>
+  <data name="OaPersonnel.TreeLoaded" xml:space="preserve"><value>OA 人员组织已加载。</value></data>
+  <data name="OaPersonnel.Synced" xml:space="preserve"><value>OA 人员同步完成：新增 MOM 用户 {0} 人，跳过已有账号 {1} 条（其中首次补齐组织资料 {3} 人），无效记录 {2} 条。</value></data>
+  <data name="OaPersonnel.NotConfigured" xml:space="preserve"><value>OA 人员同步尚未配置，请联系管理员检查目录连接及同步服务账号。</value></data>
+  <data name="OaPersonnel.DirectoryUnavailable" xml:space="preserve"><value>OA 人员目录暂时不可用，请稍后重试或检查同步服务账号。</value></data>
+  <data name="OaPersonnel.IncompleteRead" xml:space="preserve"><value>目录未返回完整结果，本次未写入任何人员，请检查目录权限及分页设置。</value></data>
+  <data name="OaPersonnel.ScopeLimit" xml:space="preserve"><value>目录返回人数超过同步上限，本次未写入任何人员，请检查 BU 范围配置。</value></data>
+  <data name="OaPersonnel.SyncConflict" xml:space="preserve"><value>人员已被其他操作新增或修改，本次写入已回滚，请重新同步。</value></data>
 </root>

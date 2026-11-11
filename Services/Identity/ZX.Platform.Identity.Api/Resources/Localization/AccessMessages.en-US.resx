@@ -72,4 +72,6 @@
   <data name="Access.Permission.inventory.stocktake.read" xml:space="preserve"><value>View stocktake report</value></data>
   <data name="Access.Permission.integration.goflow.open" xml:space="preserve"><value>Open GoFlow with single sign-on</value></data>
   <data name="Access.Permission.ai.chat.use" xml:space="preserve"><value>Use the AI assistant</value></data>
+  <data name="Access.Permission.identity.personnel.read" xml:space="preserve"><value>View OA personnel organization</value></data>
+  <data name="Access.Permission.identity.personnel.sync" xml:space="preserve"><value>Sync OA personnel</value></data>
 </root>

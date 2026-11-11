@@ -7,6 +7,7 @@
 | 业务 | 文档 | 当前范围 |
 | --- | --- | --- |
 | 一键盘点 | [库存盘点报表](inventory/stocktake.md) | 全局只读报表，查询现有 MES 库存及线边仓记录 |
+| OA 人员 | [同步与组织视图](platform/oa-personnel.md) | BU17 人员同步到用户表，新增待审批 OA 账号并留建档审计；占位账号跳过、符合条件时首次补组织资料，支持部门人员树和主管汇报树 |
 | GoFlow 集成 | [MOM 免登录凭证](integrations/goflow.md) | MOM 后端签发及兑换一次性票据；前端和 GoFlow 接入待完成 |
 | NPI · GoFlow 阶段资料 | [开发需求](npi/goflow-requirements.md) | 待开发：直读 `MesC` / `PROJECTRMS`，展示源项目各阶段状态数量，跳转资料项详情；暂不按 SBU 隔离 |
 

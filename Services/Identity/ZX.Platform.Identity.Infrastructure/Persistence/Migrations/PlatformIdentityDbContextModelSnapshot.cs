@@ -453,6 +453,69 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("NVARCHAR2(100)")
                         .HasColumnName("NORMALIZED_ACCOUNT");
 
+                    b.Property<string>("OaAccount")
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("OA_ACCOUNT");
+
+                    b.Property<string>("OaBusinessUnit")
+                        .HasMaxLength(64)
+                        .HasColumnType("NVARCHAR2(64)")
+                        .HasColumnName("OA_BUSINESS_UNIT");
+
+                    b.Property<string>("OaCompany")
+                        .HasMaxLength(256)
+                        .HasColumnType("NVARCHAR2(256)")
+                        .HasColumnName("OA_COMPANY");
+
+                    b.Property<string>("OaDepartmentCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("OA_DEPARTMENT_CODE");
+
+                    b.Property<string>("OaDepartmentName")
+                        .HasMaxLength(256)
+                        .HasColumnType("NVARCHAR2(256)")
+                        .HasColumnName("OA_DEPARTMENT_NAME");
+
+                    b.Property<string>("OaDepartmentRaw")
+                        .HasMaxLength(1000)
+                        .HasColumnType("NVARCHAR2(1000)")
+                        .HasColumnName("OA_DEPARTMENT_RAW");
+
+                    b.Property<string>("OaDirectoryStatus")
+                        .HasMaxLength(16)
+                        .HasColumnType("NVARCHAR2(16)")
+                        .HasColumnName("OA_DIRECTORY_STATUS");
+
+                    b.Property<string>("OaDisplayName")
+                        .HasMaxLength(256)
+                        .HasColumnType("NVARCHAR2(256)")
+                        .HasColumnName("OA_DISPLAY_NAME");
+
+                    b.Property<string>("OaDistinguishedName")
+                        .HasColumnType("NCLOB")
+                        .HasColumnName("OA_DISTINGUISHED_NAME");
+
+                    b.Property<string>("OaEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("NVARCHAR2(320)")
+                        .HasColumnName("OA_EMAIL");
+
+                    b.Property<string>("OaManagerDn")
+                        .HasColumnType("NCLOB")
+                        .HasColumnName("OA_MANAGER_DN");
+
+                    b.Property<string>("OaName")
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)")
+                        .HasColumnName("OA_NAME");
+
+                    b.Property<DateTimeOffset?>("OaSyncedAtUtc")
+                        .IsConcurrencyToken()
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("OA_SYNCED_AT_UTC");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(500)
                         .HasColumnType("NVARCHAR2(500)")
@@ -505,6 +568,9 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("UX_ZID_USER_LDAP_IDENTITY")
                         .HasFilter("\"LDAP_PROVIDER\" IS NOT NULL AND \"LDAP_SUBJECT\" IS NOT NULL");
 
+                    b.HasIndex("OaBusinessUnit", "OaDepartmentCode")
+                        .HasDatabaseName("IX_ZID_USER_OA_BU_DEPT");
+
                     b.ToTable("ZX_IDENTITY_USER", "ZX_IDENTITY", t =>
                         {
                             t.HasCheckConstraint("CK_ZID_USER_APPROVAL", "APPROVAL_STATUS IN ('Pending', 'Approved', 'Rejected')");
@@ -512,6 +578,8 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("CK_ZID_USER_AUTH_TYPE", "AUTH_TYPE IN ('LOCAL', 'LDAP')");
 
                             t.HasCheckConstraint("CK_ZID_USER_LDAP_ENABLED", "AUTH_TYPE <> 'LDAP' OR APPROVAL_STATUS <> 'Rejected' OR IS_ENABLED = 0");
+
+                            t.HasCheckConstraint("CK_ZID_USER_OA_STATUS", "OA_DIRECTORY_STATUS IS NULL OR OA_DIRECTORY_STATUS IN ('Enabled', 'Disabled', 'Unknown')");
 
                             t.HasCheckConstraint("CK_ZID_USER_PASSWORD", "(AUTH_TYPE = 'LDAP' AND PASSWORD_HASH IS NULL) OR (AUTH_TYPE = 'LOCAL' AND PASSWORD_HASH IS NOT NULL)");
                         });

@@ -8,6 +8,7 @@ using ZX.Platform.Identity.Application.Persistence;
 using ZX.Platform.Identity.Application.Security;
 using ZX.Platform.Identity.Application.Users;
 using ZX.Platform.Identity.Application.Inventory.Stocktake;
+using ZX.Platform.Identity.Application.Personnel;
 using ZX.Platform.Identity.Infrastructure.Inventory;
 using ZX.Platform.Identity.Infrastructure.Persistence;
 using ZX.Platform.Identity.Infrastructure.Persistence.Interceptors;
@@ -54,6 +55,12 @@ builder.Services.AddScoped<ISbuRepository, SbuRepository>();
 builder.Services.AddScoped<IUnitOfWork>(serviceProvider =>
     serviceProvider.GetRequiredService<PlatformIdentityDbContext>());
 builder.Services.AddScoped<IUserService, UserService>();
+// 人员同步使用独立的只读服务账号，沿用已有 LDAP 节点配置，不改变员工登录认证流程。
+builder.Services.AddSingleton(builder.Configuration.GetSection("OaPersonnelSync").Get<OaPersonnelSyncOptions>()
+    ?? new OaPersonnelSyncOptions());
+builder.Services.AddSingleton<IOaPersonnelDirectory, LdapPersonnelDirectory>();
+builder.Services.AddScoped<IOaPersonnelUserRepository, OaPersonnelUserRepository>();
+builder.Services.AddScoped<IOaPersonnelService, OaPersonnelService>();
 builder.Services.AddScoped<ISbuService, SbuService>();
 builder.Services.AddScoped<IStocktakeReportRepository, StocktakeReportRepository>();
 builder.Services.AddScoped<IStocktakeReportService, StocktakeReportService>();

@@ -72,4 +72,6 @@
   <data name="Access.Permission.inventory.stocktake.read" xml:space="preserve"><value>查看一键盘点报表</value></data>
   <data name="Access.Permission.integration.goflow.open" xml:space="preserve"><value>免登录进入 GoFlow</value></data>
   <data name="Access.Permission.ai.chat.use" xml:space="preserve"><value>使用 AI 助手</value></data>
+  <data name="Access.Permission.identity.personnel.read" xml:space="preserve"><value>查看OA人员组织</value></data>
+  <data name="Access.Permission.identity.personnel.sync" xml:space="preserve"><value>同步OA人员</value></data>
 </root>

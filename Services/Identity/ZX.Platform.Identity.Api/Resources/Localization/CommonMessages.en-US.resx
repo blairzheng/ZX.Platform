@@ -31,4 +31,11 @@
   <data name="Sso.Unavailable" xml:space="preserve"><value>GoFlow single sign-on is disabled or temporarily unavailable. Please contact an administrator.</value></data>
   <data name="Sso.HttpsRequired" xml:space="preserve"><value>GoFlow single sign-on requires HTTPS.</value></data>
   <data name="Sso.ConfigurationLoaded" xml:space="preserve"><value>GoFlow sign-in configuration loaded.</value></data>
+  <data name="OaPersonnel.TreeLoaded" xml:space="preserve"><value>OA personnel organization loaded.</value></data>
+  <data name="OaPersonnel.Synced" xml:space="preserve"><value>OA personnel synchronized: {0} MOM users created, {1} existing accounts skipped (including {3} first-time organization profiles added), {2} invalid records.</value></data>
+  <data name="OaPersonnel.NotConfigured" xml:space="preserve"><value>OA personnel synchronization is not configured. Ask an administrator to check the directory connection and synchronization service account.</value></data>
+  <data name="OaPersonnel.DirectoryUnavailable" xml:space="preserve"><value>The OA personnel directory is unavailable. Try again later or check the synchronization service account.</value></data>
+  <data name="OaPersonnel.IncompleteRead" xml:space="preserve"><value>The directory returned incomplete results. No personnel were written. Check directory permissions and paging settings.</value></data>
+  <data name="OaPersonnel.ScopeLimit" xml:space="preserve"><value>The directory exceeded the synchronization limit. No personnel were written. Check the business unit scope.</value></data>
+  <data name="OaPersonnel.SyncConflict" xml:space="preserve"><value>Another operation added or modified personnel. All writes from this attempt were rolled back. Synchronize again.</value></data>
 </root>

@@ -25,6 +25,9 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Configurations
                 table.HasCheckConstraint(
                     "CK_ZID_USER_LDAP_ENABLED",
                     "AUTH_TYPE <> 'LDAP' OR APPROVAL_STATUS <> 'Rejected' OR IS_ENABLED = 0");
+                table.HasCheckConstraint(
+                    "CK_ZID_USER_OA_STATUS",
+                    "OA_DIRECTORY_STATUS IS NULL OR OA_DIRECTORY_STATUS IN ('Enabled', 'Disabled', 'Unknown')");
             });
 
             builder.HasKey(x => x.Id);
@@ -72,6 +75,24 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Configurations
             builder.Property(x => x.LdapSubject)
                 .HasColumnName("LDAP_SUBJECT")
                 .HasMaxLength(36);
+
+            // 目录组织资料与认证、审批和授权分开维护，存量用户全部允许为空。
+            builder.Property(x => x.OaAccount).HasColumnName("OA_ACCOUNT").HasMaxLength(100);
+            builder.Property(x => x.OaName).HasColumnName("OA_NAME").HasMaxLength(200);
+            builder.Property(x => x.OaDisplayName).HasColumnName("OA_DISPLAY_NAME").HasMaxLength(256);
+            builder.Property(x => x.OaEmail).HasColumnName("OA_EMAIL").HasMaxLength(320);
+            builder.Property(x => x.OaCompany).HasColumnName("OA_COMPANY").HasMaxLength(256);
+            builder.Property(x => x.OaBusinessUnit).HasColumnName("OA_BUSINESS_UNIT").HasMaxLength(64);
+            builder.Property(x => x.OaDepartmentName).HasColumnName("OA_DEPARTMENT_NAME").HasMaxLength(256);
+            builder.Property(x => x.OaDepartmentCode).HasColumnName("OA_DEPARTMENT_CODE").HasMaxLength(100);
+            builder.Property(x => x.OaDepartmentRaw).HasColumnName("OA_DEPARTMENT_RAW").HasMaxLength(1000);
+            builder.Property(x => x.OaDistinguishedName).HasColumnName("OA_DISTINGUISHED_NAME").HasColumnType("NCLOB");
+            builder.Property(x => x.OaManagerDn).HasColumnName("OA_MANAGER_DN").HasColumnType("NCLOB");
+            builder.Property(x => x.OaDirectoryStatus).HasColumnName("OA_DIRECTORY_STATUS").HasMaxLength(16);
+            // 首次补资料必须仍未同步；并发同步不能覆盖另一请求已补齐的快照。
+            // 独立于会话安全版本，不因补资料改变登录或业务授权。
+            builder.Property(x => x.OaSyncedAtUtc).HasColumnName("OA_SYNCED_AT_UTC")
+                .HasColumnType("TIMESTAMP(7) WITH TIME ZONE").IsConcurrencyToken();
 
             builder.Property(x => x.ApprovalStatus)
                 .HasColumnName("APPROVAL_STATUS")
@@ -129,6 +150,9 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Configurations
             // 用户列表按认证类型和审批状态筛选。
             builder.HasIndex(x => new { x.AuthType, x.ApprovalStatus })
                 .HasDatabaseName("IX_ZID_USER_TYPE_APPROVAL");
+
+            builder.HasIndex(x => new { x.OaBusinessUnit, x.OaDepartmentCode })
+                .HasDatabaseName("IX_ZID_USER_OA_BU_DEPT");
 
             builder.ConfigureAuditing();
 

@@ -75,6 +75,27 @@ namespace ZX.Platform.Identity.Domain.Entities
         /// </summary>
         public string? LdapSubject { get; private set; }
 
+        /// <summary>同步时读取的目录资料；不参与登录、审批或权限判定。</summary>
+        public string? OaAccount { get; private set; }
+        public string? OaName { get; private set; }
+        public string? OaDisplayName { get; private set; }
+        public string? OaEmail { get; private set; }
+        public string? OaCompany { get; private set; }
+        public string? OaBusinessUnit { get; private set; }
+        public string? OaDepartmentName { get; private set; }
+        public string? OaDepartmentCode { get; private set; }
+        public string? OaDepartmentRaw { get; private set; }
+
+        /// <summary>目录物理位置快照，不作为正式部门的父子关系。</summary>
+        public string? OaDistinguishedName { get; private set; }
+
+        /// <summary>目录主管 DN，由人员组织读取用例解析为上下级关系。</summary>
+        public string? OaManagerDn { get; private set; }
+
+        /// <summary>目录账号状态快照，不能直接认定为 HR 在职状态。</summary>
+        public string? OaDirectoryStatus { get; private set; }
+        public DateTimeOffset? OaSyncedAtUtc { get; private set; }
+
         /// <summary>
         /// 开通审批状态，见 <see cref="UserApprovalStatus"/>。
         /// </summary>
@@ -200,6 +221,80 @@ namespace ZX.Platform.Identity.Domain.Entities
                 UserAuthType.Ldap, UserApprovalStatus.Pending, true);
             user.EmployeeNo = employeeNo.Trim();
             return user;
+        }
+
+        /// <summary>
+        /// 从可信目录同步创建待业务审批的 OA 用户，不保存密码、不分配角色或 SBU。
+        /// Disabled / Unknown 的目录账号以禁用状态建档。
+        /// </summary>
+        public static User CreateLdapFromDirectory(
+            string employeeNo,
+            string provider,
+            string subject,
+            string account,
+            string name,
+            string directoryDisplayName,
+            string? email,
+            string? company,
+            string businessUnit,
+            string departmentName,
+            string? departmentCode,
+            string? departmentRaw,
+            string distinguishedName,
+            string? managerDn,
+            string directoryStatus,
+            DateTimeOffset syncedAtUtc,
+            Guid actorId)
+        {
+            var normalizedEmployeeNo = RequiredOaValue(employeeNo, 32, nameof(employeeNo));
+            var normalizedProvider = RequiredOaValue(provider, 32, nameof(provider));
+            var userDisplayName = RequiredOaValue(name, 100, nameof(name));
+            if (!Guid.TryParse(subject?.Trim(), out var subjectGuid) || subjectGuid == Guid.Empty)
+                throw new ArgumentException("A valid directory GUID is required.", nameof(subject));
+
+            var user = CreateLdap(normalizedEmployeeNo, normalizedEmployeeNo, userDisplayName,
+                normalizedProvider, subjectGuid.ToString("D"));
+            user.SetOaProfile(account, name, directoryDisplayName, email, company, businessUnit,
+                departmentName, departmentCode, departmentRaw, distinguishedName, managerDn,
+                directoryStatus, syncedAtUtc, actorId);
+            user.IsEnabled = directoryStatus == "Enabled";
+            user.CreatedAtUtc = syncedAtUtc.ToUniversalTime();
+            user.CreatedByUserId = actorId;
+            return user;
+        }
+
+        /// <summary>
+        /// 为已有已绑定 OA 用户首次补齐目录资料。调用方须先核对工号及目录身份一致。
+        /// 不更改登录账号、显示名称、密码、目录身份、审批、启用、安全版本或业务授权。
+        /// </summary>
+        public bool BackfillOaProfile(
+            string account,
+            string name,
+            string directoryDisplayName,
+            string? email,
+            string? company,
+            string businessUnit,
+            string departmentName,
+            string? departmentCode,
+            string? departmentRaw,
+            string distinguishedName,
+            string? managerDn,
+            string directoryStatus,
+            DateTimeOffset syncedAtUtc,
+            Guid actorId)
+        {
+            EnsureLdapAccount();
+            if (string.IsNullOrWhiteSpace(LdapProvider) || string.IsNullOrWhiteSpace(LdapSubject))
+                throw new DomainException("User.LdapIdentityConflict");
+            if (OaSyncedAtUtc.HasValue)
+                return false;
+
+            SetOaProfile(account, name, directoryDisplayName, email, company, businessUnit,
+                departmentName, departmentCode, departmentRaw, distinguishedName, managerDn,
+                directoryStatus, syncedAtUtc, actorId);
+            UpdatedAtUtc = syncedAtUtc.ToUniversalTime();
+            UpdatedByUserId = actorId;
+            return true;
         }
 
         /// <summary>
@@ -414,6 +509,69 @@ namespace ZX.Platform.Identity.Domain.Entities
         }
 
         private void IncrementSecurityVersion() => SecurityVersion++;
+
+        private void SetOaProfile(
+            string account,
+            string name,
+            string directoryDisplayName,
+            string? email,
+            string? company,
+            string businessUnit,
+            string departmentName,
+            string? departmentCode,
+            string? departmentRaw,
+            string distinguishedName,
+            string? managerDn,
+            string directoryStatus,
+            DateTimeOffset syncedAtUtc,
+            Guid actorId)
+        {
+            if (directoryStatus is not ("Enabled" or "Disabled" or "Unknown"))
+                throw new ArgumentException("Unsupported directory status.", nameof(directoryStatus));
+            if (syncedAtUtc == default)
+                throw new ArgumentException("A synchronization timestamp is required.", nameof(syncedAtUtc));
+            if (actorId == Guid.Empty)
+                throw new ArgumentException("The synchronization actor is required.", nameof(actorId));
+
+            // 完成整份资料校验后才赋值，失败时不留下半份资料。
+            var profileAccount = RequiredOaValue(account, 100, nameof(account));
+            var profileName = RequiredOaValue(name, 200, nameof(name));
+            var profileDisplayName = RequiredOaValue(directoryDisplayName, 256, nameof(directoryDisplayName));
+            var profileEmail = OptionalOaValue(email, 320, nameof(email));
+            var profileCompany = OptionalOaValue(company, 256, nameof(company));
+            var profileBusinessUnit = RequiredOaValue(businessUnit, 64, nameof(businessUnit));
+            var profileDepartmentName = RequiredOaValue(departmentName, 256, nameof(departmentName));
+            var profileDepartmentCode = OptionalOaValue(departmentCode, 100, nameof(departmentCode));
+            var profileDepartmentRaw = OptionalOaValue(departmentRaw, 1000, nameof(departmentRaw));
+            var profileDistinguishedName = RequiredOaValue(distinguishedName, 2048, nameof(distinguishedName));
+            var profileManagerDn = OptionalOaValue(managerDn, 2048, nameof(managerDn));
+
+            OaAccount = profileAccount;
+            OaName = profileName;
+            OaDisplayName = profileDisplayName;
+            OaEmail = profileEmail;
+            OaCompany = profileCompany;
+            OaBusinessUnit = profileBusinessUnit;
+            OaDepartmentName = profileDepartmentName;
+            OaDepartmentCode = profileDepartmentCode;
+            OaDepartmentRaw = profileDepartmentRaw;
+            OaDistinguishedName = profileDistinguishedName;
+            OaManagerDn = profileManagerDn;
+            OaDirectoryStatus = directoryStatus;
+            OaSyncedAtUtc = syncedAtUtc.ToUniversalTime();
+        }
+
+        private static string RequiredOaValue(string value, int maximumLength, string parameterName)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(value, parameterName);
+            var trimmed = value.Trim();
+            if (trimmed.Length > maximumLength || trimmed.Any(char.IsControl))
+                throw new ArgumentException("The directory field is invalid or exceeds the supported length.", parameterName);
+            return trimmed;
+        }
+
+        private static string? OptionalOaValue(string? value, int maximumLength, string parameterName) =>
+            string.IsNullOrWhiteSpace(value) ? null : RequiredOaValue(value, maximumLength, parameterName);
 
         private static string? NormalizeReason(string? reason)
         {

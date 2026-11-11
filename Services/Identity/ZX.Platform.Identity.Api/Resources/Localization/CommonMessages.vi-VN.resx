@@ -31,4 +31,11 @@
   <data name="Sso.Unavailable" xml:space="preserve"><value>Đăng nhập một lần cho GoFlow chưa được bật hoặc tạm thời không khả dụng, vui lòng liên hệ quản trị viên.</value></data>
   <data name="Sso.HttpsRequired" xml:space="preserve"><value>Đăng nhập một lần cho GoFlow phải truy cập qua HTTPS.</value></data>
   <data name="Sso.ConfigurationLoaded" xml:space="preserve"><value>Đã lấy cấu hình đăng nhập một lần cho GoFlow</value></data>
+  <data name="OaPersonnel.TreeLoaded" xml:space="preserve"><value>Đã tải cơ cấu nhân sự OA.</value></data>
+  <data name="OaPersonnel.Synced" xml:space="preserve"><value>Đã đồng bộ nhân sự OA: tạo {0} người dùng MOM, bỏ qua {1} tài khoản đã có (trong đó bổ sung hồ sơ tổ chức lần đầu cho {3} người), {2} bản ghi không hợp lệ.</value></data>
+  <data name="OaPersonnel.NotConfigured" xml:space="preserve"><value>Chưa cấu hình đồng bộ nhân sự OA. Vui lòng liên hệ quản trị viên để kiểm tra kết nối thư mục và tài khoản dịch vụ đồng bộ.</value></data>
+  <data name="OaPersonnel.DirectoryUnavailable" xml:space="preserve"><value>Thư mục nhân sự OA tạm thời không khả dụng. Vui lòng thử lại sau hoặc kiểm tra tài khoản dịch vụ đồng bộ.</value></data>
+  <data name="OaPersonnel.IncompleteRead" xml:space="preserve"><value>Thư mục trả về kết quả chưa đầy đủ. Chưa ghi nhân sự nào. Vui lòng kiểm tra quyền thư mục và cấu hình phân trang.</value></data>
+  <data name="OaPersonnel.ScopeLimit" xml:space="preserve"><value>Số lượng nhân sự vượt giới hạn đồng bộ. Chưa ghi nhân sự nào. Vui lòng kiểm tra phạm vi BU.</value></data>
+  <data name="OaPersonnel.SyncConflict" xml:space="preserve"><value>Một thao tác khác đã thêm hoặc thay đổi nhân sự. Tất cả thay đổi ghi của lần này đã được hoàn tác. Vui lòng đồng bộ lại.</value></data>
 </root>

@@ -72,4 +72,6 @@
   <data name="Access.Permission.inventory.stocktake.read" xml:space="preserve"><value>Xem báo cáo kiểm kê một chạm</value></data>
   <data name="Access.Permission.integration.goflow.open" xml:space="preserve"><value>Vào GoFlow bằng đăng nhập một lần</value></data>
   <data name="Access.Permission.ai.chat.use" xml:space="preserve"><value>Sử dụng trợ lý AI</value></data>
+  <data name="Access.Permission.identity.personnel.read" xml:space="preserve"><value>Xem cơ cấu nhân sự OA</value></data>
+  <data name="Access.Permission.identity.personnel.sync" xml:space="preserve"><value>Đồng bộ nhân sự OA</value></data>
 </root>
