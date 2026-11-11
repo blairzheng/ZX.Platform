@@ -22,6 +22,20 @@
 
 容器环境变量对应 `OaPersonnelSync__Enabled`、`OaPersonnelSync__BindUser`、`OaPersonnelSync__BindPassword` 等。新增配置不会自动传入容器，部署时需将这些受保护变量传给 Identity 进程；浏览器无需也不能获得这些值。
 
+通过 `mom_img` GitLab 流水线发布时，先更新该仓库的变量映射，再配置以下 CI/CD 变量并新建后端发布流水线。类型使用普通 Variable，值不加引号、不含换行，关闭变量展开；密码设为 Masked。同步和复用的 `MOM_LDAP_*` 变量环境范围统一使用 `*`，以便没有 environment 的 `release_check` 读取完整配置。配置在发布时写入两台 Identity 容器，不能只添加变量后重试仍使用旧 YAML 的任务。
+
+| GitLab 变量 | Identity 环境变量 | 填写内容 |
+| --- | --- | --- |
+| `MOM_OA_PERSONNEL_SYNC_ENABLED` | `OaPersonnelSync__Enabled` | 启用填 `true`，默认 `false` |
+| `MOM_OA_PERSONNEL_SYNC_BIND_USER` | `OaPersonnelSync__BindUser` | 启用时必填，只读目录服务账号 |
+| `MOM_OA_PERSONNEL_SYNC_BIND_PASSWORD` | `OaPersonnelSync__BindPassword` | 启用时必填，对应服务账号密码 |
+| `MOM_OA_PERSONNEL_SYNC_BUSINESS_UNIT` | `OaPersonnelSync__BusinessUnit` | 可选，默认 `BU17` |
+| `MOM_OA_PERSONNEL_SYNC_PAGE_SIZE` | `OaPersonnelSync__PageSize` | 可选，默认 `200` |
+| `MOM_OA_PERSONNEL_SYNC_MAX_PEOPLE` | `OaPersonnelSync__MaxPeople` | 可选，默认 `10000` |
+| `MOM_OA_PERSONNEL_SYNC_TOTAL_TIMEOUT_SECONDS` | `OaPersonnelSync__TotalTimeoutSeconds` | 可选，默认 `90` |
+
+已有 `MOM_LDAP_*` 变量继续提供共享目录和传输设置；流水线在 OA 登录或人员同步任一启用时传入。人员同步账号使用上表的独立变量，不恢复原 OA 登录已移除的 `MOM_LDAP_BIND_DN` / `MOM_LDAP_BIND_PASSWORD`。本次已核对静态映射，未连接 GitLab、LDAP 或执行发布。
+
 共享的 `AuthenticationLdap` 配置需要有合法的 `Provider`、`BaseDn`、`Servers` 和属性名。默认工号及目录账号属性均为 `sAMAccountName`，稳定身份属性必须为 `objectGUID`；MOM 账号使用工号，按字符串保留字母和前导零。目录账号另存为 OA 元数据。保持既有 `Provider` 与属性口径，不能为同步随机修改身份来源。`EmployeeLookupAttribute` 是单人登录查询配置，批量同步不使用它。
 
 支持 `Ldaps`、`StartTls`，保留平台证书验证。当前环境使用已批准的 Plain/389 传输时，沿用 `AuthenticationLdap:AllowPlainText=true` 的显式设置；未设置时同步拒绝执行。服务账号仅用于同步，不能替代员工的 OA 密码认证。
