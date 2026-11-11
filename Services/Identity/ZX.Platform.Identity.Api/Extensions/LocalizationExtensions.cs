@@ -15,7 +15,7 @@ namespace ZX.Platform.Identity.Api.Extensions
             services.AddSingleton<Microsoft.AspNetCore.Mvc.DataAnnotations.IValidationAttributeAdapterProvider, PasswordValidationAdapterProvider>();
             services.Configure<RequestLocalizationOptions>(options =>
             {
-                var cultures = new[] { "zh-CN", "en-US" };
+                var cultures = new[] { "zh-CN", "en-US", "vi-VN" };
                 options.SetDefaultCulture("zh-CN")
                     .AddSupportedCultures(cultures)
                     .AddSupportedUICultures(cultures);

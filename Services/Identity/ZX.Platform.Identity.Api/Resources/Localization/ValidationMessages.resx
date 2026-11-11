@@ -16,6 +16,7 @@
   <data name="Validation.UserIdRequired" xml:space="preserve"><value>用户标识不能为空。</value></data>
   <data name="Validation.SbuCodeRequired" xml:space="preserve"><value>SBU编码不能为空。</value></data>
   <data name="Validation.SbuCodeMaxLength" xml:space="preserve"><value>SBU编码长度不能超过 {1} 个字符。</value></data>
+    <data name="Validation.SbusRequired" xml:space="preserve"><value>请至少选择一个 SBU。</value></data>
   <data name="Validation.SbuNameRequired" xml:space="preserve"><value>SBU名称不能为空。</value></data>
   <data name="Validation.SbuNameMaxLength" xml:space="preserve"><value>SBU名称不能超过 {1} 个字符。</value></data>
   <data name="Validation.PageRange" xml:space="preserve"><value>页码必须大于 0。</value></data>

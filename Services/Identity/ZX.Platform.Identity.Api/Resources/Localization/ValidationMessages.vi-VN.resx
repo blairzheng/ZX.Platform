@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Validation.AccountRequired" xml:space="preserve"><value>Tài khoản không được để trống.</value></data>
+  <data name="Validation.AccountMaxLength" xml:space="preserve"><value>Độ dài tài khoản không được vượt quá {1} ký tự.</value></data>
+  <data name="Validation.DisplayNameRequired" xml:space="preserve"><value>Tên hiển thị không được để trống.</value></data>
+  <data name="Validation.DisplayNameMaxLength" xml:space="preserve"><value>Tên hiển thị không được vượt quá {1} ký tự.</value></data>
+  <data name="Validation.PasswordRequired" xml:space="preserve"><value>Mật khẩu không được để trống.</value></data>
+  <data name="Validation.PasswordMinLength" xml:space="preserve"><value>Mật khẩu phải có ít nhất {1} ký tự.</value></data>
+  <data name="Validation.NewPasswordRequired" xml:space="preserve"><value>Mật khẩu mới không được để trống.</value></data>
+  <data name="Validation.NewPasswordMinLength" xml:space="preserve"><value>Mật khẩu mới phải có ít nhất {1} ký tự.</value></data>
+  <data name="Validation.NewPasswordMaxLength" xml:space="preserve"><value>Mật khẩu mới không được vượt quá {1} ký tự.</value></data>
+  <data name="Validation.UserIdRequired" xml:space="preserve"><value>Mã người dùng không được để trống.</value></data>
+  <data name="Validation.SbuCodeRequired" xml:space="preserve"><value>Mã SBU không được để trống.</value></data>
+  <data name="Validation.SbuCodeMaxLength" xml:space="preserve"><value>Độ dài mã SBU không được vượt quá {1} ký tự.</value></data>
+    <data name="Validation.SbusRequired" xml:space="preserve"><value>Vui lòng chọn ít nhất một SBU.</value></data>
+  <data name="Validation.SbuNameRequired" xml:space="preserve"><value>Tên SBU không được để trống.</value></data>
+  <data name="Validation.SbuNameMaxLength" xml:space="preserve"><value>Tên SBU không được vượt quá {1} ký tự.</value></data>
+  <data name="Validation.PageRange" xml:space="preserve"><value>Số trang phải lớn hơn 0.</value></data>
+  <data name="Validation.PageSizeRange" xml:space="preserve"><value>Số lượng mỗi trang phải nằm trong khoảng {1} đến {2}.</value></data>
+  <data name="Validation.PaginationOverflow" xml:space="preserve"><value>Tham số phân trang vượt quá phạm vi cho phép.</value></data>
+  <data name="Validation.ParameterInvalid" xml:space="preserve"><value>Tham số “{0}” không đúng định dạng.</value></data>
+  <data name="Validation.InvalidValue" xml:space="preserve"><value>Tham số yêu cầu không đúng định dạng.</value></data>
+  <data name="Validation.BodyRequired" xml:space="preserve"><value>Nội dung yêu cầu không được để trống.</value></data>
+  <data name="Validation.Failed" xml:space="preserve"><value>Kiểm tra tham số yêu cầu thất bại.</value></data>
+  <data name="Validation.Separator" xml:space="preserve"><value>; </value></data>
+  <data name="Validation.CurrentPasswordRequired" xml:space="preserve"><value>Mật khẩu hiện tại không được để trống.</value></data>
+  <data name="Validation.PasswordMaxBytes" xml:space="preserve"><value>Độ dài mã hóa UTF-8 của mật khẩu không được vượt quá 72 byte.</value></data>
+  <data name="Validation.Required" xml:space="preserve"><value>{0} không được để trống.</value></data>
+  <data name="Validation.StringLength" xml:space="preserve"><value>{0} không được vượt quá {1} ký tự.</value></data>
+  <data name="Validation.MaxLength" xml:space="preserve"><value>{0} cho phép tối đa {1} mục.</value></data>
+  <data name="Validation.RoleCode" xml:space="preserve"><value>Mã vai trò phải bắt đầu bằng chữ cái, chỉ gồm chữ cái, chữ số và dấu gạch dưới.</value></data>
+  <data name="Validation.MenuKind" xml:space="preserve"><value>Loại menu không đúng.</value></data>
+  <data name="Validation.MenuSort" xml:space="preserve"><value>Thứ tự phải nằm trong khoảng 0 đến 10000.</value></data>
+  <data name="Validation.MenuLauncherTone" xml:space="preserve"><value>Màu ô lưới không đúng.</value></data>
+  <data name="Validation.MenuCode" xml:space="preserve"><value>Mã menu phải bắt đầu bằng chữ cái, chỉ gồm chữ cái, chữ số, dấu gạch dưới và dấu gạch nối.</value></data>
+  <data name="Validation.EmployeeNoRequired" xml:space="preserve"><value>Vui lòng nhập mã nhân viên.</value></data>
+  <data name="Validation.EmployeeNoMaxLength" xml:space="preserve"><value>Mã nhân viên không được vượt quá 32 ký tự.</value></data>
+  <data name="Validation.LdapPasswordMaxLength" xml:space="preserve"><value>Độ dài mật khẩu vượt quá giới hạn.</value></data>
+  <data name="Validation.ReviewReasonMaxLength" xml:space="preserve"><value>Ghi chú phê duyệt không được vượt quá 500 ký tự.</value></data>
+  <data name="Validation.SecurityVersionRequired" xml:space="preserve"><value>Thiếu phiên bản bảo mật của tài khoản, vui lòng làm mới và thử lại.</value></data>
+  <data name="Validation.UserRequired" xml:space="preserve"><value>Thiếu mã người dùng.</value></data>
+  <data name="Validation.AiMessagesRequired" xml:space="preserve"><value>Vui lòng gửi ít nhất một tin nhắn hội thoại.</value></data>
+  <data name="Validation.AiMessagesMaxLength" xml:space="preserve"><value>Mỗi lần chỉ được gửi tối đa {1} tin nhắn hội thoại.</value></data>
+  <data name="Validation.AiRoleInvalid" xml:space="preserve"><value>Vai trò hội thoại chỉ cho phép user hoặc assistant.</value></data>
+  <data name="Validation.AiContentRequired" xml:space="preserve"><value>Nội dung hội thoại không được để trống.</value></data>
+  <data name="Validation.AiContentMaxLength" xml:space="preserve"><value>Nội dung một tin nhắn không được vượt quá {1} ký tự.</value></data>
+  <data name="Validation.SsoRequestInvalid" xml:space="preserve"><value>Tham số yêu cầu đăng nhập một lần không đúng, vui lòng thực hiện lại.</value></data>
+</root>

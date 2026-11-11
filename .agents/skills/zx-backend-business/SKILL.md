@@ -31,7 +31,7 @@ description: "在 ZX.Platform 现有 Identity 四层内新增或扩展业务接�
 | 路由、状态码、错误 | `Api/Controllers/`、`Contracts/ApiResponse.cs`、`ErrorHandling/GlobalExceptionHandler.cs`、`Application/Errors/ErrorCodes.cs` | 第 7 节；Controller 不直接操作 EF |
 | 功能权限 | `Application/Authorization/IdentityPermissions.cs`、`Api/Extensions/AuthorizationExtensions.cs` | 第 7 节；追加常量和动作 Policy，保留原有目录机制 |
 | SBU 隔离 | `Api/Authorization/RequireSbuAttribute.cs`、`CurrentSbuContext.cs`、当前业务仓储 | 第 6、7 节；校验归属后仍需逐查询过滤 |
-| 服务注册与提示词条 | `Api/Program.cs`、`Localization/ApiMessageLocalizer.cs`、`Resources/Localization/` | 第 8 节；中英文资源、DI 都要贯通 |
+| 服务注册与提示词条 | `Api/Program.cs`、`Localization/ApiMessageLocalizer.cs`、`Resources/Localization/` | 第 8 节；中英越资源、DI 都要贯通 |
 | 页面接入与菜单 | `Application/Menus/MenuService.cs`、实际前端仓库的 `src/router/menuPages.ts` | 第 9 节；前端统一登记组件，仅有前端任务授权时修改对应前端仓库 |
 | 外部 Oracle 取数 | `Infrastructure/ExternalData/`、`Api/Extensions/ExternalOracleDataSourcesExtensions.cs` | 第 10 节；复用服务端数据源别名，明确 SBU 与失败边界 |
 | AI 业务查询 | 原业务 GET、`Api/AI/Queries/AiQueryAttribute.cs` | 第 7.1 节；确认只读后按需标记，复用原权限和数据范围 |
@@ -46,7 +46,7 @@ description: "在 ZX.Platform 现有 Identity 四层内新增或扩展业务接�
 - 有模型变更时先完成实体、映射、DbSet，再按 `02` 第 4 节处理迁移。没改模型就不生成空迁移；生成命令保留 `--output-dir Persistence/Migrations`，默认离线生成不带 `--development`。不重写已有迁移、手拼 Designer 或用个人 schema 污染 snapshot。
 - 遵守根 AGENTS 的执行授权：未获生成迁移授权时提供准确命令并说明尚未生成；已明确授权生成时执行必要步骤。更新共享测试库需要对应授权，使用文档中的 `database update ... -- --development`。未执行数据库步骤仍可完成其余已授权代码，交付时标明联调前置项；不谎称新表可用。
 - 为每个对外业务动作接入现有 Policy。SBU 业务只接受已校验上下文，仓储的列表、总数、详情、关联明细及写入都限定该范围。记录 ID、批量 ID 和关联父表 ID 同样不能绕过归属校验。
-- 补齐 DTO 验证、成功和失败消息键、中英文资源、异常映射及依赖注册。确认词条被现有分发实际使用，不能只创建一个无人加载的资源文件。
+- 补齐 DTO 验证、成功和失败消息键、中英越三语资源、异常映射及依赖注册。确认词条被现有分发实际使用，不能只创建一个无人加载的资源文件。
 
 审批、提交、撤回等动作各自核对允许的原状态、操作者权限、并发竞争及审计。不要把状态值直接交给通用 update 接口。涉及外部系统时单独明确超时、幂等和失败恢复，不能认为本地事务能包住远端操作。
 
@@ -56,7 +56,7 @@ description: "在 ZX.Platform 现有 Identity 四层内新增或扩展业务接�
 
 ## 对接前端
 
-后端任务交付实际可用的路由、方法、请求字段、分页结构、时间与 NULL 约定、动作权限及 SBU 要求。需要新菜单时列出路径、组件标识和中英文标题，不自动写菜单或授权数据。
+后端任务交付实际可用的路由、方法、请求字段、分页结构、时间与 NULL 约定、动作权限及 SBU 要求。需要新菜单时列出路径、组件标识和中、英、越三语标题，不自动写菜单或授权数据。
 
 前端在 `src/router/menuPages.ts` 的 `menuPages` 中统一登记组件标识、`titleKey` 和显式 `load` 函数，路由与菜单编辑器共用该表。后端不追加前端组件名称列表；页面组件只校验 ASCII 字母开头、后续为字母/数字/下划线、总长 1～100 字符，目录与操作的组件为空。新增业务权限仍在 `IdentityPermissions` 声明，由真实接口独立鉴权。
 
@@ -66,7 +66,7 @@ description: "在 ZX.Platform 现有 Identity 四层内新增或扩展业务接�
 
 ## 静态核对与交付
 
-结束前沿本次改动核对依赖注册、字段和路由契约、动作 Policy、SBU 查询条件、迁移文件及双语消息是否遗漏。只检查本次涉及的环节，不为一次小修复扩展成全系统审计。
+结束前沿本次改动核对依赖注册、字段和路由契约、动作 Policy、SBU 查询条件、迁移文件及三语消息是否遗漏。只检查本次涉及的环节，不为一次小修复扩展成全系统审计。
 
 同步本模块文档中的接口契约、规则、权限、SBU 与 AI 查询范围；新模块增加业务索引入口。文档写当前已实现行为和实际验证状态，保留必要源码相对链接，不复制配置、启动或发布教程。行为与契约均未改变时，在交付说明中说明无需更新文档的原因。
 

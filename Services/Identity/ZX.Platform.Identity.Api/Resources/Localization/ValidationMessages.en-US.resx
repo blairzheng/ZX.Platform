@@ -16,6 +16,7 @@
   <data name="Validation.UserIdRequired" xml:space="preserve"><value>User ID is required.</value></data>
   <data name="Validation.SbuCodeRequired" xml:space="preserve"><value>Sbu code is required.</value></data>
   <data name="Validation.SbuCodeMaxLength" xml:space="preserve"><value>Sbu code must not exceed {1} characters.</value></data>
+    <data name="Validation.SbusRequired" xml:space="preserve"><value>Select at least one SBU.</value></data>
   <data name="Validation.SbuNameRequired" xml:space="preserve"><value>Sbu name is required.</value></data>
   <data name="Validation.SbuNameMaxLength" xml:space="preserve"><value>Sbu name must not exceed {1} characters.</value></data>
   <data name="Validation.PageRange" xml:space="preserve"><value>Page must be greater than 0.</value></data>

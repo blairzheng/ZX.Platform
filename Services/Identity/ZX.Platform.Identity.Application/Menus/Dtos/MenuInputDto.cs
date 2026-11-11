@@ -13,6 +13,9 @@ public class MenuInputDto
     public string Title { get; set; } = string.Empty;
     [StringLength(200, ErrorMessage = "Validation.StringLength")]
     public string TitleEn { get; set; } = string.Empty;
+    // 越南语字段为 null 表示更新请求未携带该字段，保留数据库现值；显式空字符串才清空。
+    [StringLength(200, ErrorMessage = "Validation.StringLength")]
+    public string? TitleVi { get; set; }
     [StringLength(100, ErrorMessage = "Validation.StringLength")]
     public string Icon { get; set; } = string.Empty;
     [StringLength(200, ErrorMessage = "Validation.StringLength")]
@@ -27,6 +30,8 @@ public class MenuInputDto
     public string LauncherDescription { get; set; } = string.Empty;
     [StringLength(500, ErrorMessage = "Validation.StringLength")]
     public string LauncherDescriptionEn { get; set; } = string.Empty;
+    [StringLength(500, ErrorMessage = "Validation.StringLength")]
+    public string? LauncherDescriptionVi { get; set; }
     [Range(0, 10000, ErrorMessage = "Validation.MenuSort")]
     public int Sort { get; set; }
     public bool KeepAlive { get; set; } = true;

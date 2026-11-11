@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="User.Created" xml:space="preserve"><value>Tạo người dùng thành công.</value></data>
+  <data name="User.DetailsLoaded" xml:space="preserve"><value>Lấy chi tiết người dùng thành công.</value></data>
+  <data name="User.ListLoaded" xml:space="preserve"><value>Lấy danh sách người dùng có phân trang thành công.</value></data>
+  <data name="User.CreatedAtRangeInvalid" xml:space="preserve"><value>Thời gian bắt đầu của khoảng thời gian tạo phải sớm hơn thời gian kết thúc.</value></data>
+  <data name="User.DisplayNameUpdated" xml:space="preserve"><value>Cập nhật tên hiển thị người dùng thành công.</value></data>
+  <data name="User.StatusUpdated" xml:space="preserve"><value>Cập nhật trạng thái người dùng thành công.</value></data>
+  <data name="User.PasswordUpdated" xml:space="preserve"><value>Đổi mật khẩu người dùng thành công.</value></data>
+  <data name="User.Deleted" xml:space="preserve"><value>Xóa người dùng thành công.</value></data>
+  <data name="User.BatchDeleted" xml:space="preserve"><value>Xóa hàng loạt người dùng thành công.</value></data>
+  <data name="User.BatchDeleteNoIds" xml:space="preserve"><value>Vui lòng chọn người dùng cần xóa.</value></data>
+  <data name="User.Restored" xml:space="preserve"><value>Khôi phục người dùng thành công.</value></data>
+  <data name="User.SbusUpdated" xml:space="preserve"><value>Cập nhật SBU của người dùng thành công.</value></data>
+  <data name="User.AccountDeleted" xml:space="preserve"><value>Tài khoản này từng bị xóa nên không thể tạo lại, vui lòng liên hệ quản trị viên để khôi phục người dùng cũ hoặc dùng tài khoản khác.</value></data>
+  <data name="User.AccountDisabled" xml:space="preserve"><value>Tài khoản này đã bị vô hiệu hóa nên không thể tạo lại, vui lòng liên hệ quản trị viên.</value></data>
+  <data name="User.AccountExists" xml:space="preserve"><value>Tài khoản này đã tồn tại.</value></data>
+  <data name="User.NotFound" xml:space="preserve"><value>Người dùng không tồn tại.</value></data>
+  <data name="User.NotDeleted" xml:space="preserve"><value>Người dùng chưa bị xóa, không cần khôi phục.</value></data>
+  <data name="User.SbusUnavailable" xml:space="preserve"><value>Một số SBU không tồn tại hoặc đã bị vô hiệu hóa.</value></data>
+  <data name="User.RestoreBeforeEnable" xml:space="preserve"><value>Người dùng đã bị xóa phải được khôi phục trước, không thể kích hoạt trực tiếp.</value></data>
+  <data name="User.LdapUserFound" xml:space="preserve"><value>Đã tìm thấy người dùng OA, vui lòng kiểm tra rồi kích hoạt.</value></data>
+  <data name="User.LdapUserNotFound" xml:space="preserve"><value>Không tìm thấy mã nhân viên này trong LDAP.</value></data>
+  <data name="User.LdapUserProvisioned" xml:space="preserve"><value>Đã tạo và kích hoạt người dùng OA.</value></data>
+  <data name="User.LdapUserPendingCreated" xml:space="preserve"><value>Đã tạo người dùng OA, có thể đăng nhập bằng OA; quyền truy cập nghiệp vụ chờ quản trị viên phê duyệt và gán.</value></data>
+  <data name="User.LdapUserApproved" xml:space="preserve"><value>Tài khoản OA đã được phê duyệt nghiệp vụ; tài khoản chờ phê duyệt đã bị vô hiệu hóa vẫn cần kích hoạt riêng.</value></data>
+  <data name="User.LdapUserRejected" xml:space="preserve"><value>Đơn kích hoạt OA đã bị từ chối.</value></data>
+  <data name="User.AccountTypeConflict" xml:space="preserve"><value>Mã nhân viên hoặc tài khoản này đã bị tài khoản loại khác chiếm, vui lòng để quản trị viên xác minh và xử lý.</value></data>
+  <data name="User.LdapIdentityConflict" xml:space="preserve"><value>Danh tính danh bạ không khớp với tài khoản hiện có, vui lòng để quản trị viên xác minh và xử lý.</value></data>
+  <data name="User.NotLdapAccount" xml:space="preserve"><value>Người dùng này không phải tài khoản OA, không thể thực hiện thao tác này.</value></data>
+  <data name="User.AlreadyApproved" xml:space="preserve"><value>Tài khoản OA này đã được phê duyệt, không cần phê duyệt lại.</value></data>
+  <data name="User.RejectedCannotEnable" xml:space="preserve"><value>Đơn kích hoạt OA đã bị từ chối, không thể kích hoạt trực tiếp.</value></data>
+  <data name="User.DeletedCannotReview" xml:space="preserve"><value>Tài khoản đã bị xóa không thể phê duyệt, vui lòng khôi phục trước.</value></data>
+  <data name="User.NotReviewable" xml:space="preserve"><value>Trạng thái tài khoản hiện tại không cho phép thao tác phê duyệt này.</value></data>
+  <data name="User.StateChanged" xml:space="preserve"><value>Trạng thái tài khoản đã bị thao tác khác sửa đổi, vui lòng làm mới và thử lại.</value></data>
+  <data name="User.PendingCannotAssignGrants" xml:space="preserve"><value>Khi chỉ tạo tài khoản chờ phê duyệt thì không thể gán vai trò hoặc SBU.</value></data>
+  <data name="User.ApprovalRoleRequired" xml:space="preserve"><value>Phê duyệt kích hoạt cần chọn ít nhất một vai trò hợp lệ.</value></data>
+  <data name="User.ApprovalSbuRequired" xml:space="preserve"><value>Phê duyệt kích hoạt cần chọn ít nhất một SBU hợp lệ.</value></data>
+  <data name="User.AuthTypeInvalid" xml:space="preserve"><value>Loại xác thực chỉ có thể là LOCAL hoặc LDAP.</value></data>
+  <data name="User.ApprovalStatusInvalid" xml:space="preserve"><value>Trạng thái phê duyệt chỉ có thể là Pending, Approved hoặc Rejected.</value></data>
+</root>

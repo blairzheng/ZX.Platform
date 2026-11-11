@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Auth.InvalidCredentials" xml:space="preserve"><value>Tài khoản hoặc mật khẩu không đúng, hoặc tài khoản tạm thời không thể đăng nhập.</value></data>
+  <data name="Auth.SessionInvalid" xml:space="preserve"><value>Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại.</value></data>
+  <data name="Auth.Forbidden" xml:space="preserve"><value>Bạn không có quyền thực hiện thao tác này.</value></data>
+  <data name="Auth.CsrfRequired" xml:space="preserve"><value>Thiếu header xác thực yêu cầu hợp lệ.</value></data>
+  <data name="Auth.CurrentPasswordIncorrect" xml:space="preserve"><value>Mật khẩu hiện tại không đúng.</value></data>
+  <data name="Auth.LoggedIn" xml:space="preserve"><value>Đăng nhập thành công.</value></data>
+  <data name="Auth.Refreshed" xml:space="preserve"><value>Phiên đăng nhập đã được làm mới.</value></data>
+  <data name="Auth.LoggedOut" xml:space="preserve"><value>Đã đăng xuất.</value></data>
+  <data name="Auth.CurrentUserLoaded" xml:space="preserve"><value>Lấy thông tin người dùng hiện tại thành công.</value></data>
+  <data name="Auth.PasswordChanged" xml:space="preserve"><value>Đổi mật khẩu thành công, vui lòng đăng nhập lại.</value></data>
+  <data name="Auth.AlreadyOnline" xml:space="preserve"><value>Tài khoản này đã đăng nhập ở nơi khác, bạn có muốn tiếp tục đăng nhập và kết thúc phiên cũ không?</value></data>
+  <data name="Auth.ForcedLogout" xml:space="preserve"><value>Người dùng đã được đăng xuất.</value></data>
+  <data name="Auth.ServiceUnavailable" xml:space="preserve"><value>Dịch vụ đăng nhập tạm thời không khả dụng, vui lòng thử lại sau.</value></data>
+  <data name="Auth.LdapDisabled" xml:space="preserve"><value>Đăng nhập OA chưa được mở, vui lòng dùng tài khoản hệ thống để đăng nhập.</value></data>
+  <data name="Auth.LdapUnavailable" xml:space="preserve"><value>Dịch vụ danh bạ OA tạm thời không khả dụng, vui lòng thử lại sau.</value></data>
+  <data name="Auth.LdapTooManyAttempts" xml:space="preserve"><value>Đã thử quá nhiều lần, vui lòng thử lại sau hoặc liên hệ quản trị viên.</value></data>
+  <data name="Auth.ApprovalRejected" xml:space="preserve"><value>Đơn kích hoạt tài khoản không được chấp thuận, vui lòng liên hệ quản trị viên.</value></data>
+  <data name="Auth.AccountUnavailable" xml:space="preserve"><value>Tài khoản đã bị vô hiệu hóa hoặc tạm thời không khả dụng, vui lòng liên hệ quản trị viên.</value></data>
+  <data name="Auth.PasswordChangeNotAllowedForLdap" xml:space="preserve"><value>Mật khẩu tài khoản OA do hệ thống OA quản lý, vui lòng đổi mật khẩu trên OA.</value></data>
+</root>

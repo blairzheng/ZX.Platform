@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Sbu.Created" xml:space="preserve"><value>Tạo SBU thành công.</value></data>
+  <data name="Sbu.DetailsLoaded" xml:space="preserve"><value>Lấy chi tiết SBU thành công.</value></data>
+  <data name="Sbu.ListLoaded" xml:space="preserve"><value>Lấy danh sách SBU thành công.</value></data>
+  <data name="Sbu.NameUpdated" xml:space="preserve"><value>Cập nhật tên SBU thành công.</value></data>
+  <data name="Sbu.StatusUpdated" xml:space="preserve"><value>Cập nhật trạng thái SBU thành công.</value></data>
+  <data name="Sbu.Deleted" xml:space="preserve"><value>Xóa SBU thành công.</value></data>
+  <data name="Sbu.Restored" xml:space="preserve"><value>Khôi phục SBU thành công.</value></data>
+  <data name="Sbu.EnabledListLoaded" xml:space="preserve"><value>Lấy danh sách SBU đã kích hoạt thành công.</value></data>
+  <data name="Sbu.CodeDeleted" xml:space="preserve"><value>Mã SBU này từng bị xóa nên không thể tạo lại, vui lòng liên hệ quản trị viên để khôi phục SBU cũ hoặc dùng mã khác.</value></data>
+  <data name="Sbu.Disabled" xml:space="preserve"><value>SBU này đã bị vô hiệu hóa nên không thể tạo lại, vui lòng liên hệ quản trị viên.</value></data>
+  <data name="Sbu.CodeExists" xml:space="preserve"><value>Mã SBU này đã tồn tại.</value></data>
+  <data name="Sbu.NotFound" xml:space="preserve"><value>SBU không tồn tại.</value></data>
+  <data name="Sbu.NotDeleted" xml:space="preserve"><value>SBU chưa bị xóa, không cần khôi phục.</value></data>
+  <data name="Sbu.RestoreBeforeEnable" xml:space="preserve"><value>SBU đã bị xóa phải được khôi phục trước, không thể kích hoạt trực tiếp.</value></data>
+  <data name="Sbu.AuthenticationRequired" xml:space="preserve"><value>Vui lòng đăng nhập trước khi chọn SBU.</value></data>
+  <data name="Sbu.SelectionRequired" xml:space="preserve"><value>Vui lòng cung cấp SBU hợp lệ.</value></data>
+  <data name="Sbu.AccessDenied" xml:space="preserve"><value>Không có quyền truy cập SBU đã chọn, hoặc SBU này đã bị vô hiệu hóa.</value></data>
+</root>

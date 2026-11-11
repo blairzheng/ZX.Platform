@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Access.RoleListLoaded" xml:space="preserve"><value>Đã tải danh sách vai trò.</value></data>
+  <data name="Access.RoleCreated" xml:space="preserve"><value>Đã tạo vai trò.</value></data>
+  <data name="Access.RoleUpdated" xml:space="preserve"><value>Đã sửa vai trò.</value></data>
+  <data name="Access.RoleStatusUpdated" xml:space="preserve"><value>Đã cập nhật trạng thái vai trò.</value></data>
+  <data name="Access.RoleDeleted" xml:space="preserve"><value>Đã xóa vai trò.</value></data>
+  <data name="Access.PermissionListLoaded" xml:space="preserve"><value>Đã tải danh sách quyền.</value></data>
+  <data name="Access.PermissionsUpdated" xml:space="preserve"><value>Đã cập nhật quyền của vai trò.</value></data>
+  <data name="Access.UserRolesLoaded" xml:space="preserve"><value>Đã tải vai trò của người dùng.</value></data>
+  <data name="Access.UserRolesUpdated" xml:space="preserve"><value>Đã cập nhật vai trò của người dùng.</value></data>
+  <data name="Access.RoleNotFound" xml:space="preserve"><value>Vai trò không tồn tại.</value></data>
+  <data name="Access.RoleCodeExists" xml:space="preserve"><value>Mã vai trò đã tồn tại hoặc được giữ chỗ, không thể dùng lại kể cả sau khi xóa.</value></data>
+  <data name="Access.RoleUnavailable" xml:space="preserve"><value>Vai trò đã chọn không tồn tại, đã bị xóa hoặc đã bị vô hiệu hóa.</value></data>
+  <data name="Access.UnknownPermission" xml:space="preserve"><value>Có quyền không tồn tại hoặc đã bị vô hiệu hóa, vui lòng làm mới và thử lại.</value></data>
+  <data name="Access.BuiltInRoleReadOnly" xml:space="preserve"><value>Vai trò quản trị viên có sẵn không được phép sửa, vô hiệu hóa hoặc xóa.</value></data>
+  <data name="Access.CannotRemoveOwnAdministrator" xml:space="preserve"><value>Không thể gỡ vai trò quản trị viên của chính mình.</value></data>
+  <data name="Access.CannotDeactivateSelf" xml:space="preserve"><value>Không thể vô hiệu hóa hoặc xóa người dùng đang đăng nhập.</value></data>
+  <data name="Access.Group.user" xml:space="preserve"><value>Quản lý người dùng</value></data>
+  <data name="Access.Group.sbu" xml:space="preserve"><value>Quản lý SBU</value></data>
+  <data name="Access.Group.role" xml:space="preserve"><value>Quản lý vai trò</value></data>
+  <data name="Access.Permission.identity.user.read" xml:space="preserve"><value>Xem người dùng</value></data>
+  <data name="Access.Permission.identity.user.create" xml:space="preserve"><value>Thêm người dùng</value></data>
+  <data name="Access.Permission.identity.user.rename" xml:space="preserve"><value>Sửa tên người khác</value></data>
+  <data name="Access.Permission.identity.user.status" xml:space="preserve"><value>Kích hoạt hoặc vô hiệu hóa người dùng</value></data>
+  <data name="Access.Permission.identity.user.delete" xml:space="preserve"><value>Xóa người dùng</value></data>
+  <data name="Access.Permission.identity.user.restore" xml:space="preserve"><value>Khôi phục người dùng</value></data>
+  <data name="Access.Permission.identity.user.sbus" xml:space="preserve"><value>Gán SBU cho người dùng</value></data>
+  <data name="Access.Permission.identity.user.roles" xml:space="preserve"><value>Gán vai trò cho người dùng</value></data>
+  <data name="Access.Permission.identity.user.forceLogout" xml:space="preserve"><value>Buộc người dùng đăng xuất</value></data>
+  <data name="Access.Permission.identity.user.approve" xml:space="preserve"><value>Phê duyệt kích hoạt tài khoản OA</value></data>
+  <data name="Access.Permission.identity.sbu.read" xml:space="preserve"><value>Xem SBU</value></data>
+  <data name="Access.Permission.identity.sbu.create" xml:space="preserve"><value>Thêm SBU</value></data>
+  <data name="Access.Permission.identity.sbu.rename" xml:space="preserve"><value>Sửa tên SBU</value></data>
+  <data name="Access.Permission.identity.sbu.status" xml:space="preserve"><value>Kích hoạt hoặc vô hiệu hóa SBU</value></data>
+  <data name="Access.Permission.identity.sbu.delete" xml:space="preserve"><value>Xóa SBU</value></data>
+  <data name="Access.Permission.identity.sbu.restore" xml:space="preserve"><value>Khôi phục SBU</value></data>
+  <data name="Access.Permission.identity.role.read" xml:space="preserve"><value>Xem vai trò</value></data>
+  <data name="Access.Permission.identity.role.create" xml:space="preserve"><value>Thêm vai trò</value></data>
+  <data name="Access.Permission.identity.role.update" xml:space="preserve"><value>Sửa thông tin vai trò</value></data>
+  <data name="Access.Permission.identity.role.status" xml:space="preserve"><value>Kích hoạt hoặc vô hiệu hóa vai trò</value></data>
+  <data name="Access.Permission.identity.role.delete" xml:space="preserve"><value>Xóa vai trò</value></data>
+  <data name="Access.Permission.identity.role.permissions" xml:space="preserve"><value>Gán quyền cho vai trò</value></data>
+  <data name="Access.MenuTreeLoaded" xml:space="preserve"><value>Đã tải cây menu.</value></data>
+  <data name="Access.MenuCreated" xml:space="preserve"><value>Đã tạo menu.</value></data>
+  <data name="Access.MenuUpdated" xml:space="preserve"><value>Đã sửa menu.</value></data>
+  <data name="Access.MenuStatusUpdated" xml:space="preserve"><value>Đã cập nhật trạng thái menu.</value></data>
+  <data name="Access.MenuDeleted" xml:space="preserve"><value>Đã xóa menu.</value></data>
+  <data name="Access.BuiltInMenuStructureReadOnly" xml:space="preserve"><value>Menu có sẵn chỉ cho phép điều chỉnh nút cấp trên, không thể sửa trường khác, xóa hoặc vô hiệu hóa.</value></data>
+  <data name="Access.MenuCodeExists" xml:space="preserve"><value>Mã menu đã tồn tại hoặc được giữ chỗ, không thể dùng lại kể cả sau khi xóa.</value></data>
+  <data name="Access.MenuNotFound" xml:space="preserve"><value>Menu không tồn tại.</value></data>
+  <data name="Access.InvalidMenu" xml:space="preserve"><value>Loại menu hoặc tổ hợp trường không đúng.</value></data>
+  <data name="Access.InvalidMenuParent" xml:space="preserve"><value>Menu cấp trên không đúng, không thể tạo vòng lặp cấp bậc.</value></data>
+  <data name="Access.MenuHasChildren" xml:space="preserve"><value>Vui lòng gỡ hoặc điều chỉnh menu cấp dưới trước.</value></data>
+  <data name="Access.InvalidMenuRoute" xml:space="preserve"><value>Đường dẫn route hoặc mã thành phần không đúng, không thể ghi đè route cố định của hệ thống.</value></data>
+  <data name="Access.MenuPathExists" xml:space="preserve"><value>Đường dẫn route đã được trang khác sử dụng.</value></data>
+  <data name="Access.MenuPermissionExists" xml:space="preserve"><value>Quyền thao tác này đã được gắn dưới menu khác.</value></data>
+  <data name="Access.InvalidMenuIcon" xml:space="preserve"><value>Định dạng biểu tượng phải là svg:tên hoặc ep:tên.</value></data>
+  <data name="Access.Group.menu" xml:space="preserve"><value>Quản lý menu</value></data>
+  <data name="Access.Group.stocktake" xml:space="preserve"><value>Kiểm kê tồn kho</value></data>
+  <data name="Access.Group.chat" xml:space="preserve"><value>Trợ lý AI</value></data>
+  <data name="Access.Group.goflow" xml:space="preserve"><value>Tích hợp GoFlow</value></data>
+  <data name="Access.Permission.identity.menu.read" xml:space="preserve"><value>Xem menu</value></data>
+  <data name="Access.Permission.identity.menu.create" xml:space="preserve"><value>Thêm menu</value></data>
+  <data name="Access.Permission.identity.menu.update" xml:space="preserve"><value>Sửa menu</value></data>
+  <data name="Access.Permission.identity.menu.status" xml:space="preserve"><value>Kích hoạt hoặc vô hiệu hóa menu</value></data>
+  <data name="Access.Permission.identity.menu.delete" xml:space="preserve"><value>Xóa menu</value></data>
+  <data name="Access.Permission.inventory.stocktake.read" xml:space="preserve"><value>Xem báo cáo kiểm kê một chạm</value></data>
+  <data name="Access.Permission.integration.goflow.open" xml:space="preserve"><value>Vào GoFlow bằng đăng nhập một lần</value></data>
+  <data name="Access.Permission.ai.chat.use" xml:space="preserve"><value>Sử dụng trợ lý AI</value></data>
+</root>

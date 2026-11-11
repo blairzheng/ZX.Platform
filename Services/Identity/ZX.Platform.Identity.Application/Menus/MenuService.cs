@@ -29,7 +29,7 @@ public sealed class MenuService(IMenuRepository menus, IUnitOfWork unitOfWork) :
                 if (node.Kind == Menu.Page && IdentityPermissions.All.Contains(node.PermissionCode, StringComparer.Ordinal) &&
                     !node.Children.Any(child => child.PermissionCode == node.PermissionCode))
                     node.Children.Insert(0, new MenuDto { Code = "__view_" + node.Code, Kind = Menu.Action,
-                        Title = "查看页面", TitleEn = "View page", PermissionCode = node.PermissionCode });
+                        Title = "查看页面", TitleEn = "View page", TitleVi = "Xem trang", PermissionCode = node.PermissionCode });
                 if (node.Kind == Menu.Action) placed.Add(node.PermissionCode);
                 AppendReadPermissions(node.Children);
             }
@@ -38,8 +38,10 @@ public sealed class MenuService(IMenuRepository menus, IUnitOfWork unitOfWork) :
         AppendReadPermissions(tree);
         var remaining = IdentityPermissions.All.Where(code => !placed.Contains(code)).ToArray();
         if (remaining.Length > 0) tree.Add(new MenuDto { Code = "__unassigned", Kind = Menu.Directory,
-            Title = "未归类权限", TitleEn = "Unassigned permissions", Children = remaining.Select(code => new MenuDto
-            { Code = "__permission_" + code, Kind = Menu.Action, Title = code, TitleEn = code, PermissionCode = code }).ToList() });
+            Title = "未归类权限", TitleEn = "Unassigned permissions", TitleVi = "Quyền chưa phân loại",
+            Children = remaining.Select(code => new MenuDto
+            { Code = "__permission_" + code, Kind = Menu.Action, Title = code, TitleEn = code, TitleVi = code,
+                PermissionCode = code }).ToList() });
         return tree;
     }
 
@@ -58,12 +60,14 @@ public sealed class MenuService(IMenuRepository menus, IUnitOfWork unitOfWork) :
                   !authorization.IsAdministrator && !authorization.Permissions.Contains(menu.PermissionCode, StringComparer.Ordinal))))
                 continue;
             result.Add(new MenuDto { Id = menu.Id, ParentId = menu.ParentId, Code = menu.Code, Kind = menu.Kind,
-                Title = menu.Title, TitleEn = menu.TitleEn, Icon = menu.Icon, Path = menu.Path, Component = menu.Component,
+                Title = menu.Title, TitleEn = menu.TitleEn, TitleVi = menu.TitleVi,
+                Icon = menu.Icon, Path = menu.Path, Component = menu.Component,
                 PermissionCode = menu.PermissionCode,
                 PermissionActive = string.IsNullOrWhiteSpace(menu.PermissionCode) ||
                     IdentityPermissions.All.Contains(menu.PermissionCode, StringComparer.Ordinal),
                 LauncherTone = menu.LauncherTone,
                 LauncherDescription = menu.LauncherDescription, LauncherDescriptionEn = menu.LauncherDescriptionEn,
+                LauncherDescriptionVi = menu.LauncherDescriptionVi,
                 Sort = menu.Sort, KeepAlive = menu.KeepAlive,
                 ShowInMenu = menu.ShowInMenu, ShowInTags = menu.ShowInTags, Affix = menu.Affix,
                 IsEnabled = menu.IsEnabled, IsBuiltIn = menu.IsBuiltIn, Children = children });
@@ -80,7 +84,9 @@ public sealed class MenuService(IMenuRepository menus, IUnitOfWork unitOfWork) :
             input.Icon, input.Path, input.Component, input.PermissionCode, input.Sort, input.KeepAlive,
             showInMenu: input.ShowInMenu, showInTags: input.ShowInTags, affix: input.Affix,
             launcherTone: input.LauncherTone, launcherDescription: input.LauncherDescription,
-            launcherDescriptionEn: input.LauncherDescriptionEn);
+            launcherDescriptionEn: input.LauncherDescriptionEn,
+            titleVi: input.TitleVi ?? string.Empty,
+            launcherDescriptionVi: input.LauncherDescriptionVi ?? string.Empty);
         menus.Add(menu);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return menu.Id;
@@ -102,7 +108,10 @@ public sealed class MenuService(IMenuRepository menus, IUnitOfWork unitOfWork) :
         menu.Update(input.Kind, input.ParentId, input.Title, input.TitleEn, input.Icon,
             input.Path, input.Component, input.PermissionCode, input.Sort, input.KeepAlive,
             input.ShowInMenu, input.ShowInTags, input.Affix, input.LauncherTone,
-            input.LauncherDescription, input.LauncherDescriptionEn);
+            input.LauncherDescription, input.LauncherDescriptionEn,
+            // 旧客户端不传越南语字段时保留已有翻译，只有显式空字符串才清空。
+            input.TitleVi ?? menu.TitleVi,
+            input.LauncherDescriptionVi ?? menu.LauncherDescriptionVi);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 

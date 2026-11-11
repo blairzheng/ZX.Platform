@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Error.System" xml:space="preserve"><value>Hệ thống gặp sự cố, vui lòng thử lại sau.</value></data>
+  <data name="Error.Duplicate" xml:space="preserve"><value>Dữ liệu đã tồn tại, vui lòng kiểm tra và thử lại.</value></data>
+  <data name="Error.OperationFailed" xml:space="preserve"><value>Thao tác thất bại, vui lòng kiểm tra và thử lại.</value></data>
+  <data name="Error.InvalidState" xml:space="preserve"><value>Trạng thái dữ liệu hiện tại không cho phép thực hiện thao tác này.</value></data>
+  <data name="Error.TooManyRequests" xml:space="preserve"><value>Yêu cầu quá thường xuyên, vui lòng thử lại sau.</value></data>
+  <data name="Error.ConcurrentUpdate" xml:space="preserve"><value>Dữ liệu đã bị thao tác khác sửa đổi, vui lòng làm mới và thử lại.</value></data>
+  <data name="Error.ServiceUnavailable" xml:space="preserve"><value>Dịch vụ phụ thuộc tạm thời không khả dụng, vui lòng thử lại sau.</value></data>
+  <data name="Stocktake.ListLoaded" xml:space="preserve"><value>Báo cáo kiểm kê đã được tải.</value></data>
+  <data name="AI.Replied" xml:space="preserve"><value>AI đã trả lời.</value></data>
+  <data name="AI.NotConfigured" xml:space="preserve"><value>Dịch vụ AI chưa được cấu hình, vui lòng liên hệ quản trị viên.</value></data>
+  <data name="AI.AuthenticationFailed" xml:space="preserve"><value>Chứng thực dịch vụ AI không khả dụng, vui lòng liên hệ quản trị viên kiểm tra cấu hình.</value></data>
+  <data name="AI.Unavailable" xml:space="preserve"><value>Dịch vụ AI tạm thời không khả dụng, vui lòng thử lại sau.</value></data>
+  <data name="AI.Timeout" xml:space="preserve"><value>AI trả lời quá thời gian, vui lòng rút ngắn câu hỏi hoặc thử lại sau.</value></data>
+  <data name="AI.Busy" xml:space="preserve"><value>Dịch vụ AI đang bận, vui lòng thử lại sau.</value></data>
+  <data name="AI.InvalidResponse" xml:space="preserve"><value>Dịch vụ AI không trả về câu trả lời dạng văn bản hợp lệ, vui lòng thử lại sau.</value></data>
+  <data name="AI.RequestRejected" xml:space="preserve"><value>Dịch vụ mô hình không chấp nhận yêu cầu này, vui lòng liên hệ quản trị viên kiểm tra định dạng tin nhắn, gọi công cụ và cấu hình ngữ cảnh.</value></data>
+  <data name="AI.InvalidConversation" xml:space="preserve"><value>Định dạng hội thoại không hợp lệ, vui lòng bắt đầu cuộc trò chuyện mới rồi thử lại.</value></data>
+  <data name="AI.ConversationTooLong" xml:space="preserve"><value>Nội dung hội thoại quá dài, vui lòng bắt đầu cuộc trò chuyện mới rồi thử lại.</value></data>
+  <data name="Sso.TicketIssued" xml:space="preserve"><value>Đã tạo phiếu đăng nhập GoFlow.</value></data>
+  <data name="Sso.TicketRedeemed" xml:space="preserve"><value>Đã xác nhận danh tính đăng nhập GoFlow.</value></data>
+  <data name="Sso.RequestInvalid" xml:space="preserve"><value>Yêu cầu đăng nhập GoFlow không đúng, vui lòng thực hiện lại.</value></data>
+  <data name="Sso.TicketInvalid" xml:space="preserve"><value>Phiếu đăng nhập GoFlow không hợp lệ hoặc đã hết hạn, vui lòng thực hiện lại.</value></data>
+  <data name="Sso.ClientInvalid" xml:space="preserve"><value>Xác thực dịch vụ GoFlow thất bại.</value></data>
+  <data name="Sso.UserNotAllowed" xml:space="preserve"><value>Tài khoản hiện tại không thể vào GoFlow bằng đăng nhập một lần, vui lòng xác nhận tài khoản OA đã được kích hoạt và có quyền tương ứng.</value></data>
+  <data name="Sso.Unavailable" xml:space="preserve"><value>Đăng nhập một lần cho GoFlow chưa được bật hoặc tạm thời không khả dụng, vui lòng liên hệ quản trị viên.</value></data>
+  <data name="Sso.HttpsRequired" xml:space="preserve"><value>Đăng nhập một lần cho GoFlow phải truy cập qua HTTPS.</value></data>
+  <data name="Sso.ConfigurationLoaded" xml:space="preserve"><value>Đã lấy cấu hình đăng nhập một lần cho GoFlow</value></data>
+</root>

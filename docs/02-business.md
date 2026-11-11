@@ -432,7 +432,7 @@ builder.Services.AddScoped<IInspectionRecordRepository, InspectionRecordReposito
 builder.Services.AddScoped<IInspectionRecordService, InspectionRecordService>();
 ```
 
-### 8.2 给消息键添加中英文内容
+### 8.2 给消息键添加中英越内容
 
 Controller 中的 `messages["Inspection.Created"].Value` 不是直接返回这段英文。`messages` 是注入的 `IApiMessageLocalizer`；方括号里的字符串是资源键，`.Value` 是按当前请求语言找到的提示文本。
 
@@ -442,8 +442,9 @@ Controller 中的 `messages["Inspection.Created"].Value` 不是直接返回这�
 | --- | --- |
 | `Accept-Language: zh-CN` | `点检记录创建成功。` |
 | `Accept-Language: en-US` | `Inspection record created.` |
+| `Accept-Language: vi-VN` | `Đã tạo hồ sơ kiểm tra.` |
 
-本例需要三个键：查询成功、新增成功、实体规则失败。修改下面两个现有文件，在各自的 `</root>` **之前**追加 `<data>` 节点，保留文件原有内容和 resheader。
+本例需要三个键：查询成功、新增成功、实体规则失败。修改下面三个现有文件，在各自的 `</root>` **之前**追加 `<data>` 节点，保留文件原有内容和 resheader。
 
 `Services/Identity/ZX.Platform.Identity.Api/Resources/Localization/CommonMessages.resx`（默认中文）：
 
@@ -473,7 +474,21 @@ Controller 中的 `messages["Inspection.Created"].Value` 不是直接返回这�
 </data>
 ```
 
-也可以在 Visual Studio 的资源编辑器中添加：名称填消息键，值填对应语言的文案。两个文件的键必须完全相同且不重复，大小写与调用代码一致。直接改 XML 时，文案中的 `&`、`<` 等字符要按 XML 规则转义。
+`Services/Identity/ZX.Platform.Identity.Api/Resources/Localization/CommonMessages.vi-VN.resx`（越南语）：
+
+```xml
+<data name="Inspection.ListLoaded" xml:space="preserve">
+  <value>Đã tải hồ sơ kiểm tra.</value>
+</data>
+<data name="Inspection.Created" xml:space="preserve">
+  <value>Đã tạo hồ sơ kiểm tra.</value>
+</data>
+<data name="Inspection.InvalidData" xml:space="preserve">
+  <value>Dữ liệu hồ sơ kiểm tra không đúng quy tắc nghiệp vụ.</value>
+</data>
+```
+
+也可以在 Visual Studio 的资源编辑器中添加：名称填消息键，值填对应语言的文案。三个文件的键必须完全相同且不重复，大小写与调用代码一致。直接改 XML 时，文案中的 `&`、`<` 等字符要按 XML 规则转义；越南语保持 UTF-8 和原有声调符号，不删重音迁就字体。
 
 当前 `Localization/ApiMessageLocalizer.cs` 将 `Access.*`、`Validation.*`、`User.*`、`Sbu.*`、`Auth.*` 分到对应资源，其余键回退到 `CommonMessages`。所以本例的 `Inspection.*` 放到上面的文件即可，**不用新增 Localizer 类、修改分发或手写资源加载代码**。不要只新增 `InspectionMessages.resx` 就认为它会自动被使用。
 
@@ -481,23 +496,23 @@ Controller 中的 `messages["Inspection.Created"].Value` 不是直接返回这�
 
 - Controller 成功响应使用 `messages["Inspection.Created"].Value`。
 - Domain / Application 只传键，例如 `throw new DomainException("Inspection.InvalidData")`，由已有异常处理器翻译，不在领域层注入 Localizer。
-- DTO 上的 `[Required]`、`[StringLength]` 等复用本文已有的 `Validation.*` 键，位于 `ValidationMessages.resx` 和 `ValidationMessages.en-US.resx`。增加新的校验键时，在这两个文件中补中英文；不要把校验文案只加到 CommonMessages。
+- DTO 上的 `[Required]`、`[StringLength]` 等复用本文已有的 `Validation.*` 键，位于 `ValidationMessages.resx`、`ValidationMessages.en-US.resx` 和 `ValidationMessages.vi-VN.resx`。增加新的校验键时，在这三个文件中补齐三语；不要把校验文案只加到 CommonMessages。
 
-若提示有参数，在资源中使用 `{0}`、`{1}`，调用时写 `messages["Inspection.SomeKey", value].Value`，两个语言版本使用相同参数约定。不要拼接已经翻译的半句话。
+若提示有参数，在资源中使用 `{0}`、`{1}`，调用时写 `messages["Inspection.SomeKey", value].Value`，三个语言版本使用相同参数约定。不要拼接已经翻译的半句话。
 
-修改 `.resx` 后重新编译并重启 Identity。联调时分别发送 `zh-CN` 和 `en-US` 请求，检查查询、新增成功以及业务失败的提示。成功响应出现原始键（例如 `Inspection.Created`）通常表示键名或资源位置有误；异常提示退回通用内容时，检查后端缺少资源的日志。无有效语言时系统默认中文。
+修改 `.resx` 后重新编译并重启 Identity。联调时分别发送 `zh-CN`、`en-US` 和 `vi-VN` 请求，检查查询、新增成功以及业务失败的提示。成功响应出现原始键（例如 `Inspection.Created`）通常表示键名或资源位置有误；异常提示退回通用内容时，检查后端缺少资源的日志。无有效语言时系统默认中文。
 
 后端返回的 `message` 由前端原样显示；页面标题、字段标签、按钮、本地校验提示使用下一节的前端词条，两边分别维护。
 
 
 ## 9. 实现前端页面并接入菜单
 
-以下路径均相对于前端仓库 `ZX.front.vue`。本节仍是开发示例，需要成员实际创建文件；本文不会自动生成页面。按顺序完成 API → 中英文词条 → 列表与新增弹窗 → 权限及组件登记 → 菜单配置。
+以下路径均相对于前端仓库 `ZX.front.vue`。本节仍是开发示例，需要成员实际创建文件；本文不会自动生成页面。按顺序完成 API → 中英越三语词条 → 列表与新增弹窗 → 权限及组件登记 → 菜单配置。
 
 | 文件 | 操作 |
 | --- | --- |
 | `src/api/equipment/inspection.ts` | 新增接口与输入、返回类型 |
-| `src/locales/zh-CN/inspection.ts`、`src/locales/en-US/inspection.ts` | 新增中英文界面和校验词条 |
+| `src/locales/zh-CN/inspection.ts`、`src/locales/en-US/inspection.ts`、`src/locales/vi-VN/inspection.ts` | 新增中文、英文和越南语界面及校验词条 |
 | `src/locales/zh-CN/index.ts`、`src/locales/en-US/index.ts` | 注册词条模块 |
 | `src/views/equipment/inspection/index.vue` | 新增分页列表页 |
 | `src/views/equipment/inspection/components/InspectionCreateDialog.vue` | 新增表单弹窗 |
@@ -552,7 +567,7 @@ export const createInspectionRecord = (data: CreateInspectionRecordInput) =>
 
 查询参数只有 `page`、`pageSize`，因此本例不添加设备编号或结果搜索框。实际要加筛选时，先贯通后端 Query DTO、Service、Repository 和分页总数查询，再增加前端筛选组件，不能只过滤当前页。
 
-### 9.2 新增并注册前端中英文词条
+### 9.2 新增并注册前端三语词条
 
 新建 `src/locales/zh-CN/inspection.ts`：
 
@@ -606,13 +621,39 @@ export default {
 }
 ```
 
-然后**同时修改** `src/locales/zh-CN/index.ts` 和 `src/locales/en-US/index.ts`：在现有 import 中追加下面一行，并在现有 `export default { ... }` 对象内追加 `inspection,`，保留原有词条。
+新建 `src/locales/vi-VN/inspection.ts`，键结构与中文一致：
+
+```ts
+export default {
+  title: 'Kiểm tra thiết bị',
+  list: 'Hồ sơ kiểm tra',
+  equipmentCode: 'Mã thiết bị',
+  inspectedAt: 'Thời gian kiểm tra',
+  result: 'Kết quả kiểm tra',
+  remark: 'Ghi chú',
+  pass: 'Đạt',
+  fail: 'Không đạt',
+  createTitle: 'Thêm hồ sơ kiểm tra',
+  create: 'Thêm mới',
+  empty: 'Chưa có hồ sơ kiểm tra',
+  noSbu: 'Vui lòng chọn SBU đã được cấp quyền; liên hệ quản trị viên nếu không có lựa chọn.',
+  validation: {
+    equipmentRequired: 'Vui lòng nhập mã thiết bị',
+    equipmentLength: 'Mã thiết bị không được vượt quá 100 ký tự',
+    timeRequired: 'Vui lòng chọn thời gian kiểm tra hợp lệ',
+    resultRequired: 'Vui lòng chọn kết quả kiểm tra',
+    remarkLength: 'Ghi chú không được vượt quá 500 ký tự',
+  },
+}
+```
+
+然后**同时修改** `src/locales/zh-CN/index.ts`、`src/locales/en-US/index.ts` 和 `src/locales/vi-VN/index.ts`：在现有 import 中追加下面一行，并在现有 `export default { ... }` 对象内追加 `inspection,`，保留原有词条。
 
 ```ts
 import inspection from './inspection'
 ```
 
-新增文件不会自动注册。完成注册后，页面通过 `t('inspection.equipmentCode')` 取值。中文是当前前端的类型基准，英文必须包含同样的键结构；不要新增另一套 i18n 实例。
+新增文件不会自动注册。完成注册后，页面通过 `t('inspection.equipmentCode')` 取值。中文是当前前端的类型基准，英文和越南语必须包含同样的键结构和占位符名称；不要新增另一套 i18n 实例，也不靠中文回退代替越南语翻译。菜单标题仍来自菜单配置的 `title` / `titleEn` / `titleVi`，展示按当前语言回退。
 
 ### 9.3 实现分页列表页
 
@@ -890,7 +931,7 @@ EquipmentInspection: {
 
 页面通过 `auth.hasPermission(Permission.EquipmentInspectionCreate)` 控制新增入口；页面访问权限由动态菜单路由及守卫处理。不要仅隐藏菜单就认为后端有保护，也不要为这一个业务页再在 `src/router/index.ts` 添加绕过动态菜单的固定路由。
 
-路由与菜单编辑器共用 `menuPages`，不再分别修改 `dynamic.ts` 或维护选项名称字典。`titleKey` 使用第 9.2 节注册的中英文词条，控制组件下拉选项名称；实际菜单及标签标题仍来自菜单配置。
+路由与菜单编辑器共用 `menuPages`，不再分别修改 `dynamic.ts` 或维护选项名称字典。`titleKey` 使用第 9.2 节注册的三语词条，控制组件下拉选项名称；实际菜单及标签标题仍来自菜单配置。
 
 后端 `Menus/MenuService.cs` 只校验页面组件标识格式，不追加页面名称：以 ASCII 字母开头，后续仅字母、数字、下划线，总长 1～100 字符。`EquipmentInspection`、`InventoryStocktake` 合法；`equipment/inspection`、`Equipment.Inspection`、`1Inspection` 不合法。菜单组件必须与前端注册表键按大小写精确匹配，目录和操作的组件留空。
 
@@ -906,13 +947,13 @@ EquipmentInspection: {
 | 页面 | 中文标题“设备点检”，英文标题 `Equipment inspection`，`kind=page`；路径 `/equipment/inspection`，组件 `EquipmentInspection`，权限 `equipment.inspection.read`；按需开启页面缓存、菜单和标签显示 |
 | 页面下的操作 | 中文标题“新增”，英文标题 `Create`，`kind=action`；权限 `equipment.inspection.create`；不填路径和组件 |
 
-菜单和标签标题来自菜单管理中的中英文标题；页面内部的表头和表单文字来自 `inspection.ts`，二者分别配置。图标如需填写，使用项目已有 Lucide 标识，不另建图标体系。
+菜单和标签标题来自菜单管理中的中、英、越三语标题；页面内部的表头和表单文字来自 `inspection.ts`，二者分别配置。图标如需填写，使用项目已有 Lucide 标识，不另建图标体系。
 
 业务菜单由界面创建，不写入 `DefaultMenus` 或数据库迁移。角色管理中勾选查看、新增权限，再给测试用户分配角色及启用的 SBU。测试账号刷新菜单或重新登录后进入页面，选择正确的 SBU 再新增和查询。
 
 后端授权树会为页面的 read 权限自动补“查看页面”叶子，无需手工再创建同码查看操作。新增、审批等独立动作按实际权限创建 action 节点；菜单本身不等于角色授权。
 
-仅测试库配置了菜单不代表其他环境也已配置；交付时记录菜单路径、组件标识、权限码、节点结构及中英文标题，由负责人安排目标环境配置。
+仅测试库配置了菜单不代表其他环境也已配置；交付时记录菜单路径、组件标识、权限码、节点结构及三语标题，由负责人安排目标环境配置。
 
 ### 9.7 前后端联调顺序
 
@@ -928,7 +969,7 @@ pnpm dev
 1. 后端迁移执行成功，新增业务代码完成依赖注册、资源配置并启动；前端接通第一份文档中的本机 Gateway。
 2. 用非管理员账号确认菜单授权，进入设备点检页面，检查列表请求参数为 `page`、`pageSize`，请求头带当前 `X-SBU-ID`。
 3. 新增一条记录，检查提交时间是 UTC ISO 字符串、备注可为 `null`、响应为 HTTP 201 与 `code=0`；成功提示直接显示后端 `message`，列表刷新。
-4. 切换系统语言，分别确认表头、表单、本地校验、菜单标题及后端操作提示的中英文。前端会自动携带 `Accept-Language`。
+4. 切换系统语言，分别确认表头、表单、本地校验和后端操作提示的中英越三语文案，以及菜单标题和应用说明；越南语菜单缺少译文时按“越南语 → 英文 → 中文”展示回退，编辑时不回填回退值。前端会自动携带 `Accept-Language`。
 5. 仅授予查看时新增入口不显示，直接调用新增接口仍被后端拒绝；切换 SBU 后列表和新增弹窗重新初始化，另一 SBU 的记录不出现。
 6. 验证分页、空列表、无可用 SBU、接口失败时保留表单，以及三种主题下的显示；未执行的检查如实列入交付说明。
 
@@ -940,7 +981,7 @@ pnpm dev
 1. 只有查看权限时能分页查询，不能新增；直接请求新增接口也应被拒绝。
 2. 有查看和新增权限时，可以在已分配且启用的 SBU 创建记录并查询。
 3. 缺失、伪造或无权访问的 `X-SBU-ID` 被拒绝；另一 SBU 的记录不出现在列表及总数中。
-4. 必填、长度、结果值、UTC 时间与可空备注符合约定；中英文消息正确。
+4. 必填、长度、结果值、UTC 时间与可空备注符合约定；中英越三语消息正确。
 5. 数据库包含本次迁移，菜单组件与前端 `menuPages` 的键精确匹配，路径和动作权限配置一致。
 
 管理员能访问，不代表普通角色的功能权限和 SBU 数据范围已经验证。带上实际验证结果再交付，不把尚未执行的检查写成已通过。
@@ -953,6 +994,6 @@ pnpm dev
 
 新增或改变业务行为时，同步 `docs/business/` 中对应模块文档；新模块补业务目录入口。文档范围、前后端分工及提交前核对见 [成员业务文档编写规范](03-documentation.md)，无需每次改写系统级文档。
 
-业务完成后，将代码、必要的中英文资源及迁移文件一起提交到自己的业务分支，在 GitLab 发起合并请求，由负责人审核合并。不要直接推团队基线或自行发布。
+业务完成后，将代码、必要的三语资源及迁移文件一起提交到自己的业务分支，在 GitLab 发起合并请求，由负责人审核合并。不要直接推团队基线或自行发布。
 
 交付说明写清四项：完成的功能与接口；已验证和未验证的场景；新增的菜单、权限、配置及迁移；遗留问题。迁移已在测试库执行时记录完整迁移 ID，不附带真实连接密码。菜单与权限的目标环境配置由负责人安排。

@@ -109,6 +109,11 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("NVARCHAR2(500)")
                         .HasColumnName("LAUNCHER_DESCRIPTION_EN");
 
+                    b.Property<string>("LauncherDescriptionVi")
+                        .HasMaxLength(500)
+                        .HasColumnType("NVARCHAR2(500)")
+                        .HasColumnName("LAUNCHER_DESCRIPTION_VI");
+
                     b.Property<string>("LauncherTone")
                         .HasMaxLength(16)
                         .HasColumnType("NVARCHAR2(16)")
@@ -150,6 +155,11 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("NVARCHAR2(200)")
                         .HasColumnName("TITLE_EN");
+
+                    b.Property<string>("TitleVi")
+                        .HasMaxLength(200)
+                        .HasColumnType("NVARCHAR2(200)")
+                        .HasColumnName("TITLE_VI");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")

@@ -51,9 +51,9 @@ Domain 不引用其他业务层；Application 依赖 Domain，不引用 EF Core�
 
 Controller 绑定输入、调用 Service、返回响应；失败交给现有全局异常处理器。业务失败使用现有 `BusinessException` / `DomainException` 和消息键，不把预期业务失败写成普通系统异常，也不 catch 全部异常后返回 HTTP 200。日志保留必要诊断，不向客户端返回堆栈、SQL 或连接信息。
 
-新增成功和业务失败提示同步添加中英文资源。`Inspection.*` 等未单独分组的业务键目前放在 API 的 `Resources/Localization/CommonMessages.resx` 与 `CommonMessages.en-US.resx`；DTO 的 `Validation.*` 键放在对应 `ValidationMessages` 两份资源中。沿用 `ApiMessageLocalizer` 现有前缀分发，不只新建资源文件就认为能自动使用。
+新增成功和业务失败提示同步添加中文、英文和越南语资源，三份资源的键和 `{0}`、`{1}` 占位符索引必须一致。`Inspection.*` 等未单独分组的业务键目前放在 API 的 `Resources/Localization/CommonMessages.resx`、`CommonMessages.en-US.resx` 与 `CommonMessages.vi-VN.resx`；DTO 的 `Validation.*` 键放在对应 `ValidationMessages` 三份资源中。沿用 `ApiMessageLocalizer` 现有前缀分发，不只新建资源文件就认为能自动使用。
 
-Controller 使用 `messages["业务消息键"].Value`，Domain / Application 只传键，由现有处理器翻译，不在业务层注入 Localizer。资源参数使用一致的 `{0}`、`{1}` 约定，不拼接翻译后的半句话。语言沿用 `Accept-Language` 的 zh-CN / en-US 协商，不另建语言状态或响应翻译机制。完整添加示例见 `02` 第 8 节。
+Controller 使用 `messages["业务消息键"].Value`，Domain / Application 只传键，由现有处理器翻译，不在业务层注入 Localizer。资源参数使用一致的 `{0}`、`{1}` 约定，不拼接翻译后的半句话。语言沿用 `Accept-Language` 的 zh-CN / en-US / vi-VN 协商，不另建语言状态或响应翻译机制。受支持语言在 `LocalizationExtensions.cs` 统一登记，新增语言同时补齐资源，不能只加 Culture 就认为提示已翻译。完整添加示例见 `02` 第 8 节。
 
 ## 功能权限与菜单
 
@@ -63,7 +63,9 @@ Controller 使用 `messages["业务消息键"].Value`，Domain / Application 只
 
 保留现有权限同步和清理行为，不为新增模块移除静态目录过滤。不同分支启动会共同修改共享库权限目录，涉及并行权限联调时协调基线；个人 Redis 前缀不能解决这类数据库共享问题。
 
-业务菜单在“菜单管理”配置，不加入 `DefaultMenus`，不通过 Migration 修改菜单、角色或用户授权。新页面按 `02` 的前端接入步骤，在前端 `src/router/menuPages.ts` 统一登记组件标识、`titleKey` 和显式加载函数。后端 `Menus/MenuService.cs` 只校验组件标识格式，不维护页面名称列表：ASCII 字母开头，后续仅字母、数字、下划线，总长 1～100 字符，目录与操作的组件为空。交付时说明菜单结构、路径、组件、权限码及中英文标题；查看权限由后端授权树自动补“查看页面”叶子，无需手工创建同码查看操作。
+业务菜单在“菜单管理”配置，不加入 `DefaultMenus`，不通过 Migration 修改菜单、角色或用户授权。新页面按 `02` 的前端接入步骤，在前端 `src/router/menuPages.ts` 统一登记组件标识、`titleKey` 和显式加载函数。后端 `Menus/MenuService.cs` 只校验组件标识格式，不维护页面名称列表：ASCII 字母开头，后续仅字母、数字、下划线，总长 1～100 字符，目录与操作的组件为空。交付时说明菜单结构、路径、组件、权限码及中、英、越三语标题；菜单的越南语标题与应用说明写 `TitleVi` / `LauncherDescriptionVi`（列 `TITLE_VI` / `LAUNCHER_DESCRIPTION_VI`），由展示层按“越南语 → 英文 → 中文”回退，服务端不回填伪值；查看权限由后端授权树自动补“查看页面”叶子，无需手工创建同码查看操作。
+
+菜单的 `TitleVi` / `LauncherDescriptionVi` 最多分别为 200 / 500 字符。更新请求未传字段或传 `null` 时保留已有译文，显式空字符串才清空；内置菜单的译文继续受只读约束。已有环境的内置菜单翻译与新增列分别维护，不能依赖 `DefaultMenus.AddMissing` 覆盖存量内容；清单与维护方式见 [内置菜单越南语翻译清单](docs/vietnamese-menu-translations.md)。
 
 ## SBU 数据范围
 

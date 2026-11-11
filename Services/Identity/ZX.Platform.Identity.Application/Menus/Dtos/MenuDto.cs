@@ -8,6 +8,7 @@ public sealed class MenuDto
     public string Kind { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
     public string TitleEn { get; init; } = string.Empty;
+    public string TitleVi { get; init; } = string.Empty;
     public string Icon { get; init; } = string.Empty;
     public string Path { get; init; } = string.Empty;
     public string Component { get; init; } = string.Empty;
@@ -17,6 +18,7 @@ public sealed class MenuDto
     public string LauncherTone { get; init; } = "primary";
     public string LauncherDescription { get; init; } = string.Empty;
     public string LauncherDescriptionEn { get; init; } = string.Empty;
+    public string LauncherDescriptionVi { get; init; } = string.Empty;
     public int Sort { get; init; }
     public bool KeepAlive { get; init; }
     public bool ShowInMenu { get; init; } = true;

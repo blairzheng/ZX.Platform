@@ -35,7 +35,7 @@ internal static class Oracle19Checks
         var migrations = db.Database.GetMigrations().ToArray();
         Check.That(migrations.Length >= 2 && migrations[0] == "20261027000000_InitialIdentitySchema" &&
             migrations.Contains("20261028084818_ReplaceFactoriesWithSbus") &&
-            migrations[^1] == "20261109012525_AddDatabaseCreationTime",
+            migrations[^1] == "20261111000917_AddVietnameseMenuTranslations",
             "The project must have one Oracle 19c migration chain starting at its new baseline and ending at the current migration.");
 
         var migrator = db.GetService<IMigrator>();
@@ -117,6 +117,17 @@ internal static class Oracle19Checks
             pendingRollbackSql.IndexOf("raise_application_error", StringComparison.Ordinal) <
                 pendingRollbackSql.IndexOf("DROP CONSTRAINT", StringComparison.Ordinal),
             "Rollback must check enabled Pending accounts before any implicitly committed DDL.");
+
+        // 越南语菜单迁移：只给菜单表追加两个可空文本列，不改动菜单与授权数据。
+        var vietnameseSql = migrator.GenerateScript(
+            fromMigration: "20261109012525_AddDatabaseCreationTime",
+            toMigration: "20261111000917_AddVietnameseMenuTranslations");
+        Check.That(vietnameseSql.Contains("\"TITLE_VI\"") &&
+            vietnameseSql.Contains("\"LAUNCHER_DESCRIPTION_VI\"") &&
+            vietnameseSql.Contains("NVARCHAR2(200)") && vietnameseSql.Contains("NVARCHAR2(500)") &&
+            !vietnameseSql.Contains("UPDATE ", StringComparison.OrdinalIgnoreCase) &&
+            !vietnameseSql.Contains("DELETE FROM", StringComparison.OrdinalIgnoreCase),
+            "The Vietnamese menu migration must only add the two nullable text columns without touching menu or grant data.");
 
         var query = db.Users.Where(user => user.IsEnabled).OrderBy(user => user.Id).Take(10)
             .Select(user => new { user.Id, HasSbu = db.UserSbus.Any(link => link.UserId == user.Id) })

@@ -12,6 +12,7 @@
 | `docs/01-start.md` | 配置本机 User Secrets、连接团队环境、启动与联调 |
 | `docs/02-business.md` | 按完整示例接入实体、迁移、接口、权限、SBU、多语言、前端页面及菜单，末尾说明交付要求 |
 | [成员业务文档编写规范](docs/03-documentation.md) | 成员完成业务开发后该更新什么、怎样写及前后端分工 |
+| [内置菜单越南语翻译清单](docs/vietnamese-menu-translations.md) | 内置菜单稳定 Code 的三语内容、维护脚本与校译状态 |
 | [业务文档目录](docs/business/README.md) | 已实现模块的接口契约、业务规则、权限与数据范围 |
 | [基于项目源码的 AI 助手](docs/ai-integration.md) | 配置 GPUStack 工具调用、导出业务源码资料、开通悬浮助手及只读查询 |
 | [GoFlow 免登录对接](docs/business/integrations/goflow.md) | MOM 票据接口、GoFlow 后续接入约定及当前限制 |

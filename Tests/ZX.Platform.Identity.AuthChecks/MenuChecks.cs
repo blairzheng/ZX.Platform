@@ -78,8 +78,73 @@ internal static class MenuChecks
         Check.That(!Flatten(cleaned).Any(node => node.Code == stalePage.Code) &&
             cleaned.Single(node => node.Code == "__unassigned").Children.Any(node => node.PermissionCode == IdentityPermissions.UserRestore),
             "A removed page must not strand its still-valid action permissions.");
+        await VietnameseAsync();
         await ComponentIdentifiersAsync();
         Console.WriteLine("Menu migration, bootstrap, visibility, hierarchy, component identifiers and built-in protection passed.");
+    }
+
+    private static async Task VietnameseAsync()
+    {
+        var repository = new TestMenus();
+        DefaultMenus.AddMissing(repository.Items, repository.Add);
+        Check.That(repository.Items.Where(menu => menu.IsBuiltIn).All(menu => menu.TitleVi.Length > 0),
+            "Built-in menus must ship Vietnamese titles so a new database is usable before any manual translation.");
+        var service = new MenuService(repository, new TestUnitOfWork());
+        var pageId = await service.CreateAsync(new()
+        {
+            Kind = Menu.Page, Title = "越南语页面", TitleEn = "Vietnamese page", TitleVi = "Trang tiếng Việt",
+            LauncherTone = "primary", LauncherDescription = "中文说明", LauncherDescriptionEn = "English description",
+            LauncherDescriptionVi = "Mô tả tiếng Việt",
+            Path = "/vietnamese/page", Component = "SystemUser", PermissionCode = IdentityPermissions.UserRead
+        }, default);
+        var created = Flatten(await service.GetTreeAsync(default)).Single(node => node.Id == pageId);
+        Check.That(created.TitleVi == "Trang tiếng Việt" && created.LauncherDescriptionVi == "Mô tả tiếng Việt",
+            "Creating a menu must store and return both Vietnamese fields.");
+
+        // 旧客户端不携带越南语字段时不能清空已维护的翻译。
+        await service.UpdateAsync(new()
+        {
+            Id = pageId, Kind = Menu.Page, Title = "越南语页面", TitleEn = "Vietnamese page",
+            LauncherTone = "primary", LauncherDescription = "中文说明", LauncherDescriptionEn = "English description",
+            Path = "/vietnamese/page", Component = "SystemUser", PermissionCode = IdentityPermissions.UserRead
+        }, default);
+        var kept = repository.Items.Single(menu => menu.Id == pageId);
+        Check.That(kept.TitleVi == "Trang tiếng Việt" && kept.LauncherDescriptionVi == "Mô tả tiếng Việt",
+            "Omitting the Vietnamese fields must keep the stored translation instead of clearing it.");
+
+        // 显式空字符串表示用户主动清空，展示层回退到英文或中文。
+        await service.UpdateAsync(new()
+        {
+            Id = pageId, Kind = Menu.Page, Title = "越南语页面", TitleEn = "Vietnamese page", TitleVi = "",
+            LauncherTone = "primary", LauncherDescription = "中文说明", LauncherDescriptionEn = "English description",
+            LauncherDescriptionVi = "",
+            Path = "/vietnamese/page", Component = "SystemUser", PermissionCode = IdentityPermissions.UserRead
+        }, default);
+        var cleared = repository.Items.Single(menu => menu.Id == pageId);
+        Check.That(cleared.TitleVi.Length == 0 && cleared.LauncherDescriptionVi.Length == 0,
+            "An explicit empty Vietnamese value must clear the stored translation.");
+
+        var builtIn = repository.Items.Single(menu => menu.Code == "menus");
+        try
+        {
+            await service.UpdateAsync(new()
+            {
+                Id = builtIn.Id, Kind = builtIn.Kind, Title = builtIn.Title, TitleEn = builtIn.TitleEn,
+                TitleVi = "Tiêu đề khác", Icon = builtIn.Icon, Path = builtIn.Path, Component = builtIn.Component,
+                PermissionCode = builtIn.PermissionCode, Sort = builtIn.Sort, KeepAlive = builtIn.KeepAlive,
+                ShowInMenu = builtIn.ShowInMenu, ShowInTags = builtIn.ShowInTags, Affix = builtIn.Affix,
+                LauncherTone = builtIn.LauncherTone, LauncherDescription = builtIn.LauncherDescription,
+                LauncherDescriptionEn = builtIn.LauncherDescriptionEn,
+                LauncherDescriptionVi = builtIn.LauncherDescriptionVi
+            }, default);
+            throw new InvalidOperationException("Built-in menu Vietnamese title was changed.");
+        }
+        catch (DomainException) { }
+
+        Check.That(Flatten(await service.GetPermissionTreeAsync(default))
+                .Where(node => node.Kind == Menu.Action && node.PermissionCode.Length > 0)
+                .All(node => node.TitleVi.Length > 0),
+            "Every assignable permission node must carry a Vietnamese title in the role permission tree.");
     }
 
     private static async Task ComponentIdentifiersAsync()
