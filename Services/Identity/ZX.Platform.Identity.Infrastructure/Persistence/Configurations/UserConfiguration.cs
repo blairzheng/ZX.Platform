@@ -86,8 +86,10 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Configurations
             builder.Property(x => x.OaDepartmentName).HasColumnName("OA_DEPARTMENT_NAME").HasMaxLength(256);
             builder.Property(x => x.OaDepartmentCode).HasColumnName("OA_DEPARTMENT_CODE").HasMaxLength(100);
             builder.Property(x => x.OaDepartmentRaw).HasColumnName("OA_DEPARTMENT_RAW").HasMaxLength(1000);
-            builder.Property(x => x.OaDistinguishedName).HasColumnName("OA_DISTINGUISHED_NAME").HasColumnType("NCLOB");
-            builder.Property(x => x.OaManagerDn).HasColumnName("OA_MANAGER_DN").HasColumnType("NCLOB");
+            builder.Property(x => x.OaDistinguishedName).HasColumnName("OA_DISTINGUISHED_NAME")
+                .HasMaxLength(User.OaDirectoryDnMaxLength).HasColumnType("NVARCHAR2(2000)");
+            builder.Property(x => x.OaManagerDn).HasColumnName("OA_MANAGER_DN")
+                .HasMaxLength(User.OaDirectoryDnMaxLength).HasColumnType("NVARCHAR2(2000)");
             builder.Property(x => x.OaDirectoryStatus).HasColumnName("OA_DIRECTORY_STATUS").HasMaxLength(16);
             // 首次补资料必须仍未同步；并发同步不能覆盖另一请求已补齐的快照。
             // 独立于会话安全版本，不因补资料改变登录或业务授权。

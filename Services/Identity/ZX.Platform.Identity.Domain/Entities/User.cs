@@ -5,6 +5,8 @@ namespace ZX.Platform.Identity.Domain.Entities
 {
     public sealed class User : SoftDeletableEntity
     {
+        public const int OaDirectoryDnMaxLength = 2000;
+
         private User()
         {
         }
@@ -543,8 +545,8 @@ namespace ZX.Platform.Identity.Domain.Entities
             var profileDepartmentName = RequiredOaValue(departmentName, 256, nameof(departmentName));
             var profileDepartmentCode = OptionalOaValue(departmentCode, 100, nameof(departmentCode));
             var profileDepartmentRaw = OptionalOaValue(departmentRaw, 1000, nameof(departmentRaw));
-            var profileDistinguishedName = RequiredOaValue(distinguishedName, 2048, nameof(distinguishedName));
-            var profileManagerDn = OptionalOaValue(managerDn, 2048, nameof(managerDn));
+            var profileDistinguishedName = RequiredOaValue(distinguishedName, OaDirectoryDnMaxLength, nameof(distinguishedName));
+            var profileManagerDn = OptionalOaValue(managerDn, OaDirectoryDnMaxLength, nameof(managerDn));
 
             OaAccount = profileAccount;
             OaName = profileName;

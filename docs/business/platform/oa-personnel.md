@@ -66,8 +66,8 @@
 | `OA_DEPARTMENT_NAME` | 部门名称，最长 256 |
 | `OA_DEPARTMENT_CODE` | 原始部门编码，最长 100 |
 | `OA_DEPARTMENT_RAW` | 原始部门字段，最长 1000 |
-| `OA_DISTINGUISHED_NAME` | 完整目录 DN，NCLOB |
-| `OA_MANAGER_DN` | 主管 DN，NCLOB |
+| `OA_DISTINGUISHED_NAME` | 完整目录 DN，`NVARCHAR2(2000)`，最长 2000 |
+| `OA_MANAGER_DN` | 主管 DN，`NVARCHAR2(2000)`，最长 2000 |
 | `OA_DIRECTORY_STATUS` | 目录状态快照，最长 16 |
 | `OA_SYNCED_AT_UTC` | 首次组织资料入库时间及并发令牌，`TIMESTAMP(7) WITH TIME ZONE` |
 
@@ -75,9 +75,15 @@
 
 服务端配置见 [OA 人员同步配置](oa-personnel-configuration.md)。数据库变更由 `20261111081842_AddOaPersonnelToUsers` 迁移、Designer 和模型快照交付；此前未执行的独立人员表迁移已撤销生成结果，历史迁移文件未变动。2026-11-11 经用户授权，已通过 development 入口将该迁移应用到本机配置的 `SAJET` 测试库并完成结构核验。正式库本次未操作，发布时仍由负责人应用迁移，给两台 Identity 配置相同来源及受保护的查询账号、配置角色权限，再更新前后端。应用启动不自动更新表结构、不连接 LDAP、不执行同步。
 
+后续 `20261112062603_UseScalarOaDirectoryPaths` 迁移将上面两个 DN 字段从 `NCLOB` 转为普通 Unicode 字符串 `NVARCHAR2(2000)`，领域校验上限同步从 2048 调整为 2000，不再通过 LOB 读取这两个字段。Oracle 19c 标准字符串还受 4000 字节上限约束；迁移会在任何 DDL 前检查全部旧值的字符及 national charset 字节长度，超长或非 NULL 的零长度 LOB 会报错停止，不截断数据。两列临时字符串列完整复制并逐值比对成功后，才替换原列；回退同样复制并校验后转回 `NCLOB`。
+
+执行该迁移前备份用户表，并停止所有使用此 schema 的 Identity 实例及其他写入。Oracle DDL 隐式提交，不能依靠迁移事务整体回滚；若执行失败，保留现场，检查临时列及当前列类型后人工处理，不自动重跑。测试库和正式库分别经负责人安排执行迁移后，再启动匹配的新后端；仅部署代码不会转换现有数据库字段。
+
 批量同步的 LDAP 总预算默认 90 秒。前端请求与网关 Identity 集群空闲超时均为 180 秒；原生 Nginx 模板仅对同步 POST 路径设置 180 秒并关闭上游重放。现有自定义 Nginx 配置需要核对相同路径的超时；前端仓库 HTTP 模板的 `/api/` 超时为 900 秒，可覆盖此预算。延长目录预算时仍需为数据库提交留出余量。
 
 ## 验证情况
+
+2026-11-12：已生成 `20261112062603_UseScalarOaDirectoryPaths` 及配套 Designer、快照，完成两列模型与领域长度一致性、Up / Down 数据复制和空值校验的静态检查。迁移生成所需的 Identity.Api 编译通过，0 警告、0 错误；增量 SQL 及现有发布包装脚本均离线生成成功。未执行测试、数据库迁移或真实接口验证，本次数据库类型尚未改变。
 
 2026-11-11：已静态核对 LDAP 范围筛选、分页完整性、目录失败边界、用户去重与现有登录兼容规则。Identity.Api 编译通过，0 警告、0 错误，并生成 `20261111081842_AddOaPersonnelToUsers`；检查 Up / Down 和模型快照仅涉及本次用户 OA 元数据字段、索引及约束。三语资源的键和占位符一致，前后端差异无空白错误。
 

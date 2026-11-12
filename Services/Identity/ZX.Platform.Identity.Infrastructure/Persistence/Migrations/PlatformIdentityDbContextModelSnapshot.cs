@@ -494,7 +494,8 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnName("OA_DISPLAY_NAME");
 
                     b.Property<string>("OaDistinguishedName")
-                        .HasColumnType("NCLOB")
+                        .HasMaxLength(2000)
+                        .HasColumnType("NVARCHAR2(2000)")
                         .HasColumnName("OA_DISTINGUISHED_NAME");
 
                     b.Property<string>("OaEmail")
@@ -503,7 +504,8 @@ namespace ZX.Platform.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnName("OA_EMAIL");
 
                     b.Property<string>("OaManagerDn")
-                        .HasColumnType("NCLOB")
+                        .HasMaxLength(2000)
+                        .HasColumnType("NVARCHAR2(2000)")
                         .HasColumnName("OA_MANAGER_DN");
 
                     b.Property<string>("OaName")

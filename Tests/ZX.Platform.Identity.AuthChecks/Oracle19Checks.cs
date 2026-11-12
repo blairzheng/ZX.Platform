@@ -35,7 +35,7 @@ internal static class Oracle19Checks
         var migrations = db.Database.GetMigrations().ToArray();
         Check.That(migrations.Length >= 2 && migrations[0] == "20261027000000_InitialIdentitySchema" &&
             migrations.Contains("20261028084818_ReplaceFactoriesWithSbus") &&
-            migrations[^1] == "20261111081842_AddOaPersonnelToUsers",
+            migrations[^1] == "20261112062603_UseScalarOaDirectoryPaths",
             "The project must have one Oracle 19c migration chain starting at its new baseline and ending at the current migration.");
 
         var migrator = db.GetService<IMigrator>();
